@@ -1,0 +1,933 @@
+---
+title: "TMB Model Diagnostics and Estimates"
+author: "Simon de Lestang and Andre Punt"
+output:
+  word_document:
+    reference_docx: word-styles.docx
+    toc: yes
+---
+
+```{r setup, echo=FALSE, fig.height=6, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE,}
+knitr::opts_chunk$set(cache=FALSE)
+
+```
+
+
+```{r open data and cache, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE}
+library(dplyr)
+library(magrittr)
+library(reshape2)
+library(ggplot2)
+library(tidyr)
+dat  <- read.table(paste("../",fls,"/Output/Output.RL",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+
+selx <- read.table(paste("../",fls,"/SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100) 
+
+lbin1  <- read.table(paste("../",fls,"/DATA.dat",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+
+ctl1  <- read.table(paste("../",fls,"/CONTROL.dat",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+
+mov1  <- read.table(paste("../",fls,"/MOVESPEC.dat",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+
+#mov2 <- findNclean(c('#','Movement'), mov1, 1,0, char=T)
+# KeyWord <- c('#','Years','over'); DataFile <- lbin1; Offset<- 1; char=T
+#KeyWord <- c('#','Movement','parameters'); DataFile <- mov1; Offset <- 1; convert=0
+findNclean <- function(KeyWord, DataFile, Offset=1, convert=0, char=F){
+  hash <- c(which(grepl('#',DataFile[,1])),nrow(DataFile))
+  if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))
+  if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))
+  if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))
+  if(length(KeyWord)==4) pos1 <- which(4==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])+grepl(KeyWord[4],DataFile[,4])))
+  if(!(pos1+1)%in%hash) { 
+    pos2 <- hash[hash>(pos1+Offset)][1]-1
+    adj <- 0 } else {
+      pos2 <- hash[hash>(pos1+1+Offset)][1]-1
+      adj <- 1}
+  if(pos2>pos1){
+    tmp <- DataFile[(pos1+Offset):pos2,]
+    tmp <- tmp[!grepl('#', tmp[,1],fixed = T),]
+    tmp <- tmp[tmp[,1]!='',]
+    if(nrow(tmp)>0){
+    rname <- DataFile[(pos1+adj),]
+    rname <- gsub('#','',rname)
+    rname <- rname[!is.na(rname) & rname!='' & rname!='NA']
+    tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,]) & tmp[1,]!='']
+    #Add tweak here
+    if(!is.null(dim(tmp))) if(length(rname)!=ncol(tmp)) { rname <- c(rname, paste('a',1:200,sep=''))[1:ncol(tmp)]}
+    if(is.null(ncol(tmp))){ return(as.numeric(tmp)) } else {
+    convert1 <- 1:ncol(tmp)
+    convert <- convert1[!convert1%in%convert]
+    tmp <- data.frame(tmp)
+    chartmp <- tmp
+    if(nrow(tmp)==1)  suppressWarnings(tmp[convert] <- (apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
+    if(nrow(tmp)>1)   suppressWarnings(tmp[,convert] <- data.frame(apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
+    tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,])] 
+    if(char==T) { return(chartmp) } 
+    if(char==F) {if(!is.null(dim(tmp))) colnames(tmp) <- rname[1:length(colnames(tmp))]
+  return(tmp) }}} else { return(NA) } } else { return(NA) }
+}
+find <- function(KeyWord, DataFile, Offset){
+  KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
+  if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))+Offset
+  if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))+Offset
+  if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,4])))+Offset
+  return(pos1)}
+##Get parameters
+p1 <- which(dat[,1]=="#" & dat[,2]=='parameter' & dat[,3]=='table')
+p2 <- which(dat[,1]=="#Total" & dat[,2]=='estimated' & dat[,3]=='parameters:')
+pout <- dat[(p1+2):(p2-1),c(1,3,4)]
+names(pout) <- c('name', 'estimated', 'value')
+pout$estimated <- ifelse(is.na(pout$estimated), 0, 1)
+
+## GetSDReport
+sdr <- read.delim(paste("../",fls,"/Output/SDReport.RL",sep=''), sep=' ')
+#sdr <- read.delim(paste("SDReport.RL",sep=''), sep=' ')
+names(sdr) <- c('name','Estimate','SE')
+sdr %<>% filter(!is.na(name), nchar(name)>0) %>% mutate(up95=Estimate+SE*1.96,low95=Estimate-SE*1.96, cv=SE/Estimate)
+
+Fdims <- function(x){
+  dims <- c(1,1)
+  if(x==2)   dims <- c(1,2)
+  if(x%in%3:4)   dims <- c(2,2)
+  if(x%in%5:6)   dims <- c(2,3)
+  if(x%in%7:9)   dims <- c(3,3)
+  if(x%in%9:12)   dims <- c(3,4)
+  if(x>12)   dims <- c(4,4)
+  return(dims)}
+
+##define lenbin
+lbin <- findNclean(c('#','Lower'), lbin1, 1, convert=0)
+lbin <- as.numeric(unname(lbin[1,]))
+lbin <- lbin + diff(lbin)[1]/2
+lbinl <- lbin
+lbin <- lbin[1:(length(lbin)-1)]
+```
+
+
+##### Page Break   
+
+## Model run statistics  
+
+### Likelihoods
+```{r model run and pars, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE,results='asis'}
+library(pander)
+like <- dat[4:10,c(1,3,5)]
+colnames(like) <- c('id','raw LL', 'Weighted LL')
+like <- rbind(like,like[1,])
+like[1,3] <- like[1,2]
+like[nrow(like),] <- c('Total', NA,dat[3,4])
+suppressWarnings(like[,2] <- round(as.numeric(like[,2]),2))
+suppressWarnings(like[,3] <- round(as.numeric(like[,3]),2))
+row.names(like) <- 1:nrow(like)
+pander(like)
+```
+
+### Penalties
+```{r penalities, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE,results='asis'}
+library(pander)
+INP <- as.numeric(dat[9,4])
+RP <-  as.numeric(dat[10,3])
+RSP <-  as.numeric(dat[11,4])
+dfram <- data.frame(id=c('Initial N','Recruitment', 'Recruitment Smooth'),Value=c(round(INP,1),round(RP,1),round(RSP,1)))
+pander(dfram)
+
+```
+         
+### Parameters: Main and those estimated         
+         
+```{r model pars, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE,results='asis'}
+
+mainP <- pout[grepl('MainPars', pout$name),]
+ctl2 <- findNclean(c('#','Basic','parameters'), ctl1, 1, char=T) 
+mpnames <- ctl2$X6
+mainP$name <- mpnames[as.numeric(do.call('rbind', strsplit(mainP$name, '_'))[,2])]
+mainP$est <- round(mainP$est,2)
+mainP <- mainP[c(1,nrow(mainP)),]
+rownames(mainP) <- 1:2
+#pander(mainP)
+
+pout <- read.delim(paste("../",fls,"/Output/Parameters_solved.txt",sep=''),sep='\t',stringsAsFactors =F)
+#pout <- read.delim(paste("Parameters_solved.txt",sep=''),sep='\t',stringsAsFactors =F)
+if(!is.null(pout$Parameter)){
+  pout$Parameter <- ifelse(pout$Parameter=='MainPars', mpnames[pout$Position],pout$Parameter)
+  un_names <- unique(c(mainP$name,pout$Parameter))
+  mxlen <- length(un_names)
+  ntab <- data.frame(Parameter=rep(as.character('.'),mxlen), Value=as.character('.'), Estimated=as.character('N'),stringsAsFactors =F)
+  for(i in 1:nrow(ntab)){
+    ntab$Parameter[i] <- un_names[i]
+    ntab$Value[i] <- ifelse(nrow(mainP)>=i, mainP$est[i],'.')
+    ntab$Estimated[i] <- ifelse(un_names[i]%in%pout$Parameter, 'Y','N')
+  }
+  pander(ntab[ntab$Estimated=='Y',])}
+
+```
+
+
+### Model Run Comments         
+         
+```{r model comment, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE,results='asis'}
+init <- findNclean('Initiation', dat, 0)
+init <- init[!is.na(init)]
+txt <- paste('Initiation option is ', init,'.\n', sep='')
+
+ttxt1 <- findNclean(c('#','Burn-in'), lbin1, 1, T); txt2 <- paste('Burn-in years: ', paste(ttxt1, collapse=' '),'.\n', sep='')
+ttxt2 <- findNclean(c('#','Loop', 'counter'), lbin1, 1); txt3 <- paste('Loops to refine initial F: ', ttxt2,'.\n', sep='')
+ttxt3 <- findNclean(c('#','Years','over'), lbin1, 1, T); txt4 <- paste('Number of years to base initial F on: ', paste(ttxt3, collapse=' '),'\n', sep='')
+
+#txt <- readLines('Model_Run.txt', warn=F)
+##txt <- txt[2:length(txt)]
+#txt <- paste(txt, collapse = "  *  ")
+pander(matrix(c(txt,txt2,txt3,txt4), nrow=4))
+
+```
+
+##### Page Break   
+
+## Movement and Recruitment Parameters  
+
+Estimated (black) and pre-determined (green) parameter estimates (M = male, F = female)
+
+```{r par_plots, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+##Parameter estimates
+
+## determine number of AREAS
+rec <- findNclean(c('Recruitment','by'), dat, 1,0)
+nareas <- length(unique(rec$Recruitment))
+
+##Get parameters
+p1 <- which(dat[,1]=="#" & dat[,2]=='parameter' & dat[,3]=='table')
+p2 <- which(dat[,1]=="#Total" & dat[,2]=='estimated' & dat[,3]=='parameters:')
+pout <- dat[(p1+2):(p2-1),c(1,3,4)]
+
+names(pout) <- c('name', 'estimated', 'value')
+pout$estimated <- ifelse(is.na(pout$estimated), 0, 1)
+moveP <- pout[grepl('MovePars', pout$name),]
+
+mov2 <- findNclean(c('#','Movement','parameters'), mov1, 1,0, char=T)
+nms <- rep(NA,nrow(mov2)) ; stcol <- which(mov2[1,]=='#')+1
+for(r in 1:nrow(mov2)){ nms[r] <- paste(mov2[r,stcol:ncol(mov2)],collapse=' ') }
+
+par(las=1, mfrow=c(2,2))
+suppressWarnings(plot(1:nrow(moveP), moveP$value, ylim=c(0,1), axes=F,pch=16,xlab='From - To areas', ylab='Proportion moving'))
+axis(1, 1:nrow(moveP), nms)
+axis(2)
+
+recP <- pout[grepl('Recruit', pout$name),][1:nareas,]
+recP$value <- as.numeric(as.character(recP$value))
+recP$value[1] <- 0
+recP$est2 <- exp(recP$value)/sum(exp(recP$value))
+recP$area=rep(1,each=1)
+suppressWarnings(plot(1:nrow(recP), recP$est2, axes=F, pch=16,ylim=c(0,1),xlab='Area of recruitment', ylab='Proportion of recruitment'))
+axis(1, 1:8, 1:8)
+axis(2)
+
+yearP <- pout[grepl('RecDevs', pout$name),]
+lb <- findNclean(c('#Legal','76', 'Biomass'), dat, 1)
+colnames(lb) <- c('Area','Year','est', 'sd')[1:ncol(lb)]
+yr <- sort(unique(lb$Year))
+
+suppressWarnings(plot(yr[1:length(yearP$est)], yearP$value, axes=F, pch=16,xlab='Year of recruitment', ylab='Deviation', type='o',cex=0.7))
+abline(h=mean(as.numeric(yearP$value)), col=2, lty=3)
+axis(1, yr)
+axis(2)
+
+recfrac <- findNclean(c('Recruitment','Fractions'), dat, 1,0)
+suppressWarnings(plot(recfrac[,1], recfrac[,2], axes=F, pch=16,xlab='Lower length bin (mm)', ylab='Proportion', type='o',cex=0.7, ylim=c(0,max(recfrac[,2:ncol(recfrac)]))))
+for(cl in 3:dim(recfrac)[2]) {
+  lines(recfrac[,1], recfrac[,cl], type='o',cex=0.7, col=(cl-1))}
+axis(1)
+axis(2)
+
+```
+
+##### Page Break 
+
+### Selectivity and Retention
+Selectivity curves as interpreted by the model after import from the SELEXSPEC.DAT file with legal patterns directly loaded from the SELEXSPEC.DAT file (not after import).
+```{r Select_Retent, echo=FALSE, fig.height=5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+
+library(dplyr)
+library(magrittr)
+library(tidyr)
+
+fleet1 <- findNclean(c('#Sex','Age','Fleet'), selx, 1, char=F) 
+legal <- findNclean(c('#','legal','patterns'), selx, 2) 
+
+fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F) 
+sel <- findNclean(c('Full','Selectivity'), dat, 1)
+sel <- sel[,2:ncol(sel)]
+
+par(mfrow=Fdims(length(unique(fleet2$Fleet))), mar=c(4,4,0.5,0.5),las=1)
+for(i in 1:length(unique(fleet2$Fleet))){
+  legals <- unique(unlist(as.vector(fleet1[fleet1$Fleet==(i-1),5:ncol(fleet1)])))
+  egaps <- unique(unlist(as.vector(fleet2[fleet2$Fleet==(i-1),5:ncol(fleet2)])))
+  suppressWarnings(plot(lbin, sel[egaps[1]+1,], type='o', pch=16,cex=0.7,ylim=c(0,1), axes=F, ylab='Selectivity', xlab='Length (mm)', lty=1, main=paste('Fleet',i)))
+  for(e in 2:length(egaps)) {  lines(lbin, sel[egaps[e]+1,], lty=1, col=1)   }
+  axis(1,seq(trunc(min(lbin)/5)*5,5+trunc(max(lbin)/5)*5,10))
+  axis(2,las=1)
+  for(l in 1:length(legals)) { lines(lbin, legal[legals[l]+1,], lty=2, col=l+1)   }
+  }
+
+```
+
+##### Page Break 
+### Fishing Efficiency
+Estimated (red $\pm95\%$ CI grey) compounding commercial fishing efficiency for each model area.
+```{r FishingEfficiency, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+fcreep <- findNclean(c('Fishing','Efficiency'), dat, 2)
+tdat <- expand.grid(area=1:nareas, year=yr)
+fcre <- fleets %>% filter(group=='comm')
+tdat$fcreep <- fcre$effic.creep[match(tdat$area, fcre$newarea)]
+tdat$est <- fcreep$Predicted[match(paste(tdat$fcreep, tdat$year), paste(fcreep$id, fcreep$Year))]
+
+suppressWarnings(print(ggplot(tdat, aes(year, est)) +
+  geom_line() + geom_point(size=0.5)+
+  scale_color_manual(values = c("red")) +
+  #geom_errorbar(aes(ymin=mn-sd, ymax=mn+sd, color=name) , width=.2,position=position_dodge(0.05)) +  
+  labs(x="Year",y="Fishing efficiency")+ 
+  facet_wrap(~area) + theme_bw()))
+```
+
+
+##### Page Break 
+
+### Growth
+Growth curves derived from size transition matrices as interpreted by the model after import from the GROWTH.DAT file.
+
+```{r Growth, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+
+grow <- findNclean(c('#Growth','Curves'), dat, 2) 
+num <- length(unique(grow$sex))*length(unique(grow$area))
+par(mfrow=Fdims(num), mar=c(4,4,1,2),las=1)
+
+for(iarea in unique(grow$area)){
+  for(isex in unique(grow$sex)){
+    tmp <- grow %>% filter(area==iarea, sex==isex)
+    tmp2 <- as.matrix(tmp[,which(colnames(tmp)=='lengthbins'):ncol(tmp)])
+    tmp2 <- tmp2[1:30,]
+    plot(c(1,31), c(min(lbin),max(lbin)+10), type='n', xlab='Age (years)', ylab='Carapace length (mm)', axes=F, main=paste('Area',iarea,',Sex',isex))
+    points(1, lbin[1], pch=16, cex=0.7)
+    tmp2[tmp2<0.00001] <- NA
+    for(i in 2:dim(tmp2)[1]){
+      pos <- which(!is.na((i-1+10*tmp2[i,])))
+      pos2 <- (min(pos)-1):(max(pos)+1); 
+      pos2 <- pos2[pos2>0 & pos2<=dim(tmp2)[2]]
+      crve <- (i-1+10*tmp2[i,])[pos]; crve[length(crve)] <- i-1
+      points(max(crve), lbin[pos][which.max(crve)], pch=16, cex=0.5)
+      if(pos[1]!=pos2[1]) crve <- c(i-1, crve)
+      if(pos[length(pos)]!=pos2[length(pos2)]) crve <- c(crve,i-1)
+      polygon(crve,lbin[pos2], col=ifelse(isex==1,rgb(1,0,0,0.2),rgb(0,0,1,0.2)),border='grey70')
+      }
+      axis(1, seq(0, dim(tmp2)[1]+1,1)); axis(2, pretty(seq(min(lbin), max(lbin), length=10)))
+  }
+  }
+ 
+```
+
+##### Page Break 
+
+### Commercial Catches
+Observed (black) and estimated (red $\pm95\%$ CI grey) commercial catches by Management Zone.
+
+```{r catch graph, echo=FALSE, fig.height=5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+## Compute catches
+library(dplyr)
+library(magrittr)
+library(tidyr)
+catch <- findNclean('#Catches', dat, 0)
+Zcatch <- catch %>% group_by(Year, Area) %>%   summarise(obs=sum(Observed), est=sum(Predicted))
+graphrange <- range(Zcatch$Year)
+par(mfrow=Fdims(length(unique(Zcatch$Area))), mar=c(5,5,2,2),las=1)
+for(i in unique(Zcatch$Area)){
+  tZcatch <- Zcatch[Zcatch$Area==i,]
+  ymx <- pretty(trunc(range(c(tZcatch$obs,tZcatch$est))/10)*10)
+  ymn<- ymx[1]; ymx <- max(ymx)
+  suppressWarnings(with(tZcatch, plot(Year, obs/1000, type='o', pch=16,cex=0.7,ylim=c(ymn,ymx)/1000, axes=F, ylab='Total Catch (t)', xlab='Fishing Season', lty=1, main=paste("Area",i))))
+  with(tZcatch, lines(Year, est/1000, type='o',cex=0.7,col=2, lty=1))
+  axis(1, seq(min(Zcatch$Year), max(Zcatch$Year),2))
+  axis(2,seq(ymn/1000,ymx/1000,length=5), las=1)
+}
+
+```
+
+##### Page Break 
+### Index Data
+Observed (black) and estimated (red $\pm95\%$ CI grey) catch rates for each model area separated by fleet.
+```{r com_cpue, echo=FALSE, fig.height=5.0, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Index','data'), dat, 2)
+cpuesd <- sdr[grepl('PredCpue', sdr$name),]
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0) tdat <- cbind(tdat,cpuesd)
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*1.96)) ,obsLow=exp(log(mean(Observed))-(Lse*1.96)), est=mean(Predicted), esd=NA)
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0)  tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*1.96)) ,obsLow=exp(log(mean(Observed))-(Lse*1.96)), est=mean(Predicted), estupr=exp(log(mean(Predicted))+(log(mean(Predicted))*mean(cv))*1.96), estlwr=exp(log(mean(Predicted))-(log(mean(Predicted))*mean(cv))*1.96))
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0) tdat %<>% mutate(se=sum(SE))
+
+tdat1$Fleettype <- fleets$group[match(tdat1$Fleet, fleets$fleet)]
+tdat1$Area <- fleets$newarea[match(tdat1$Fleet, fleets$fleet)]
+ttdat2 <- tdat1 %>% mutate(id=Fleet+Time_step/10, fleetsex=paste(Fleettype, Sex)) %>% group_by(fleetsex,id,Fleettype,Area) %>% summarise(nobs=length(unique(id))) %>% mutate(id2=floor(id)) %>% group_by(fleetsex, id2, Fleettype, Area) %>% summarise(nobs=length((id2))) %>% group_by(Fleettype) %>%  mutate(nobs2=cumsum(nobs), efl=NA) %>% as.data.frame()
+for(r in 1:nrow(ttdat2))  {  
+  ftype <- ttdat2$fleetsex[r]
+    totft <- ttdat2 %>% filter(fleetsex==ftype) %>% ungroup() %>% summarise(tot=sum(nobs)) %>% as.integer()
+    if(totft<=6) ttdat2$efl[ttdat2$fleetsex==ftype] <- (max(ttdat2$efl,na.rm=T)+1)
+    if(is.na(ttdat2$efl[r])){
+    if(ttdat2$nobs[r]>=4){ ttdat2$efl[r] <-ttdat2$id2[r]  } else { 
+      npos <- which(ttdat2$nobs2>=(ttdat2$nobs2[r]+3))[1]
+      npos <- ifelse(is.na(npos), nrow(ttdat2), npos)
+      ttdat2$efl[r] <- ttdat2$id2[npos]  
+      ttdat2$efl[r:which(ttdat2$id2==ttdat2$efl[r])] <- ttdat2$efl[r]
+    }}
+    }
+
+tdat1$Fleettype <- fleets$group[match(tdat1$Fleet, fleets$fleet)]
+tdat1$Area <- fleets$newarea[match(tdat1$Fleet, fleets$fleet)]
+tdat1 %<>% mutate(fleetsex=paste(Fleettype, Sex))
+f <- 1
+# New page for each fleet
+for(f in 1:length(unique(ttdat2$efl))){
+  ifleet <- unique(ttdat2$fleetsex[ttdat2$efl==unique(ttdat2$efl)[f]])
+  nfleet <- unique(ttdat2$id2[ttdat2$efl==unique(ttdat2$efl)[f]])
+  tdat2 <- tdat1 %>% filter(fleetsex%in%ifleet & Fleet%in%nfleet) %>% mutate(id = paste0('Area: ', Area, ' Ts: ',Time_step))
+  edf <- expand.grid(Year=sort(unique(tdat1$Year)), Time_step=sort(unique(tdat1$Time_step)), Fleet =sort(unique(tdat2$Fleet)), Fleettype=sort(unique(tdat2$Fleettype)))
+  tdat2 %<>%  full_join(edf) %>% arrange(Year) %>% mutate(id = paste('Area: ', Area, ' Ts: ',Time_step))
+  tdat2est <- tdat2 %>% dplyr::select(Fleet,Year,Time_step,obs,est,Fleettype,id) %>% pivot_longer(c(obs,est),values_to='mn')
+  tdat2estsd <- tdat2 %>% mutate(osd=exp(Lse), esd=estlwr-est) %>%  mutate(obs=osd, est=ifelse(is.na(esd),0,esd)) %>%  dplyr::select(Fleet,Year,Time_step,obs,est,Fleettype,id) %>% pivot_longer(c(obs,est),values_to='sd') 
+  tdat2est %<>% full_join(tdat2estsd) %>% mutate(name=ifelse(name=='obs', 'Observed', 'Estimated'), name=factor(name, levels=c('Observed', 'Estimated'))) %>% mutate(ecol=ifelse(name=='Observed', grey(0.2,0.2), rgb(1,0,0,0.2)))
+
+tdat2est %<>% group_by(id) %>% mutate(num=sum(mn,na.rm=T)) %>% filter(num>0)
+tdat2est %<>% mutate(uqsex= ifelse(Sex==0,'F', ifelse(Sex==1,'M','Comb')), locsex=paste(uqsex,Fleettype))
+
+suppressWarnings(print(ggplot(tdat2est, aes(Year, mn, col=name)) +
+  geom_line() + geom_point(size=0.5)+
+  scale_color_manual(values = c("black", "red")) +
+  geom_errorbar(aes(ymin=mn-sd, ymax=mn+sd, color=name) , width=.2,position=position_dodge(0.05)) +  
+  labs(x="Year",y="Catch rate")+ 
+  facet_wrap(~id, scales = "free_y") + theme_bw() +
+  guides(col= guide_legend(title=unique(tdat2est$locsex)))))
+}
+```
+
+
+##### Page Break 
+
+### Numbers data
+Observed (black) and estimated (red $\pm95\%$ CI grey) Numbers for each area where the survey is conducted.
+
+```{r Numbers_Recreational, echo=FALSE, fig.height=5.0, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Numbers','data'), dat, 2)
+cpuesd <- sdr[grepl('PredNumbers', sdr$name),]  
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0) tdat <- cbind(tdat,cpuesd)
+if(!is.null(dim(tdat))){
+  if(length(cpuesd$SE[!is.na(cpuesd$SE)])==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=mean(Observed)*mean(Relative_CV), obsUp=mean(Observed)+(Lse*1.96), obsLow=mean(Observed)-(Lse*1.96), est=mean(Predicted))
+  if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0)  tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=mean(Observed)*mean(Relative_CV), obsUp=mean(Observed)+(Lse*1.96), obsLow=mean(Observed)-(Lse*1.96), est=mean(Predicted), estupr=up95, estlwr=low95)
+if(length(cpuesd$SE[!is.na(cpuesd$SE)])>0) tdat %<>% mutate(se=sum(SE))
+
+for(ifleet in unique(tdat1$Fleet)){
+  par(mfrow=Fdims(length(unique(tdat1$Time_step[tdat1$Fleet==ifleet]))), mar=c(5,5,2,2),las=1)
+  for(istep in unique(tdat1$Time_step)){
+    tdat2 <- tdat1 %>% filter(Fleet==ifleet,Time_step==istep) 
+    if(nrow(tdat2)>0){
+        ymx <- trunc(range(c(tdat2$obs,tdat2$est))/1)/1000
+        ymn<- 0; ymx <- ymx[2]+1
+        suppressWarnings(with(tdat2, plot(Year, obs/1000, type='o', pch=16,cex=0.5,ylim=c(ymn,ymx), xlim=graphrange,axes=F, ylab='Numbers (*1000)', xlab='Season', lty=1, main=paste("Fleet: ",ifleet,"Tstep: ",istep))))
+
+                if(sum(cpuesd$SE[!is.na(cpuesd$SE)])!=0) suppressWarnings(with(tdat2, polygon(c(Year,rev(Year)), c(estupr,rev(estlwr))/1000, col=rgb(1,0,0,0.3), border = F)))
+        with(tdat2, lines(Year, est/1000, type='o',cex=0.5,pch=16,col=2,lty=1))
+        suppressWarnings(with(tdat2, arrows(Year, obsUp/1000,y1=obsLow/1000, code=3,angle=90,length=0.025,col=grey(0.3,0.3))))
+        with(tdat2, lines(Year, obs/1000, type='o',cex=0.5,col=1,lty=1,pch=16))
+        axis(1,seq(graphrange[1],graphrange[2],5))
+        axis(2,las=1)
+      }
+      }
+    }
+} else {
+    par(mfrow=Fdims(1), mar=c(5,5,2,2),las=1)
+    plot(1,1,type='n',axes=F,ylab='',xlab='')
+    text(1,1,'There is no data available for plotting')
+  }
+```
+
+##### Page Break 
+
+### Puerulus Data
+Observed (black) and estimated (red $\pm95\%$ CI grey) puerulus levels in each area of the model.     
+```{r Lar_data, echo=FALSE, fig.height=5.0, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+
+rec <- findNclean(c('Larval','data'), dat, 1)
+
+if(!is.na(rec[1,1]))  {
+  recsd <- sdr[grepl('Larval', sdr$name),]
+  if(length(recsd$SE[!is.na(recsd$SE)])>0) rec <- cbind(rec,recsd)
+   mxyr <- max(rec$Year)
+   rec %<>% filter(Year<(mxyr-2)) %>% mutate(ObsUp=Observed+SD*1.96, ObsLow=Observed-SD*1.96)
+   par(mfrow=Fdims(length(unique(rec$Area))), mar=c(4,5,1,2),las=1)
+   for(i in sort(unique(rec$Area))){
+    tdat2 <- rec[rec$Area==i,] 
+    Mx <- max(c(tdat2$Observed, tdat2$Predicted),na.rm=T)
+    suppressWarnings(with(tdat2, plot(Year, Observed, type='o', axes=F, ylab='Predicted recruitment', xlab='Puerulus Settlement', lty=1, main=paste('Area',i),ylim=c(0,Mx), xlim=c(1970,graphrange[2])) ))
+  suppressWarnings(with(tdat2, arrows(Year, ObsUp,y1=ObsLow,code=3,angle=90,length=0.025,col=grey(0.3,0.3))))
+  with(tdat2, lines(Year, Predicted, col=2, pch=16, type='o'))
+  if(sum(cpuesd$SE[!is.na(cpuesd$SE)])!=0) suppressWarnings(with(tdat2, arrows(Year, Estimate+SE,y1=Estimate-SE, code=3,angle=90,length=0.05,col=2)))
+  axis(1); axis(2)
+}
+ } else {
+    par(mfrow=Fdims(1), mar=c(5,5,2,2),las=1)
+    plot(1,1,type='n',axes=F,ylab='',xlab='')
+    text(1,1,'There is no data available for plotting')
+  }
+```
+
+##### Page Break 
+
+### Recruitment Data    
+Estimated (red $\pm95\%$ CI grey) recruitment (millions) in each area of the model.     
+```{r Rec_data, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+rec <- findNclean(c('Recruitment','by'), dat, 1,0)
+colnames(rec) <- c('Area','Year','est','sd')[1:ncol(rec)]
+egg <- findNclean(c('Egg','Production'), dat, 2,0) %>% filter(Total>0)
+rec %<>% filter(Year<=max(egg$Year))
+
+### Plots
+par(mfrow=Fdims(length(unique(rec$Area))), mar=c(4,4,1.5,1),xpd=T,las=1)
+for(i in sort(unique(rec$Area))){
+  tdat2 <- rec[rec$Area==i,]
+  suppressWarnings(with(tdat2, plot(Year, est/1000000, type='o', cex=0.8, pch=16, axes=F, ylab='Recruitment (Deviation (millions lobster)', xlab='Year', lty=3, col=2, main=paste('Area',i))))
+  axis(1, rec$Year); axis(2)
+   }
+```
+
+##### Page Break        
+
+### Virgin Size Composition    
+The size composition at the end of the burn-In.  Each plot represents one area in the model and the various lines are the different sex and age groups. Sex 1 is red and Sex 2 blue.
+```{r VirSizeComp, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+Ilen <- findNclean(c('Initial','N-matrix'), dat, 2,0)
+colnames(Ilen)[is.na(colnames(Ilen))] <- paste('L',1:length(colnames(Ilen)[is.na(colnames(Ilen))]),sep='')
+
+### Plots
+par(mfrow=Fdims(length(unique(rec$Area))), mar=c(4,4,1.5,1),xpd=T,las=1)
+for(i in sort(unique(Ilen$Area))){
+  tdat2 <- Ilen[Ilen$Area==i,]
+  lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
+  mx <- max(lens/1e+6)
+  tdat2$sexage <- tdat2$Sex+tdat2$Age/10
+  sexage <-  sort(unique(tdat2$sexage))
+  lens <- tdat2[tdat2$sexage==sexage[1], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+  Col <- ifelse(floor(sexage[1])==1,2,4)
+  suppressWarnings(plot(lbin, lens/1e+6, type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+  par(xpd=F);abline(v=76, lty=3);par(xpd=T)
+  for(sa in 2:length(unique(tdat2$sexage))){
+      lens <- tdat2[tdat2$sexage==sexage[sa], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+      Col <- ifelse(floor(sexage[sa])==1,2,4)
+      Lty <- (sexage[sa] - floor(sexage[sa]))*10
+      lines(jitter(lbin), lens/1e+6, type='l', cex=0.8, col=Col, lty=Lty)
+    }
+  axis(1,lbin); axis(2)
+}
+#legend('topright', col=1:length(unique(sexage)), lty=1, pch=16, legend=paste('Sex.Age',sexage))
+```
+
+##### Page Break        
+
+### Initial Size Composition    
+The size composition at the start of the model time-series (Year 1, final time-step).  Each plot represents one area in the model and the various lines are the different sex and age groups. Sex 1 is red and Sex 2 blue.
+```{r InitSizeComp, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+Ilen <- findNclean(c('Full','N-matrix'), dat, 2,0)
+colnames(Ilen)[is.na(colnames(Ilen))] <- paste('L',1:length(colnames(Ilen)[is.na(colnames(Ilen))]),sep='')
+Ilen %<>% filter(Year==min(Year), `Time-step`==max(`Time-step`))
+
+### Plots
+par(mfrow=Fdims(length(unique(rec$Area))), mar=c(4,4,1.5,1),xpd=T,las=1)
+for(i in sort(unique(rec$Area))){
+  tdat2 <- Ilen[Ilen$Area==i,]
+  lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
+  mx <- max(lens/1e+6)
+  tdat2$sexage <- tdat2$Sex+tdat2$Age/10
+  sexage <-  sort(unique(tdat2$sexage))
+  lens <- tdat2[tdat2$sexage==sexage[1], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+  Col <- ifelse(floor(sexage[1])==1,2,4)
+  suppressWarnings(plot(lbin, lens/1e+6, type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+  par(xpd=F);abline(v=76, lty=3);par(xpd=T)
+  for(sa in 2:length(unique(tdat2$sexage))){
+      lens <- tdat2[tdat2$sexage==sexage[sa], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+      Col <- ifelse(floor(sexage[sa])==1,2,4)
+      Lty <- (sexage[sa] - floor(sexage[sa]))*10
+      lines(jitter(lbin), lens/1e+6, type='l', cex=0.8, col=Col, lty=Lty)
+    }
+  axis(1,lbin); axis(2)
+}
+#legend('topright', col=1:length(unique(sexage)), lty=1, pch=16, legend=paste('Sex.Age',sexage))
+```
+
+##### Page Break        
+
+### Final Size Composition    
+The size composition at the end of the model time-series (final time-step).  Each plot represents one area in the model and the various lines are the different sex and age groups. Sex 1 is red and Sex 2 blue. 
+```{r FinSizeComp, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+Ilen <- findNclean(c('Full','N-matrix'), dat, 2,0)
+colnames(Ilen)[is.na(colnames(Ilen))] <- paste('L',1:length(colnames(Ilen)[is.na(colnames(Ilen))]),sep='')
+Ilen %<>% filter(Year==(max(Year)-1), `Time-step`==max(`Time-step`))
+
+### Plots
+par(mfrow=Fdims(length(unique(rec$Area))), mar=c(4,4,1.5,1),xpd=T,las=1)
+for(i in sort(unique(rec$Area))){
+  tdat2 <- Ilen[Ilen$Area==i,]
+  lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
+  mx <- max(lens/1e+6)
+  tdat2$sexage <- tdat2$Sex+tdat2$Age/10
+  sexage <-  sort(unique(tdat2$sexage))
+  lens <- tdat2[tdat2$sexage==sexage[1], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+  Col <- ifelse(floor(sexage[1])==1,2,4)
+  suppressWarnings(plot(lbin, lens/1e+6, type='l', cex=0.8,  axes=F, ylab='Size composition (millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+  par(xpd=F);abline(v=76, lty=3);par(xpd=T)
+  for(sa in 2:length(unique(tdat2$sexage))){
+      lens <- tdat2[tdat2$sexage==sexage[sa], grepl('L',colnames(tdat2))| grepl('a',substr(colnames(tdat2),1,1))]
+      Col <- ifelse(floor(sexage[sa])==1,2,4)
+      Lty <- (sexage[sa] - floor(sexage[sa]))*10
+      lines(jitter(lbin), lens/1e+6, type='l', cex=0.8, col=Col, lty=Lty)
+    }
+  axis(1,lbin); axis(2)
+}
+#legend('topright', col=1:length(unique(sexage)), lty=1, pch=16, legend=paste('Sex.Age',sexage))
+```
+
+##### Page Break        
+
+### Tuning Length Composition Sample Size
+By sex and fleet, summed over years and time-steps (red is 1:1 and green is data regression).         
+```{r tuneplots, echo=FALSE, fig.height=6, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+#fcode <- read.csv('..\\fleetcode.csv')
+#lbin <- findNclean(c('#','Lower'), lbin1, 1, convert=0)
+#lbin <- as.numeric(unname(lbin[1,]))+1
+tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+cnames <- colnames(tdat)
+cnames[is.na(cnames)] <- paste('prop', 1:sum(is.na(cnames)))
+colnames(tdat) <- cnames
+end <- 3+length(which(grepl('prop',colnames(tdat))))
+nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+tdat <- tdat[tdat$O.P=="P",]
+Sexs <- sort(unique(tdat$Sex))
+Fleets <- sort(unique(tdat$Fleet))
+par(mfrow=c(3,3), mar=c(4,4,1,1),xpd=F)
+for (isex in 1:length(Sexs)){
+ for (ifleet in 1:length(Fleets)){
+   tmp <- tdat[tdat$Sex==Sexs[isex] & tdat$Fleet==Fleets[ifleet],c("Nsamp","EffN")]
+   plot(tmp$Nsamp, tmp$EffN,pch=16,col=grey(0.4,0.3), xlab='Sample Size', ylab='EffN',bty='l')
+   lm1 <- lm(EffN~Nsamp-1, data=tmp)
+   abline(a=0,b=1,lty=1,col="red",lwd=2)  
+   abline(a=0,b=coef(lm1),lty=1,col="green",lwd=2)  
+   mtext(paste("Sx= ",Sexs[isex]," Ft= ",Fleets[ifleet], " Multipler= ",round(coef(lm1),5),sep=""),3,line = -0.5, cex = 0.7)
+  }  }
+
+
+```
+
+##### Page Break 
+
+### Population size distribution
+Catches by Sex and fleet, summed over years and time-steps (weighted by observations - Obs, black vs Exp, red).         
+```{r M_size, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+cnames <- colnames(tdat)
+cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+colnames(tdat) <- cnames
+end <- 3+length(which(grepl('prop',colnames(tdat))))
+nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+
+## Convert proportions to numbers
+for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+## Convert back to proportions
+for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+
+pos <- which(grepl('prop', colnames(tdat1)))
+tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+
+colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+
+for(isex in unique(tdat1$Sex)){
+  par(mfrow=Fdims(length(unique(tdat1$Fleet))), mar=c(4,5,1,2),las=1)
+  for(ifleet in unique(tdat1$Fleet)){
+     tmp <- tdat1[tdat1$Sex==isex & tdat1$Fleet==ifleet,]
+       if(nrow(tmp)>0){
+         plot(lbin, tmp[tmp$O.P=='O',pos], xlab='Length', pch=16, col=1, type='o',ylab='Proportion', main=paste('Sex',isex,', Fleet',ifleet), ylim=c(0,max(tmp[,pos])), axes=FALSE)
+         lines(lbin, tmp[tmp$O.P=='P',pos], col=2,lty=3, type='o')
+         axis(2)
+         axis(1,lbin)   
+     }}}
+
+```
+
+##### Page Break         
+
+By fleet, area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).         
+
+```{r Init_M_size, echo=FALSE, fig.height=6, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+cnames <- colnames(tdat)
+cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+colnames(tdat) <- cnames
+end <- 3+length(which(grepl('prop',colnames(tdat))))
+nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+## Convert proportions to numbers
+for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex,Year) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+## Convert back to proportions
+for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+
+pos <- which(grepl('prop', colnames(tdat1)))
+tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+
+yrs <- c(min(tdat1$Year),median(tdat1$Year), max(tdat1$Year))
+
+for(isex in unique(tdat1$Sex)){
+  tmp <- tdat1[tdat1$Year%in%yrs & tdat1$Sex==isex,] %>% mutate(fy = paste(Fleet, Year))
+  par(mfrow=Fdims(length(unique(tmp$fy))), mar=c(4,5,0.5,2),las=1, cex.main=0.8)
+  for(ifleet in unique(tdat1$Fleet)){
+      for(iyear in yrs){
+       tmp <- tdat1[tdat1$Year==iyear & tdat1$Fleet==ifleet & tdat1$Sex==isex,]
+       if(nrow(tmp)>0){
+         plot(lbin, tmp[tmp$O.P=='O',pos], xlab=' ', pch=16, col=1, type='o',ylab='Proportion', main=paste('Sex', isex, ',Fleet', ifleet, ",Yr",iyear), ylim=c(0,max(tmp[,pos])), axes=F)
+          lines(lbin, tmp[tmp$O.P=='P' ,pos], col=2,lty=3, type='o')
+          axis(2);   axis(1,lbin)
+       }   }   }  }
+
+```
+
+##### Page Break       
+
+By area and time-step, summed over years (weighted by observations - Obs, black vs Exp, red).        
+
+```{r M_size2, echo=FALSE, fig.height=6, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+cnames <- colnames(tdat)
+cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+colnames(tdat) <- cnames
+end <- 3+length(which(grepl('prop',colnames(tdat))))
+nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+## Convert proportions to numbers
+for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex,Step) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+## Convert back to proportions
+for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+pos <- which(grepl('prop', colnames(tdat1)))
+tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+
+for(isex in unique(tdat1$Sex)){
+  tmp <- tdat1[tdat1$Sex==isex,] %>% mutate(fs = paste(Fleet, Step))
+  par(mfrow=Fdims(length(unique(tmp$fs))), mar=c(4,5,1,2),las=1, cex.main=0.8)
+for(ifleet in unique(tdat1$Fleet)){
+    for(istep in unique(tdat1$Step)){
+     tmp <- tdat1[tdat1$Step==istep & tdat1$Fleet==ifleet & tdat1$Sex==isex,]
+      if(nrow(tmp)>0){
+        plot(lbin, tmp[tmp$O.P=='O',pos], xlab='', pch=16, col=1, type='o',ylab='Proportion', main=paste('Sex',isex,'Fleet',ifleet, ",Step",istep), ylim=c(0,max(tmp[,pos])), axes=F)
+        lines(lbin, tmp[tmp$O.P=='P' ,pos], col=2,lty=3, type='o')
+        axis(2)
+        axis(1,lbin)
+      }   }   }  }
+
+```
+
+
+##### Page Break 
+
+### Commercial Catch Size Composition
+Positive (red) and negative (blue) residuals between the observed and predicted proportions across lengths bins from each model area.
+
+```{r Com_size_M, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+cnames <- colnames(tdat)
+cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+colnames(tdat) <- cnames
+end <- 3+length(which(grepl('prop',colnames(tdat))))
+nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+tdat1 <- tdat  %>% group_by(Fleet,Sex,Year,Step) %>% summarise_at(nms, diff) %>%
+  mutate(yrstep = Year+(Step-1)/(max(Step))) %>% as.data.frame()
+pos <- which(grepl('prop', colnames(tdat1)))
+colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+
+scale <- 0.05
+for(isex in unique(tdat1$Sex)){
+  par(mfrow=Fdims(1+length(unique(tdat1$Fleet))), mar=c(4,5,0.5,2),las=1)
+  for(ifleet in unique(tdat1$Fleet)){
+    tdat2 <- data.frame(tdat1[tdat1$Fleet==ifleet &tdat1$Sex==isex,])
+    if(nrow(tdat2)>0){
+    tdat2 <- reshape2::melt(tdat2, variable.name = "Lbin",value.name = "diff",measure.vars=pos)
+    if(!length(tdat2$Lbin)>0) { 
+      tdat2$Lbin <- tdat2$variable
+      tdat2$diff <- tdat2$value  }
+      tdat2$lb <- as.numeric(substr(tdat2$Lbin,4,7))
+      if(nrow(tdat2)>0){
+        
+        tmp <- tdat2 %>% filter(abs(diff)>0) %>% mutate(mn=min(lb), mx=max(lb)) %>% group_by(mn, mx) %>% summarise(n=length(mn))  
+     suppressWarnings(with(tdat2[tdat2$diff>0,], symbols(yrstep, lb, circles = diff, bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylab='Length Bin', xlab='Fishing Season', bty='l', xlim=c(1970,graphrange[2]),ylim=c(tmp$mn,tmp$mx), main=paste('Sex',isex,',Fleet',ifleet),las=1)))
+                      with(tdat2[tdat2$diff<0,], symbols(yrstep, lb, circles = -diff,bg=rgb(0,0,1,0.2), fg=rgb(0,0,1,0.2), inches=scale, add = T))
+    }}
+  }
+suppressWarnings(symbols(rep(1,4),seq(1.8,0.6,-0.4),circles=c(1,0.75,0.5,0.25), bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylim=c(0,3), ylab='', xlab='', bty='n', xlim=c(0.5,1.5), axes=F))
+text(1,2,paste('Size Composition\nSex',isex), cex=0.8, pos=3)
+text(rep(1.1,4),seq(1.8,0.6,-0.4),c(1,0.75,0.5,0.25), pos=4, cex=0.8)
+text(1,0.1,'Proportional difference', cex=0.8)
+}
+```
+
+
+##### Page Break   
+
+## Model Outputs  
+### Relative Legal Biomass by area      
+Annual estimates of all Biomass (1000s t) in each management Zone relative to Virgin.
+
+```{r Burn_LegalBio, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+lb <- findNclean(c('#Extended', 'Legal', 'Biomass'), dat, 1)
+colnames(lb) <- c('Area','Year','est', 'sd')[1:ncol(lb)]
+virgin <- data.frame(area=sort(unique(lb$Area)), est=findNclean(c('#Virgin'), dat, 1))  
+lb %<>% mutate(virgin=virgin$est[match(Area,virgin$area)], estM = est/1e+6, rel=est/virgin) %>% filter(est>0)
+
+styr <- findNclean(c('#','First', 'year'), lbin1, 1)
+
+par(mfrow=Fdims(length(unique(lb$Area))), mar=c(4,5,0.5,2),las=1)
+for(i in unique(lb$Area)){
+  tlb <- lb[lb$Area==i,]
+  vir <- virgin$est[virgin$area==unique(tlb$Area)]
+  mxY <- 1# ceiling(max(c(lb$estM, vir)))
+  suppressWarnings(plot(tlb$Year, tlb$rel, type='o', axes=F, pch=ifelse(tlb$Year<styr,1,16), cex=0.9,ylab='B/B0', xlab='Fishing Season', main=paste('Area ',i), ylim=c(0,1)))
+lines(range(tlb$Year), rep(vir,2), col=2)
+  axis(1,tlb$Year)
+  axis(2)
+  }
+
+```
+
+##### Page Break   
+
+### Legal Biomass (legal size) by Area      
+Annual estimates ($\pm95\%$ CI) of Legal Biomass (1000s t) (assignment of legal based on the carapace length only) in each model area.
+
+```{r LegalBio_76, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+lb <- findNclean(c('#Legal','76', 'Biomass'), dat, 1)
+colnames(lb) <- c('Area','Year','est', 'sd')[1:ncol(lb)]
+lb$estM <- lb$est/1e+6
+par(mfrow=Fdims(length(unique(lb$Area))), mar=c(4,5,0.5,2),las=1)
+for(i in 1:length(unique(lb$Area))){
+  tlb <- lb[lb$Area==i,]
+    mxY <- max(tlb$estM)
+  suppressWarnings(plot(tlb$Year, tlb$estM, type='o', axes=F, pch=16, cex=0.9,ylab='Total Legal Biomass (1000s t)', xlab='Season', main=paste('Area ',i), xlim=c(graphrange), ylim=c(0,mxY)))
+  #polygon(c(tegg$year, rev(tegg$year)), c(tegg$upr, rev(tegg$lwr)), col='grey90', border = F)
+  axis(1, seq(graphrange[1],graphrange[2],5))
+  axis(2)}
+
+
+```
+
+
+##### Page Break   
+
+### Harvest Rate      
+Annual estimates ($\pm95\%$ CI) of Harvest Rate (assignment of legal based on the management arrangements during each season) in each management Zone.
+
+```{r Harvest_Rate, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+lb <- findNclean(c('#Harvest','rate'), dat, 1)
+colnames(lb) <- c('Zone','Year','est', 'sd', 'est76')[1:ncol(lb)]
+if(exists('lb$sd')) lb %<>% mutate(up95=est+sd*1.96,lw95=est-sd*1.96) 
+par(mfrow=Fdims(length(unique(lb$Zone))), mar=c(4,5,0.5,2),las=1)
+for(i in 1:length(unique(lb$Zone))){
+  tlb <- lb[lb$Zone==i,]
+  mxY <- max(tlb$est)
+  ymn <- 0; ymx <- ifelse(exists('lb$sd'),max(lb$up95,na.rm=T)+0.1, max(lb$est,na.rm=T)+0.1)
+  suppressWarnings(plot(tlb$Year, tlb$est, type='o', axes=F, pch=16, cex=0.9,ylab='Harvest Rate', xlab='Season', main=paste('Zone ',i), xlim=c(graphrange), ylim=c(0,ymx)))
+  if(exists('lb$sd')) polygon(c(tlb$Year, rev(tlb$Year)), c(tlb$up95, rev(tlb$lw95)), col='grey90', border = F)
+  points(tlb$Year, tlb$est, type='o',pch=16)
+  axis(1)  
+  axis(2)
+  }
+```
+
+
+##### Page Break 
+
+### Fishing Mortality
+Estimate Fishing mortality by area (the various fleets are shown in different colours).
+
+```{r F graph, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+## Compute F
+catch <- findNclean('Catches', dat, 2)
+catch%<>% mutate(fdate = Year + Step/7)
+areas <- unique(catch$Area)
+par(mfrow=Fdims(length(unique(areas))), mar=c(4,5,0.5,2),las=1)
+for(i in 1:length(areas)){
+  tdat <- catch[catch$Area==i,]
+  fleets <- unique(tdat$Fleet)
+  ymx <- max(c(tdat$Fishing_mortality))
+  ymn<- 0; ymx <- 1
+  with(tdat[tdat$Fleet==fleets[1],], plot(fdate, Fishing_mortality, type='o', pch=16,cex=0.7,ylim=c(ymn,ymx), axes=F, ylab='Fishing Mort', xlab='Fishing Season', lty=1, main=paste("Area",i)))
+  if(length(fleets)>1){
+    for (f in 2:length(fleets)){
+      with(tdat[tdat$Fleet==fleets[f],], lines(Year, Fishing_mortality, type='o',cex=0.7,col=f, lty=1))
+    }
+    }
+  axis(1, seq(min(Zcatch$Year), max(Zcatch$Year),2))
+  axis(2,las=1)
+}
+
+```
+
+##### Page Break 
+
+### Natural Mortality
+Estimate Natural mortality by area (Density dependent mortality).
+
+```{r M graph, echo=FALSE, fig.height=5.5, fig.width=10,message=FALSE, warnings=FALSE,error=FALSE, cache=FALSE}
+nmort <- findNclean(c('Natural','Mortality'), dat, 2)
+names(nmort) <-c('area','age','year','est')
+nmort %<>% mutate(est=ifelse(est<0,NA,est))
+areas <- unique(nmort$area)
+ages <- unique(nmort$age)
+par(mfrow=Fdims(length(unique(areas))), mar=c(4,5,0.5,2),las=1)
+for(i in 1:length(areas)){
+  tdat <- nmort[nmort$age==1 & nmort$area==i,]
+  ymx <- max(c(tdat$est))
+  ymn<- 0; ymx <- 1
+  with(tdat, plot(year, est, type='o', pch=16,cex=0.7,ylim=c(ymn,ymx), axes=F, ylab='Natural Mort', xlab='Fishing Season', lty=1, main=paste("Area",i)))
+  if(length(ages)>1){
+    for (f in 2:length(ages)){
+      tdat <- nmort[nmort$age==f & nmort$area==i,]
+      with(tdat, lines(year, est, type='o',cex=0.7,col=f, lty=1))
+    }    }
+  axis(1)
+  axis(2,las=1)
+}
+
+```
+
+##### Page Break 
+
+### Final Parameters
+
+
+```{r Model_pars, echo=FALSE, message=FALSE, warnings=FALSE, error=FALSE, cache=TRUE,results='asis'}
+
+##Get parameters
+p1 <- which(dat[,1]=="#" & dat[,2]=='parameter' & dat[,3]=='table')
+p2 <- which(dat[,1]=="#Total" & dat[,2]=='estimated' & dat[,3]=='parameters:')
+pout <- dat[(p1+2):(p2-1),c(1,3,4)]
+names(pout) <- c('name', 'estimated', 'value')
+pout %<>% filter(!grepl('Init', name)) %>% mutate(estimated=ifelse(is.na(estimated),' ',estimated), value=round(as.numeric(value),4))
+len <- nrow(pout)
+len <- trunc(len/4)*4+4
+lens <- len/4
+pout2 <- pout[1:lens,]
+for(i in 1:3){
+  pout2 <- cbind(pout2, pout[((lens*i)+1):(lens*(i+1)),])
+}
+pander(pout2, split.table = Inf)
+
+
+```

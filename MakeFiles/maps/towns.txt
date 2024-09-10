@@ -1,0 +1,9 @@
+lon lat loc
+115.0302 -30.30578 Jurien
+114.9243 -29.25258 Dongara
+114.1647 -27.71286 Kalbarri
+115.3406 -31.02539 Lancelin
+115.7564 -32.03915 Fremantle
+113.811  -23.32187 "Coral Bay"
+115.157 -34.2091 Augusta
+115.674 -32.848 Bunbury

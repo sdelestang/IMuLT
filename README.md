@@ -74,6 +74,7 @@ imult_usage()  # Displays step-by-step instructions
 ```
 
 
-## Author
+## Authors
 
 Simon de Lestang (DPIRD, Western Australia)
+Andre Punt (University of Washington & CSIRO)

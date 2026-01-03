@@ -1,0 +1,1370 @@
+MakeOutPut <- function(is95=TRUE){
+
+  library(makehtml)
+  library(hplot) # for plotprep and parset; automates the use of png
+  library(dplyr)
+  library(magrittr)
+  library(tidyr)
+  library(ggplot2)
+  library(dplyr)
+  library(reshape2)
+  library(openxlsx)
+
+  options(dplyr.summarise.inform = FALSE) ## Removes useless dplyr warnings
+  starttime <- as.character(Sys.time())
+
+  SclErr <- ifelse(is95,1.96,0.842)
+
+  ddir <- filenametopath(getwd(),"")
+  indir <- filenametopath(ddir,"Summary")
+  rundir <- filenametopath(indir,"result") # define directory for results
+
+  f <- list.files(rundir, include.dirs = F, full.names = T, recursive = T) ## List all files in result
+
+  Archive <-  toupper(dlg_input('Archive pervious model run? (Y or N)')$res)
+
+  if(length(f)>0){
+    ctime <- gsub(' ','',gsub(".","",format( Sys.time(), '%Y.%m.%d %H.%M'), fixed=T))
+    if(Archive=='Y'){
+    rundirA <- paste0(indir,'/archive', ctime)
+    invisible(dir.create(rundirA))
+    invisible(file.copy(rundir,rundirA, recursive = T))
+    print("Archived old report")}
+    invisible(file.remove(f))
+  }
+
+  dirExists(rundir,verbose=TRUE)  ## This makes it
+
+  analysis <- "IMuLT"
+  resfile <- setuphtml(rundir=rundir) # creates resultTable.csv in rundir
+
+  #### Open up all data ####
+
+  dat  <- read.table("Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  echo  <- read.table("Echo.out",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  selx <- read.table(paste("../SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  wb <- loadWorkbook(file="../../ModelStructure.xlsx")
+
+  #This is the location of the data input files and their associated parameters
+  dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
+  startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
+  endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
+  yr <- startseason:endseason
+  projectseason <- as.numeric(dynamics$value[dynamics$object=='projectedseason'])
+  projectcatch <- as.numeric(dynamics$value[dynamics$object=='projectedcatch'])
+  burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
+  ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
+  sexs <- 0:as.numeric(dynamics$value[dynamics$object=='sexs'])
+  areas <- readWorkbook(wb,sheet='area', startRow = 2)
+  nareas <- length(unique(areas$newarea))
+  times <- readWorkbook(wb,sheet='times', startRow = 2)
+  fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
+
+  #mov2 <- findNclean(c('#','Movement'), mov1, 1,0, char=T)
+  # KeyWord <- c('Cpue','data'); DataFile <- echo; Offset<- 1; char=T
+  #KeyWord <- c('#','Parameter','Par') ; char = T; DataFile <- dat; Offset <- 1; convert=0 lb <- findNclean(, dat, 2)
+  findNclean <- function(KeyWord, DataFile, Offset=1, convert=0, char=F){
+    hash <- c(which(grepl('#',DataFile[,1])),nrow(DataFile))
+    if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))
+    if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))
+    if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))
+    if(length(KeyWord)==4) pos1 <- which(4==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])+grepl(KeyWord[4],DataFile[,4])))
+    if(!(pos1+1)%in%hash) {
+      pos2 <- hash[hash>(pos1+Offset)][1]-1
+      adj <- 0 } else {
+        pos2 <- hash[hash>(pos1+1+Offset)][1]-1
+        adj <- 1}
+    if(pos2>pos1){
+      tmp <- DataFile[(pos1+Offset):pos2,]
+      tmp <- tmp[!grepl('#', tmp[,1],fixed = T),]
+      tmp <- tmp[tmp[,1]!='',]
+      if(nrow(tmp)>0){
+        rname <- DataFile[(pos1+adj),]
+        rname <- gsub('#','',rname)
+        rname <- rname[!is.na(rname) & rname!='' & rname!='NA']
+        maxcol <- max(which(!is.na(tmp) & tmp!='', arr.ind = T)[,2])
+        tmp <- tmp[!is.na(tmp[,1]),1:maxcol]
+        tmp[tmp=='NaN'] <- 0
+        #Add tweak here
+        if(!is.null(dim(tmp))) if(length(rname)!=ncol(tmp)) { rname <- c(rname, paste('a',1:200,sep=''))[1:ncol(tmp)]}
+        if(is.null(ncol(tmp))){ return(as.numeric(tmp)) } else {
+          convert1 <- 1:ncol(tmp)
+          convert <- convert1[!convert1%in%convert]
+          tmp <- data.frame(tmp)
+          chartmp <- tmp
+          if(nrow(tmp)==1)  suppressWarnings(tmp[convert] <- (apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
+          if(nrow(tmp)>1)   suppressWarnings(tmp[,convert] <- data.frame(apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
+          tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,])]
+          if(char==T) { return(chartmp) }
+          if(char==F) {if(!is.null(dim(tmp))) colnames(tmp) <- rname[1:length(colnames(tmp))]
+          return(tmp) }}} else { return(NA) } } else { return(NA) }
+  }
+  # find <- function(KeyWord, DataFile, Offset){
+  #   KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
+  #   if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))+Offset
+  #   if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))+Offset
+  #   if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))+Offset
+  #   return(pos1)}
+
+  find <- function(KeyWord, DataFile, Offset){
+    KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
+    pos1 <- list(NA)
+    for(K in 1:length(KeyWord)){
+      pos1[[K]] <- which(grepl(KeyWord[K],DataFile[,K]))
+    }
+    if(length(KeyWord)>1) {ids <- NULL
+    for(K in 1:(length(KeyWord)-1)){
+      ids <- c(ids,pos1[[K]][which(pos1[[K]]%in%pos1[[K+1]])] )
+    }
+    ids <- table(ids)
+    return(as.numeric(names(which.max(ids)))+Offset)} else {
+      return(as.numeric(pos1[[1]])) }}
+
+
+
+  ##Get parameters
+  p1 <- find("# parameter table",dat,0)
+  p2 <- find("#Total estimated parameters",dat,0)
+  pout <- dat[(p1+2):(p2-1),c(1,3,4)]
+  names(pout) <- c('name', 'estimated', 'value')
+  pout$estimated <- ifelse(is.na(pout$estimated), 0, 1)
+
+  ## GetSDReport
+  sdr <- read.delim(paste("SDReport.RL",sep=''), sep=' ')
+  names(sdr) <- c('name','Estimate','SE')
+  sdr %<>% mutate(SE=ifelse(is.na(SE),0,SE)) %>% filter(!is.na(name), nchar(name)>0) %>% mutate(up95=Estimate+SE*1.96,low95=Estimate-SE*1.96,upr68=Estimate+SE,low68=Estimate-SE, cv=SE/Estimate, lwr=low95, upr=up95)
+  if(!is95) sdr %<>% mutate(lwr=low68,upr=upr68)
+
+  Fdims <- function(x){
+    dims <- c(1,1)
+    if(x==2)   dims <- c(1,2)
+    if(x%in%3:4)   dims <- c(2,2)
+    if(x%in%5:6)   dims <- c(2,3)
+    if(x%in%7:9)   dims <- c(3,3)
+    if(x%in%9:12)   dims <- c(3,4)
+    if(x>12)   {     nr <- ceiling(x/4)
+    dims <- c(nr,4)
+    }
+    return(dims)}
+
+  ##define lenbin
+  lbin <- findNclean(c('#','Lower'), lbin1, 1, convert=0)
+  lbin <- as.numeric(unname(lbin[1,]))
+  lbin <- lbin + diff(lbin)[1]/2
+  lbinl <- lbin
+  lbin <- lbin[1:(length(lbin)-1)]
+
+  suppressWarnings(fleetarea <- fleets %>% mutate(areaname=do.call('rbind',strsplit(description,'_'))[,1],fleettype=group))
+
+  ####
+  ## Model run statistics
+  ### Likelihoods
+  print("Making Likelihoods")
+  like <- dat[4:10,c(1,3,5)]
+  colnames(like) <- c('Id','Raw LL', 'Weighted LL')
+  like <- rbind(like,like[1,])
+  like[1,3] <- like[1,2]
+  like[nrow(like),] <- c('Total', NA,dat[3,4])
+  suppressWarnings(like[,2] <- round(as.numeric(like[,2]),2))
+  suppressWarnings(like[,3] <- round(as.numeric(like[,3]),2))
+  row.names(like) <- 1:nrow(like)
+  like[is.na(like)] <- ''
+  filen <- "Likelihood.csv"  # csv files only
+  addtable(intable=like,filen=filen,rundir=rundir,category="Like",
+           caption="Raw and weighted likelihoods.")
+
+  ### Penalties
+  INP <- as.numeric(dat[9,4])
+  RP <-  as.numeric(dat[10,3])
+  RSP <-  as.numeric(dat[11,4])
+  dfram <- data.frame(id=c('Initial N','Recruitment', 'Recruitment Smooth'),Value=c(round(INP,1),round(RP,1),round(RSP,1)))
+  filen <- "Penality.csv"  # csv files only
+  addtable(intable=dfram,filen=filen,rundir=rundir,category="Like",
+           caption="Penalities added to likelihoods.")
+
+  ### Parameters: Main and those estimated
+  mainP <- pout[grepl('MainPars', pout$name),]
+  ctl2 <- findNclean(c('#','Basic','parameters'), ctl1, 1, char=T)
+  mpnames <- ctl2$X6
+  mainP$name <- mpnames[as.numeric(do.call('rbind', strsplit(mainP$name, '_'))[,2])]
+  mainP$est <- round(mainP$est,2)
+  mainP <- mainP[c(1,nrow(mainP)),]
+  rownames(mainP) <- 1:2
+  #pander(mainP)
+
+  pout <- read.delim(paste("Parameters_solved.txt",sep=''),sep='\t',stringsAsFactors =F)
+  pout$Parameter <- ifelse(pout$Parameter=='MainPars', mpnames[pout$Position],pout$Parameter)
+  un_names <- unique(c(mainP$name,pout$Parameter))
+  mxlen <- length(un_names)
+  ntab <- data.frame(Parameter=rep(as.character('.'),mxlen), Value=as.character('.'), Estimated=as.character('N'),stringsAsFactors =F)
+  for(i in 1:nrow(ntab)){
+    ntab$Parameter[i] <- un_names[i]
+    ntab$Value[i] <- ifelse(nrow(mainP)>=i, mainP$est[i],'.')
+    ntab$Estimated[i] <- ifelse(un_names[i]%in%pout$Parameter, 'Y','N')
+  }
+
+  ### Model Run Comments
+  init <- findNclean('Initiation', dat, 0)
+  init <- init[!is.na(init)]
+  txt <- paste('Initiation option is ', init,'.\n', sep='')
+
+  ttxt1 <- findNclean(c('#','Burn-in'), lbin1, 1, T); txt2 <- paste('Burn-in years: ', paste(ttxt1, collapse=' '),'.\n', sep='')
+  ttxt2 <- findNclean(c('#','Loop', 'counter'), lbin1, 1); txt3 <- paste('Loops to refine initial F: ', ttxt2,'.\n', sep='')
+  ttxt3 <- findNclean(c('#','Years','over'), lbin1, 1, T); txt4 <- paste('Number of years to base initial F on: ', paste(ttxt3, collapse=' '),'\n', sep='')
+
+  ## Data in
+  print("Making Data Summary")
+  CAtch <- find('Catch data by', echo, 1); ECAtch <- find('Number of cpue', echo, -1)
+  CAtch <- echo[CAtch:ECAtch,]
+  CAtch <- CAtch[,!is.na(CAtch[1,])&CAtch[1,]!='']
+  CAtch <- apply(CAtch,2,as.numeric)
+  nyears <- 1+(as.numeric(echo[find('Year2', echo, 0),2]) - as.numeric(echo[find('Year1', echo, 0),2])) + as.numeric(echo[find('MaxProjYr', echo, 0),2])
+  dimnames(CAtch)[[2]] <- (as.numeric(echo[find('Year1', echo, 0),2]):(as.numeric(echo[find('Year1', echo, 0),2])+(nyears-1)))
+  ntstep <- as.numeric(echo[find('Number of time', echo, 0),5])
+  nfleet <- as.numeric(echo[find('Number of fleets', echo, 0)[1],4])
+  idmat <- expand.grid(fleet=1:nfleet, tstep=1:ntstep) %>% arrange(fleet)
+  CAtch <- as.data.frame(cbind(idmat,CAtch)) %>% pivot_longer(!c(fleet,tstep),names_to = 'year') %>% mutate(group=fleets$group[match((fleet),fleets$fleet)], area=fleets$newarea[match((fleet),fleets$fleet)], time=round(as.numeric(year)+(tstep-1)/(max(tstep)),4), id=paste(group,area)) %>% group_by(time,id) %>% summarise(num=sum(value)) %>%  filter(num>0) %>% mutate(type=paste('Catch')) # %>% pivot_wider(names_from = 'time', , values_from = num)
+
+  CPue <- find('Cpue data', echo, 1); ECPue <- find('Number of Q-related', echo, -1)
+  CPue <- echo[CPue:ECPue,]
+  CPue <- CPue[,!is.na(CPue[1,])&CPue[1,]!='']
+  names(CPue) <- c('Ind','fleet','sex','year','tstep','obs','cv')
+  CPue <- as.data.frame(apply(as.matrix(CPue),2,as.numeric))
+  CPue %<>% mutate(year=as.numeric(year)+startseason, group=fleets$group[match((fleet+1),fleets$fleet)], area=fleets$newarea[match((fleet+1),fleets$fleet)], time=round(year+tstep/(max(tstep)+1),4), id=paste(group,area)) %>% group_by(time,id) %>% summarise(num=length(obs))  %>% mutate(type=paste('Index')) # %>% pivot_wider(names_from = 'time', , values_from = num)
+
+  LEngth <- find('Size-composition data', echo, 1); ELEngth <- find('Puerulus data', echo, -1);
+  LEngth <- echo[LEngth:ELEngth,]
+  LEngth <- LEngth[,1:5]
+  names(LEngth) <- c('fleet','sex','year','tstep','obs')
+  LEngth <- as.data.frame(apply(as.matrix(LEngth),2,as.numeric))
+  LEngth %<>% mutate(year=as.numeric(year)+startseason, group=fleets$group[match((fleet+1),fleets$fleet)], area=fleets$newarea[match((fleet+1),fleets$fleet)], time=round(year+tstep/(max(tstep)+1),4), id=paste(group,area)) %>% group_by(time,id) %>% summarise(num=length(obs))  %>% mutate(type=paste('Size-comp')) # %>% pivot_wider(names_from = 'time', , values_from = num)
+
+  # NUmbers
+
+  # PUerulus
+  PUer <- find('Puerulus data', echo, 1); EPUer <- find('Environmental data', echo, -2)
+  PUer <- echo[PUer:EPUer,]
+  PUer <- PUer[,!is.na(PUer[1,])&PUer[1,]!='']
+  if(nrow(PUer)>4){
+    names(PUer) <- c('area','year','obs','cv')
+    PUer <- as.data.frame(apply(as.matrix(PUer),2,as.numeric)) %>% mutate(area=area+1, year=year+(startseason-burnin-1))
+    PUer %<>% mutate(time=year, id=paste('survey',area)) %>% group_by(time,id) %>% summarise(num=length(obs)) %>% mutate(type=paste('Larval')) #%>% pivot_wider(names_from = 'time', , values_from = num)
+  }
+  adat <- rbind(CAtch, CPue, LEngth, PUer) %>% mutate(id2 = paste(id,type)) %>% filter(!is.na(time)) %>% as.data.frame()
+  unid <- unique(adat$id2)
+  lab <- as.data.frame(do.call('rbind',strsplit(unid,' ')))
+  names(lab) <- c('source','area','type')
+  lab %<>% mutate(order=1:nrow(lab), unid=unid, id1 = paste(source,type)) %>% filter(!is.na(source))
+  unid2 <- unique(lab$id1)
+  lab %<>% mutate(Col=topo.colors(length(unid2), alpha = 1, rev = T)[match(id1,unid2)])
+  adat$Col <- lab$Col[match(adat$id2, lab$unid)]
+  adat$yax <- match(adat$id2,unid)
+  adat %<>% mutate(id3 = paste(id,type))
+  filename <- filenametopath(rundir,"DataIn.png")
+  plotprep(width=10,height=10,filename=filename,cex=1,verbose=FALSE)
+  parset(plots=c(1,1), mar=c(1,1,1,1))
+  plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1, axes=F, xlab='Year.Timestep', ylab='')
+  lab1 <- lab %>% group_by(source, type,id1) %>% summarise(mnpos1=mean(order))
+  mtext(side=4,at=lab1$mnpos1,lab1$source, las=1, cex=0.7)
+  mtext(side=2,at=lab$order,lab$area, las=1, cex=0.5)
+  mtext(side=2,line=2,at=lab1$mnpos1,lab1$type, las=1, cex=0.7)
+  axis(1)
+  caption <- "Data loaded into the model as recorded in the echo file."
+  addplot(filen=filename,rundir=rundir,category="Data",caption=caption)
+
+  ## Add Fleet descriptions
+  fleetareatmp <- fleetarea %>% dplyr::select(Area=areaname, Fleet=fleet, FleetType=fleettype)
+  addtable(intable=fleetareatmp,filen="Fleets.csv",rundir=rundir,category="Data",caption="Fleet Descriptions")
+
+  ### Selectivity
+  print("Making Selectivity and Retention Plots")
+  fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
+  sel <- findNclean(c('Full','Selectivity'), dat, 1)
+  sel <- sel[,2:ncol(sel)]
+  ids <- findNclean(c('#','Selectivity','Parameters'), selx, 2, char = T)
+  ids <- unique(ids$ID)
+  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% group_by(Fleet, Sex, link) %>% summarise(num=length(link)) %>% as.data.frame()
+  fleet3$AreaNames <- fleetarea$description[match((fleet3$Fleet+1), fleetarea$fleet)]
+  fleet4 <- fleet3 %>% group_by(link) %>% summarise(name=paste(unique(AreaNames),collapse = ' ')) %>% mutate(name2=NA)
+  for(r in 1:nrow(fleet4)){
+    nm <- fleet4$name[r]
+    common <- unlist(strsplit(nm, '_'))[1]
+    fleet4$name2[r] <- paste(common,gsub(paste0(common,'_'), '', nm))
+  }
+
+  for(s in 1:length(unique(fleet3$Sex))){
+    if(length(unique(fleet3$Sex))==1) { Sex <- 'Sex 1' } else { Sex <- c('F','M')[s]}
+    filename <- filenametopath(rundir,paste(Sex,"Selectivity.png"))
+    plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    #parset(plots=Fdims(nrow(sel)))
+    parset(plots=c(1,1))
+    sel2 <- sel[1+sort(unique(fleet3$link[fleet3$Sex==sort(unique(fleet3$Sex))[s]])),]
+    Cols <- viridis::turbo(length(unique(fleet3$link)))
+    par(las=1)
+    plot(lbin,sel2[1,],type="l",col=Cols[1],lwd=2,ylim=c(0,1.1),xlab="Carapace Length",ylab="Proportion")
+    for(i in 2:length(unique(fleet3$link))){ lines(lbin,sel2[i,],type="l",lwd=2,col=Cols[i],)}
+    legend('top',lwd=2,lty=1,col=c(Cols),legend=fleet4$name2, ncol = 2, bty='n', cex=0.6)
+    caption <- paste(Sex, "Selectivity curves estimated by the model.")
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+  }
+
+  ###  Retention
+  #fleet1 <- findNclean(c('#Sex','Age','Fleet'), selx, 1, char=F)
+  #legal <- findNclean(c('#','legal','patterns'), selx, 2)
+  ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)  #Legal Selectivity by
+  names(ret) <- c('sex','age','fleet','year','tstep',paste('a',1:(ncol(ret)-5)))
+  for(sx in 1:length(unique(ret$sex))){
+    lastfleet <- 0
+    for(i in 1:length(unique(ret$fleet))){
+      tfleet1 <- ret[ret$sex==sx & ret$fleet==i,]
+      tfleet2 <- tfleet1
+      tfleet3 <- tfleet2[,6:ncol(tfleet2)]
+      tfleet2 <- tfleet2[!duplicated(apply(as.matrix(tfleet3),1,paste0,collapse=' ')),]
+      tfleet2 <- tfleet2[order(tfleet2$tstep),]; tfleet2 <- tfleet2[order(tfleet2$year),]
+      tfleet3 <- tfleet2[,6:ncol(tfleet2)]
+      if(nrow(tfleet3)>=4){
+        filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",i,"Retention",".png"))
+        plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
+        parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
+        tfleet2 <- tfleet2[order(tfleet2$tstep),]
+        tfleet3 <- tfleet2[,6:ncol(tfleet2)]
+        lastfleet <- i
+        for(ts in 1:length(unique(tfleet2$tstep))){
+          tfleet4 <- tfleet2[tfleet2$tstep==ts,]
+          tfleet5 <- tfleet4[,6:ncol(tfleet4)]
+          id <- paste0("Age ",paste(unique(tfleet4$age),collapse='_')," Ts",tfleet4$tstep[1])
+          suppressWarnings(plot(lbin, tfleet5[1,], type='l', pch=16,cex=0.7,ylim=c(0,1), axes=F, ylab='Selectivity', xlab='Length (mm)', lty=1, main=id))
+          axis(1,seq(trunc(min(lbin)/5)*5,5+trunc(max(lbin)/5)*5,10))
+          axis(2,las=1)
+          for(nl in 2:nrow(tfleet5)){   lines(jitter(lbin), tfleet5[nl,], type='l',col=nl,lty=tfleet4$age[nl])      }
+          legend('topleft',lty=1, col=1:nrow(tfleet5),legend=tfleet4$year, bty = 'n')
+        }
+        caption <- paste("Retention curves pre-determined based on minimum and maximum legal size, sex and reproductive status in each timestep of the model. Different lines represent different ages (1=solid, 2=dashed,3=dotted)","Sex:",sx,"Fleet:",i)
+        addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+        } else {
+        tfleet1 <- ret[ret$sex==sx & ret$fleet%in%((lastfleet+1):i),]
+        tfleet2 <- tfleet1
+        tfleet3 <- tfleet2[,c(3,6:ncol(tfleet2))]
+        tfleet2 <- tfleet2[!duplicated(apply(as.matrix(tfleet3),1,paste0,collapse=' ')),]
+        tfleet2 <- tfleet2[order(tfleet2$year),]
+        tfleet3 <- tfleet2[,6:ncol(tfleet2)]
+        ## Look into the future
+        if(i < length(unique(ret$fleet))){
+          future <- ret[ret$sex==sx & ret$fleet==i+1,]
+          future <- future[,6:ncol(tfleet2)]
+          future <- sum(!duplicated(apply(as.matrix(future),1,paste0,collapse=' ')))      }
+        if(nrow(tfleet3)>=9 | i==length(unique(ret$fleet)) | future>length(unique(tfleet2$tstep))){
+          filename <- filenametopath(rundir,paste("Sex",sx,"Fleets",(lastfleet+1),"-",i,"Retention.png"))
+          plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
+          parset(plots=Fdims(nrow(tfleet3)), margin = c(1,1,1,0.5))
+          for(r in 1:nrow(tfleet3)){
+            id <- paste0('Fleet ',tfleet2$fleet[r]," Age ",tfleet2$age[r]," Time ",tfleet2$year[r],".",tfleet2$tstep[r])
+            suppressWarnings(plot(lbin, tfleet3[r,], type='l', pch=16,cex=0.7,ylim=c(0,1), axes=F, ylab='Selectivity', xlab='Length (mm)', lty=1, main=id))
+            axis(1,seq(trunc(min(lbin)/5)*5,5+trunc(max(lbin)/5)*5,10))
+            axis(2,las=1)
+          }
+          caption <- paste("Retention curves pre-determined based on minimum and maximum legal size, sex and reproductive status in each timestep of the model.","Sex:",sx,"Fleet:",lastfleet+1,"-",i)
+          addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+          lastfleet <- i
+        }
+      }
+      }
+    }
+
+  ### Growth
+  print("Making Growth Curves")
+  grow <- findNclean(c('#Growth','Curves'), dat, 2)
+  num <- length(unique(grow$sex))*length(unique(grow$area))
+  filename <- filenametopath(rundir,"Growth_Curves.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(num))
+
+  # Create unique area lookup
+  area_lookup <- fleetarea %>%
+    group_by(newarea) %>%
+    slice(1) %>%
+    ungroup() %>%
+    select(newarea, areaname)
+
+  # Prepare polygon data
+  poly_list <- list()
+  mode_list <- list()
+
+  for(iarea in unique(grow$area)){
+    for(isex in unique(grow$sex)){
+      tmp <- grow %>% filter(area == iarea, sex == isex)
+      Areaname <- area_lookup$areaname[match(iarea, area_lookup$newarea)]
+
+      # Extract the matrix
+      tmp2 <- as.matrix(tmp[, which(colnames(tmp) == 'lengthbins'):ncol(tmp)])
+      tmp2[tmp2 < 0.000001] <- NA
+
+      # Create polygons for each age
+      for(i in 2:nrow(tmp2)){
+        pos <- which(!is.na(tmp2[i, ]))
+
+        if(length(pos) > 0){
+          pos2 <- (min(pos)-1):(max(pos)+1)
+          pos2 <- pos2[pos2 > 0 & pos2 <= ncol(tmp2)]
+
+          # Build x-coordinates - save original crve for mode calc
+          crve_orig <- (i-1 + 10*tmp2[i, pos])
+          crve <- crve_orig
+          crve[length(crve)] <- i-1
+
+          if(pos[1] != pos2[1]) crve <- c(i-1, crve)
+          if(pos[length(pos)] != pos2[length(pos2)]) crve <- c(crve, i-1)
+
+          # Create polygon dataframe
+          poly_df <- data.frame(
+            age = crve,
+            length = lbin[pos2],
+            timestep = i,
+            area = Areaname,
+            sex = isex,
+            group_id = paste(iarea, isex, i, sep = "_")
+          )
+
+          poly_list[[length(poly_list) + 1]] <- poly_df
+
+          # Mode point
+          crve_for_mode <- crve_orig
+          crve_for_mode[length(crve_for_mode)] <- i-1
+
+          mode_df <- data.frame(
+            age = max(crve_for_mode),
+            length = lbin[pos][which.max(crve_for_mode)],
+            area = Areaname,
+            sex = isex
+          )
+          mode_list[[length(mode_list) + 1]] <- mode_df
+        }
+      }
+    }
+  }
+
+  all_poly <- bind_rows(poly_list)
+  all_modes <- bind_rows(mode_list)
+
+  # Create plot
+ suppressWarnings(print( ggplot() +
+    geom_polygon(data = all_poly,
+                 aes(x = age, y = length, group = group_id, fill = factor(sex)),
+                 alpha = 0.2, color = "grey70", linewidth = 0.2) +
+    geom_point(data = all_modes,
+               aes(x = age, y = length),
+               size = 0.5) +
+    facet_wrap(~ area + sex,
+               labeller = labeller(sex = c("1" = "Females", "2" = "Males"))) +
+    scale_fill_manual(values = c("1" = "red", "2" = "blue"), guide = "none") +
+    scale_x_continuous(breaks = seq(0, 30, 2), limits = c(0, 30)) +
+    labs(x = "Age (years)", y = "Carapace length (mm)") +
+    theme_bw() +
+    theme(strip.background = element_rect(fill = "white"),
+          panel.grid.minor = element_blank())))
+
+  caption <- "Growth curves derived from size transition matrices as interpreted by the model after import from the GROWTH.DAT file."
+  addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
+
+  ### Fit to Data
+  ### Commercial Catches
+  print("Making Model fit to Catch")
+  catch <- findNclean('#Catches', dat, 0)
+  Zcatch <- catch %>% group_by(Year, Area) %>% summarise(obs=sum(Observed), est=sum(Predicted))
+  graphrange <- range(Zcatch$Year)
+
+  filename <- filenametopath(rundir,"Total Catches.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(1))
+  tZcatch <- Zcatch %>% group_by(Year) %>% summarise(obs=sum(obs),est=sum(est))
+  ymx <- pretty(trunc(range(c(tZcatch$obs,tZcatch$est))/10)*10)
+  ymn<- ymx[1]; ymx <- max(ymx)
+  suppressWarnings(with(tZcatch, plot(Year, obs/1000, type='o', pch=16,cex=0.7,ylim=c(ymn,ymx)/1000, axes=F, ylab='Total Catch (t)', xlab='Fishing Season', lty=1, main='Total')))
+  with(tZcatch, lines(Year, est/1000, type='o',cex=0.7,col=2, lty=1))
+  axis(1, seq(min(Zcatch$Year), max(Zcatch$Year),2))
+  axis(2,seq(ymn/1000,ymx/1000,length=5), las=1)
+  caption <- "Observed (black) and estimated (red 95% CI grey) total commercial catches."
+  addplot(filen=filename,rundir=rundir,category="Catches",caption=caption)
+
+  filename <- filenametopath(rundir,"Cumulative Catches.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(1))
+  Zcatch %<>% mutate(Location=fleetarea$areaname[match(Area,fleetarea$newarea)], CatchT=obs/1000)
+  print(ggplot(Zcatch, aes(fill=Location, y=CatchT, x=Year)) +
+    viridis::scale_fill_viridis(discrete = T) +
+    geom_bar(position="stack", stat="identity") +
+    ylab('Catch (t)') +
+    theme(panel.background = element_rect(fill = "white",colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(vjust = 0.0, angle = 45)))
+  caption <- "Commercial catches by location"
+  addplot(filen=filename,rundir=rundir,category="Catches",caption=caption)
+
+  filename <- filenametopath(rundir,"Catches2.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  Zcatch %<>% mutate(arean=fleetarea$areaname[match(Area, fleetarea$newarea)])  %>% pivot_longer(col=c(obs,est), names_to = 'type') %>% mutate(`Catch (t)` = value/1000)
+  print(ggplot(Zcatch, aes(x=Year, y=`Catch (t)`,colour=type))+
+    geom_line()+geom_point()+
+    facet_wrap(~arean)+
+    scale_color_manual(values=c("red","black")) +
+    scale_size_manual(values = c(1, 0.5)) +
+    theme(panel.background = element_rect(fill = "white",colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(vjust = 0.0, angle = 45)))
+  caption <- "Observed (black) and estimated (red 95% CI grey) commercial catches by Model area on same scale."
+  addplot(filen=filename,rundir=rundir,category="Catches",caption=caption)
+
+  ### Index data
+  print("Making Model fit to Abundance Indices")
+  tdat <- findNclean(c('Index','data'), dat, 2)
+  cpuesd <- sdr[grepl('PredCpue', sdr$name),]
+
+  if(nrow(cpuesd)>0) suppressWarnings(tdat <- cbind(tdat,cpuesd))
+  if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), esd=NA,estlwr=est,estupr=est)
+  if(nrow(cpuesd)>0)  tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), estupr=exp(log(mean(Predicted))+(log(mean(Predicted))*mean(cv))*SclErr), estlwr=exp(log(mean(Predicted))-(log(mean(Predicted))*mean(cv))*SclErr))
+  if(nrow(cpuesd)>0) tdat %<>% mutate(se=sum(SE))
+
+  tdat2 <- tdat1 %>% pivot_longer(col=c(obs,est), names_to = 'type') %>% mutate(lwr=ifelse(type=='obs',obsLow,estlwr),upr=ifelse(type=='obs',obsUp,estupr))
+
+  tdat2$Fleettype <- fleets$group[match(tdat2$Fleet, fleets$fleet)]
+  tdat2$Area <- fleets$newarea[match(tdat2$Fleet, fleets$fleet)]
+  tdat2$Descrip <- fleets$description[match(tdat2$Fleet, fleets$fleet)]
+  tdat2 %<>% mutate(Areaname = unlist(strsplit(Descrip, '_'))[1])
+
+  unfleet <- sort(unique(tdat2$Fleet))
+  for(uf in unfleet)  {
+    tdat3 <- tdat2 %>% filter(Fleet==uf) %>% mutate(aSex=case_match(Sex, -1~'comb',0~'F',1~'M'))
+    filename <- filenametopath(rundir,paste0("Fleet ",uf,".png"))
+    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=c(1,1))
+    if(length(unique(tdat3$aSex))>1) {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+      geom_line()+geom_point()+
+      geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+      facet_grid(Time_step~aSex)+
+      scale_color_manual(values=c("red","black")) +
+      scale_size_manual(values = c(0.5, 0.5)) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+      ylab('Catch rate (kg/pot)'))} else {
+        {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+                 geom_line()+geom_point()+
+                 geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+                 facet_wrap(~Time_step)+
+                 scale_color_manual(values=c("red","black")) +
+                 scale_size_manual(values = c(0.5, 0.5)) +
+                 theme(panel.background = element_rect(fill = "white",colour = NA),
+                       panel.border = element_rect(fill = NA, colour = "grey20"),
+                       axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+                                                         ylab('Catch rate (kg/pot)'))}
+                                              }
+    caption <- paste(Sex, unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
+  }
+
+
+   #aes(linewidth = type)
+
+  #
+  # ttdat2 <- tdat1 %>% mutate(id=Fleet+Time_step/10, fleetsex=paste(Fleettype, Sex)) %>% group_by(fleetsex,id,Fleettype, Area,Descrip) %>% summarise(nobs=length(unique(id))) %>% mutate(id2=floor(id)) %>% group_by(fleetsex, id2,Fleettype,  Area, Descrip) %>% summarise(nobs=length((id2))) %>% group_by(Fleettype, Descrip) %>%  mutate(nobs2=cumsum(nobs), efl=NA) %>% as.data.frame()
+  # ttdat2$efl <- 1:nrow(ttdat2)
+  # for(r in 1:nrow(ttdat2))  {
+  #   ftype <- ttdat2$fleetsex[r]
+  #   totft <- ttdat2 %>% filter(fleetsex==ftype) %>% ungroup() %>% summarise(tot=sum(nobs)) %>% as.integer()
+  #   if(totft<=6) ttdat2$efl[ttdat2$fleetsex==ftype] <- (max(ttdat2$efl,na.rm=T)+1)
+  #   if(is.na(ttdat2$efl[r])){
+  #     if(ttdat2$nobs[r]>=4){ ttdat2$efl[r] <-ttdat2$id2[r]  } else {
+  #       npos <- which(ttdat2$nobs2>=(ttdat2$nobs2[r]+3))[1]
+  #       npos <- ifelse(is.na(npos), nrow(ttdat2), npos)
+  #       ttdat2$efl[r] <- ttdat2$id2[npos]
+  #       ttdat2$efl[r:which(ttdat2$id2==ttdat2$efl[r])] <- ttdat2$efl[r]
+  #     }}
+  # }
+  #
+  # tdat1 %<>% mutate(fleetsex=paste(Fleettype, Sex))
+  #
+  # # New page for each fleet
+  # for(f in 1:length(unique(ttdat2$efl))){
+  #   ifleet <- unique(ttdat2$fleetsex[ttdat2$efl==unique(ttdat2$efl)[f]])
+  #   nfleet <- unique(ttdat2$id2[ttdat2$efl==unique(ttdat2$efl)[f]])
+  #   tdat2 <- tdat1 %>% filter(fleetsex%in%ifleet & Fleet%in%nfleet) %>% mutate(id = paste0('Area: ', Area, ' Ts: ',Time_step))
+  #
+  #   edf <- expand.grid(Year=sort(unique(tdat1$Year)), Time_step=sort(unique(tdat1$Time_step)), Fleet =sort(unique(tdat2$Fleet)), Fleettype=sort(unique(tdat2$Fleettype)))
+  #   tdat2 %<>%  full_join(edf, by = c('Fleet', 'Year', 'Time_step', 'Fleettype')) %>% arrange(Year) %>% mutate(id = paste('Area: ', Area, ' Ts: ',Time_step)) %>% filter(!is.na(Sex))
+  #   tdat2est <- tdat2 %>% dplyr::select(Sex,Fleet,Year,Time_step,obs,est,Fleettype,id) %>% pivot_longer(c(obs,est),values_to='mn')
+  #   tdat2estsd <- tdat2 %>% mutate(osd=exp(Lse), esd=estlwr-est) %>%  mutate(obs=osd, est=ifelse(is.na(esd),0,esd)) %>%  dplyr::select(Sex, Fleet,Year,Time_step,obs,est,Fleettype,id) %>% pivot_longer(c(obs,est),values_to='sd')
+  #   tdat2est %<>% full_join(tdat2estsd, by = c('Sex', 'Fleet', 'Year', 'Time_step', 'Fleettype', 'id', 'name')) %>% mutate(name=ifelse(name=='obs', 'Observed', 'Estimated'), name=factor(name, levels=c('Observed', 'Estimated'))) %>% mutate(ecol=ifelse(name=='Observed', grey(0.2,0.2), rgb(1,0,0,0.2)))
+  #
+  #   tdat2est %<>% group_by(id) %>% mutate(num=sum(mn,na.rm=T)) %>% filter(num>0)
+  #   tdat2est %<>% mutate(uqsex= Sex, locsex=paste(uqsex,Fleettype))
+  #   Sex <- unique(tdat2est$uqsex)
+  #   SurveyType <- unique(tdat2est$Fleettype)
+  #   Iid <- paste(f, unique(tdat2est$Fleettype), 'Fleet',paste(unique(tdat2est$Fleet),collapse =' '))
+    # filename <- filenametopath(rundir,paste0("Sex ", Sex, " Index ",Iid,".png"))
+    # plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    # parset(plots=c(1,1))
+    # suppressWarnings(print(ggplot(tdat2est, aes(Year, mn, col=name)) +
+    #                          geom_line() + geom_point(size=0.5)+
+    #                          scale_color_manual(values = c("black", "red")) +
+    #                          geom_errorbar(aes(ymin=mn-sd, ymax=mn+sd, color=name) , width=.2,position=position_dodge(0.05)) +
+    #                          labs(x="Year",y="Catch rate")+
+    #                          facet_wrap(~id, scales = "free_y") + theme_bw() +
+    #                          guides(col= guide_legend(title=unique(tdat2est$locsex)))))
+    # caption <- paste(Sex, " ", SurveyType, "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    # addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
+  #}
+
+  ### Fishing Efficiency ###
+  print("Making Fishing Efficiency")
+  filename <- filenametopath(rundir,paste0("Fishing_Efficiency.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  fcreep <- findNclean(c('Fishing','Efficiency'), dat, 2)
+  fcreepsd <- sdr[grepl('CpueEcreep', sdr$name),]
+
+  if(nrow(fcreepsd)>0) {fcreep <- cbind(fcreep,fcreepsd) %>% mutate(Match=paste(id,Year))} else{
+     fcreep %<>% mutate(SE=0, upr=Predicted, lwr=Predicted, Match=paste(id,Year)) }
+  tdat <- expand.grid(area=1:nareas, year=yr)
+  fcre <- fleetarea %>% filter(group=='comm')
+  tdat$fcreep <- fcre$effic.creep[match(tdat$area, fcre$newarea)]
+  fcreep %<>% rename(est=Predicted, fcreep=id, year=Year) %>% dplyr::select(est,fcreep,year,lwr,upr)
+  tdat %<>% left_join(fcreep, by=c('year', 'fcreep'))
+  fleetarea1 <- fleetarea %>% group_by(newarea, areaname) %>% summarise(cnt=length(newarea))
+  tdat %<>% mutate(locname=fleetarea1$areaname[match(area,fleetarea1$newarea)])
+  suppressWarnings(print(ggplot(data=tdat, aes(year, est)) +
+                           geom_errorbar(aes(ymin=lwr,ymax=upr),colour='grey70')+
+                           geom_line() + geom_point(size=0.5)+
+                           scale_color_manual(values = c("red")) +
+                           #geom_errorbar(aes(ymin=mn-sd, ymax=mn+sd, color=name) , width=.2,position=position_dodge(0.05)) +
+                           labs(x="Year",y="Fishing efficiency")+
+                           facet_wrap(~locname) + theme_bw()))
+
+  caption <- "Estimated (95% CI grey) compounding commercial fishing efficiency for each model area."
+  addplot(filen=filename,rundir=rundir,category="Fishing_Efficiency",caption=caption)
+
+  ### Recruitment
+  ### Puerulus Data
+  print("Making Recruitment")
+  rec <- findNclean(c('Larval','data'), dat, 1)
+    if(!is.na(rec[1,1]))  {
+      recsd <- sdr[grepl('Larval', sdr$name),]
+      if(length(recsd$SE[!is.na(recsd$SE)])>0) {rec <- cbind(rec,recsd) } else {rec %<>% mutate(upr=Predicted, lwr=Predicted)}
+      mxyr <- max(rec$Year)
+      rec %<>% filter(Year<(mxyr-2)) %>% mutate(ObsUp=Observed+SD*SclErr, ObsLow=Observed-SD*SclErr, PredUp=upr, PredLow=lwr)
+      filename <- filenametopath(rundir,paste0("Recruitmant_Index.png"))
+      plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+      parset(plots=Fdims(length(unique(rec$Area))))
+      for(i in sort(unique(rec$Area))){
+        tdat2 <- rec[rec$Area==i,]
+        Mx <- max(c(tdat2$Observed, tdat2$Predicted),na.rm=T)
+        suppressWarnings(with(tdat2, plot(Year, Observed, type='o', axes=F, ylab='Predicted recruitment', xlab='Puerulus Settlement', lty=1, main=paste('Area',i),ylim=c(0,Mx), xlim=c(1970,graphrange[2])) ))
+        suppressWarnings(with(tdat2, arrows(Year, ObsUp,y1=ObsLow,code=3,angle=90,length=0.025,col=grey(0.3,0.3))))
+        with(tdat2, lines(Year, Predicted, col=2, pch=16, type='o'))
+        if(sum(recsd$SE[!is.na(recsd$SE)])!=0) suppressWarnings(with(tdat2, arrows(Year, Estimate+SE,y1=Estimate-SE, code=3,angle=90,length=0.05,col=2)))
+        axis(1); axis(2)
+      }
+      caption <- "Observed (black) and estimated (red 9% CI grey) puerulus levels in each area of the model."
+      addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+    }
+
+  # Mean recruitment by area
+  rec <- findNclean(c('Recruitment','by'), dat, 1,0)
+  if(!'se'%in%colnames(rec)) rec %<>% mutate(se=0)
+  rec2 <- rec %>% filter(rec$Year==min(rec$Year)) %>% mutate(cv=se/est, Nme=fleetarea$areaname[match(area,fleetarea$newarea)]) %>% mutate(Prop=est/sum(est), se2=cv*Prop, lwr=Prop-se2*SclErr, upr=Prop+se2*SclErr, lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
+  # rec2 <- rec %>% filter(rec$Year==min(rec$Year)) %>% mutate(lwr=est-se*SclErr,upr=est+se*SclErr, Nme=fleetarea$areaname[match(area,fleetarea$newarea)], lwr=ifelse(lwr<0,0,lwr))
+  nareas <- length(unique(rec2$area))
+  Ylim <- c(0, max(rec2$upr))
+  filename <- filenametopath(rundir,paste0("Recruitmant_By_Area1.png"))
+  plotprep(width=5,height=5,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(
+    ggplot(data=rec2, aes(x=area,y=Prop))+
+      geom_errorbar(aes(ymin=lwr,ymax=upr), width=0.25, colour='grey60')+
+      geom_point()+
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 0)) +
+      scale_x_discrete('Area',breaks=1:nareas,labels=rec2$Nme, limits=as.character(c(1:6)))+
+      ylab('Relative mean recruitment')
+  )
+  caption <- "Relative mean recruitment by area."
+  addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  rec2 <- rec %>% mutate(lwr=est-se*SclErr,upr=est+se*SclErr, Area=fleetarea$areaname[match(area,fleetarea$newarea)], lwr=ifelse(lwr<0,0,lwr)) %>% filter(Year%in%Data$Year1:Data$Year2)
+  filename <- filenametopath(rundir,paste0("Recruitmant_By_Area2.png"))
+  plotprep(width=5,height=5,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(
+    ggplot(rec2, aes(x=Year, y=est, colour=Area))+
+      geom_line(linewidth=1) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 0)) +
+    ylab('Recruitment (numbers)')
+  )
+  caption <- "Annual mean recruitment by area."
+  addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  filename <- filenametopath(rundir,paste0("Recruitmant_By_Area3.png"))
+  plotprep(width=5,height=5,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(
+    ggplot(rec2, aes(x=Year, y=est))+
+      geom_errorbar(aes(ymin=lwr, ymax=upr), colour='grey60')+
+      geom_line(linewidth=1) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 0)) +
+      ylab('Recruitment (numbers)')+
+      facet_wrap(~Area)
+  )
+  caption <- "Annual mean recruitment by area with 95% CI."
+  addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  # ##Get parameters
+  # p1 <- which(dat[,1]=="#" & dat[,2]=='parameter' & dat[,3]=='table')
+  # p2 <- which(dat[,1]=="#Total" & dat[,2]=='estimated' & dat[,3]=='parameters:')
+  # pout <- dat[(p1+2):(p2-1),c(1,3,4,5)]
+  # names(pout) <- c('name', 'estimated', 'value', 'se')
+  # pout$estimated <- ifelse(is.na(pout$estimated), 0, 1)
+  # recP <- pout[grepl('Recruit', pout$name),][1:nareas,]
+  # recP %<>% mutate(value=as.numeric(as.character(value)), se = as.numeric(as.character(se)), se=ifelse(is.na(se),0,se), cv=se/value, cv=ifelse(cv=='NaN',0,cv))
+  # recP %<>% mutate(mn=exp(value)/sum(exp(value)), se2=mn*abs(cv),lwr=mn-se2*SclErr,upr=mn+se2*SclErr, lwr=ifelse(lwr<0,0,lwr),upr=ifelse(upr>1,1,upr)) %>% mutate(area=1:nareas, Nme=fleetarea$areaname[match(area,fleetarea$newarea)])
+  # Ylim <- c(0, 1)
+  # filename <- filenametopath(rundir,paste0("Recruitmant_By_Area.png"))
+  # plotprep(width=5,height=5,filename=filename,cex=0.9,verbose=FALSE)
+  # parset(plots=c(1,1))
+  # suppressWarnings(plot(1:nrow(recP), recP$mn, axes=F, pch=16,ylim=Ylim,xlab='Area of recruitment', ylab='Proportion of recruitment'))
+  # if(!is.na(recP$se[1])) suppressWarnings(arrows(1:nrow(recP), recP$lwr, y1 = recP$upr, code=3, angle=90, length=0.05))
+  # axis(1,recP$area, recP$Nme)
+  # axis(2,las=1)
+  # caption <- "Relative mean recruitment by area."
+  # addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  # yearP <- pout[grepl('RecDevs', pout$name),]
+  # lb <- findNclean(c('#Biomass','>76', 'by'), dat, 1)
+  # colnames(lb) <- c('Year','Area','est', 'sd')[1:ncol(lb)]
+  # yr <- sort(unique(lb$Year))
+  # filename <- filenametopath(rundir,paste0("Recruitmant_Deviations.png"))
+  # plotprep(width=5,height=5,filename=filename,cex=0.9,verbose=FALSE)
+  # parset(plots=c(1,1))
+  # suppressWarnings(plot(yr[1:length(yearP$est)], yearP$value, axes=F, pch=16,xlab='Year of recruitment', ylab='Deviation', type='o',cex=0.7))
+  # abline(h=mean(as.numeric(yearP$value)), col=2, lty=3)
+  # axis(1, yr)
+  # axis(2)
+  # caption <- "Recruitment deviations."
+  # addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  recfrac <- findNclean(c('Recruitment','Fractions'), dat, 1,0)
+  # recfrcpos <- find(c('#','Pattern','Type'), selx, 1)[1]-1
+  # selx1 <- selx[recfrcpos:(ncol(recfrac)+recfrcpos-1),1:10]
+  # nms <- gsub('#','',selx1[1,],fixed = T)
+  # nms <- nms[nchar(nms)>2]
+  # selx1 <- selx1[2:nrow(selx1),]
+  # selx1 <- selx1[,selx1[1,]!='']
+  # names(selx1)<-nms[1:ncol(selx1)]
+
+  filename <- filenametopath(rundir,paste0("Recruitmant_Size_Dis.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(dim(recfrac)[2]-1))
+  for(cl in 2:dim(recfrac)[2]) {
+    suppressWarnings(plot(recfrac[,1], recfrac[,cl], axes=F, pch=16,xlab='Lower length bin (mm)', ylab='Proportion', type='o',cex=0.7, ylim=c(0,max(recfrac[,2:ncol(recfrac)])), main=))
+    lines(recfrac[,1], recfrac[,cl], type='o',cex=0.7, col=(cl-1))
+    axis(1);axis(2)}
+  caption <- "Recruiting size composition."
+  addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  # ### Estimated Recruitment Data
+  # rec <- findNclean(c('Recruitment','by'), dat, 1,0)
+  # colnames(rec) <- c('Year','Area','est','sd')[1:ncol(rec)]
+  # rec %<>% filter(Year<=max(rec$Year))
+  # filename <- filenametopath(rundir,paste0("EStimated_Recruitmant.png"))
+  # plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  # parset(plots=Fdims(length(unique(rec$Area))))
+  # for(i in sort(unique(rec$Area))){
+  #   tdat2 <- rec[rec$Area==i,]
+  #   suppressWarnings(with(tdat2, plot(Year, est/1000000, type='o', cex=0.8, pch=16, axes=F, ylab='Recruitment (Deviation (millions lobster)', xlab='Year', lty=3, col=2, main=paste('Area',i))))
+  #   axis(1, rec$Year); axis(2)
+  # }
+  # caption <- "Estimated (red 95% CI grey) recruitment (millions) in each area of the model."
+  # addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
+
+  ## Movement
+  print("Making Movement")
+  moveP <- pout[grepl('MovePars', pout$name),]
+  mov2 <- findNclean(c('#','Movement','parameters'), mov1, 1,0, char=T)
+  mov3 <- findNclean(c('#','Movement','specifications'), mov1, 1,0, char=T)
+  mov4 <- findNclean(c('#','Pattern','Type'), mov1, 1,0, char=F)
+  mov3 <- mov3[mov3[,5]>0,]
+  if(nrow(mov3)>0){
+    nms <- rep(NA,nrow(mov2)) ; stcol <- which(mov2[1,]=='#')+1
+    for(r in 1:nrow(mov2)){ nms[r] <- paste(mov2[r,stcol:ncol(mov2)],collapse=' ') }
+    filename <- filenametopath(rundir,paste0("Movement.png"))
+    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=Fdims(nrow(mov3)))
+    nm <- unique(nms)
+    for(i in 1:nrow(mov3)){
+      mtmp <- mov3[i,]
+      Age <- as.numeric(mtmp[1]) + 1
+      fromArea <- as.numeric(mtmp[2]) + 1
+      TStep <- as.numeric(mtmp[3]) + 1
+      vec <- as.numeric(mtmp[4:ncol(mtmp)])
+      toArea <- unique(mov4[as.numeric(mov4[,1])%in%vec,3]+1)
+      vec2 <- as.numeric(moveP$value[vec])
+      yrs <- startseason:endseason
+      suppressWarnings(plot(yrs, vec2[1:length(yrs)], ylim=c(0,1), type='o', axes=F,pch=16,xlab='Years', ylab='Proportion moving', main=paste(fromArea,'to',toArea)))
+      axis(1,cex.axis=1)
+      axis(2)
+    }
+    caption <- "Estimated (red 95% CI grey) migration between areas of the model."
+    addplot(filen=filename,rundir=rundir,category="Movement",caption=caption)
+  }
+
+  ###Size compositions
+  ### Virgin Size Composition
+  print("Making Size Compositions")
+  ### Population size distribution - pooled
+  tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+  cnames <- colnames(tdat)
+  cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+  colnames(tdat) <- cnames
+  end <- 3+length(which(grepl('prop',colnames(tdat))))
+  nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+  colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+  ## Convert proportions to numbers
+  for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+  tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+  ## Convert back to proportions
+  for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+  pos <- which(grepl('prop', colnames(tdat1)))
+  tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+  tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+  colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+  for(isex in unique(tdat1$Sex)){
+    filename <- filenametopath(rundir,paste0(isex, "Fitted_Size_Comp.png"))
+    plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+    #parset(plots=Fdims(length(unique(tdat1$Fleet))),margin = c(0.45, 0.45, 0.1, 0.05))
+    parset(plots=c(1,1))
+    #par(mfrow=c(Fdims(length(unique(tdat1$Fleet)))))
+
+    tdat2 <- tdat1 %>% filter(Sex==isex) %>% pivot_longer(starts_with("lb"),names_to='albin',values_to = 'prop') %>% mutate(lbin=as.numeric(gsub('lb ','',albin))) %>%  mutate(fname = fleetarea$description[match(Fleet,fleetarea$fleet)]) %>% mutate(source=ifelse(O.P=='O','Observed','Predicted'))
+    print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
+      geom_line()+geom_point(size = 0.9) +
+      ylab('Proportion') +
+      facet_wrap(~fname) +
+      scale_color_manual(values=c("black","red")) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 45))+
+      xlab('Length bin (mm)')
+  )
+    caption <- paste('Sex = ',isex, "Catches by fleet, summed over years and time-steps (weighted by observations - Obs, black vs Exp, red).")
+    addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+  }
+
+  tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+  cnames <- colnames(tdat)
+  cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+  colnames(tdat) <- cnames
+  end <- 3+length(which(grepl('prop',colnames(tdat))))
+  nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+  colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+  ## Convert proportions to numbers
+  for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+  tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex,Year) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+  ## Convert back to proportions
+  for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+  pos <- which(grepl('prop', colnames(tdat1)))
+  tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+  tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+  colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+  yrs <- c(min(tdat1$Year),median(tdat1$Year), max(tdat1$Year))
+  for(isex in unique(tdat1$Sex)){
+    for(ifleet in unique(tdat1$Fleet)){
+      tdat2 <- tdat1 %>% filter(Fleet==ifleet & Sex==isex) %>% pivot_longer(starts_with("lb"),names_to='albin',values_to = 'prop') %>% mutate(lbin=as.numeric(gsub('lb ','',albin))) %>%  mutate(fname = fleetarea$description[match(Fleet,fleetarea$fleet)]) %>% mutate(source=ifelse(O.P=='O','Observed','Predicted'))
+      fname <- unique(tdat2$fname)
+      filename <- filenametopath(rundir,paste0(isex," ",ifleet,"Fitted_Size_Comp2.png"))
+      plotprep(width=9,height=9,filename=filename,cex=0.9,verbose=FALSE)
+      parset(plots=c(1,1), margin = c(.5,.5,.5,.2))
+      print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
+              geom_line()+geom_point(size = 0.9) +
+              ylab('Proportion') +
+              facet_wrap(~Year) +
+              scale_color_manual(values=c("black","red")) +
+              theme(panel.background = element_rect(fill = "white",colour = NA),
+                    panel.border = element_rect(fill = NA, colour = "grey20"),
+                    axis.text.x = element_text(vjust = 0.0, angle = 45))+
+              xlab('Length bin (mm)') + labs(color = fname)
+      )
+      caption <- paste('Sex =',isex, "Fleet =",fname, "Size compositions by fleet, area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
+      addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+
+      ## Line graphs
+      filename <- filenametopath(rundir,paste0(isex," ",ifleet,"Median_Size_Comp2.png"))
+      plotprep(width=9,height=9,filename=filename,cex=0.9,verbose=FALSE)
+      parset(plots=c(1,1))
+      ttmp <- tdat1 %>% filter(Fleet==ifleet & Sex==isex)
+      tid <- ttmp %>% select(!starts_with('lb')) %>% mutate(O.P=ifelse(O.P=='O','Observed','Predicted')) %>% as.data.frame()
+      tmat <- ttmp %>% select(starts_with('lb')) %>% as.data.frame()
+      lbinM <- lbin + (diff(lbin[1:2])/2)
+      funcoutMn <- function(x)  mean(rep(lbinM,x*1000))
+      funcoutSd <- function(x)  sd(rep(lbinM,x*1000))
+      tid$`Mean width (mm)` <- apply(tmat, 1, funcoutMn)
+      tid$sd <- apply(tmat, 1, funcoutSd)
+      nms <- unique(fleetarea$description[match(tid$Fleet, fleetarea$fleet)])
+      print(ggplot(tid,aes(x=Year,y=`Mean width (mm)`, colour=O.P), )+
+        ggtitle(paste(isex,nms))+
+        scale_color_manual(values=c(1,2))+
+        geom_errorbar(data=tid[tid$O.P=='Observed',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), linewidth=0.9)+
+        geom_errorbar(data=tid[tid$O.P=='Predicted',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), colour=2, linewidth=0.6)+
+        geom_line(linewidth = 1)+geom_point(size=2)+
+        theme(panel.background = element_rect(fill = "white",colour = NA),
+              panel.border = element_rect(fill = NA, colour = "grey20"),
+              axis.text.x = element_text(vjust = 0.0, angle = 0)))
+
+      caption <- paste('Sex =',isex, "Fleet =",ifleet, "Area =", nms, "Median size compositions by fleet/area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
+      addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+    }
+  }
+
+  # tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+  # cnames <- colnames(tdat)
+  # cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+  # colnames(tdat) <- cnames
+  # end <- 3+length(which(grepl('prop',colnames(tdat))))
+  # nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+  # colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+  # ## Convert proportions to numbers
+  # for (i in 1:length(nms)){   tdat[, nms[i]==names(tdat)] <- tdat$Nsamp * tdat[,nms[i]==names(tdat)] }
+  # tdat1 <- tdat  %>% group_by(O.P,Fleet,Sex,Step) %>% summarise_at(c('Nsamp',nms), sum) %>% filter(!is.na(Nsamp)) %>% as.data.frame()
+  # ## Convert back to proportions
+  # for (i in 1:length(nms)){   tdat1[, nms[i]==names(tdat1)] <- tdat1[,nms[i]==names(tdat1)]/tdat1$Nsamp }
+  # pos <- which(grepl('prop', colnames(tdat1)))
+  # tdat1$tot <- apply(as.matrix(tdat1[,pos]),1,sum)
+  # tdat1[,pos] <- tdat1[,pos]/tdat1$tot
+  # colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+  #
+  # for(isex in unique(tdat1$Sex)){
+  #   tmp <- tdat1[tdat1$Sex==isex,] %>% mutate(fs = paste(Fleet, Step))
+  #   filename <- filenametopath(rundir,paste0(Sex, "Fitted_Size_Comp3.png"))
+  #   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  #   parset(plots=Fdims(length(unique(tmp$fs))))
+  #   for(ifleet in unique(tdat1$Fleet)){
+  #     for(istep in unique(tdat1$Step)){
+  #       tmp <- tdat1[tdat1$Step==istep & tdat1$Fleet==ifleet & tdat1$Sex==isex,]
+  #       fname <- fleetarea$description[fleetarea$fleet==ifleet]
+  #       if(nrow(tmp)>0){
+  #         plot(lbin, tmp[tmp$O.P=='O',pos], xlab='', pch=16, col=1, type='o',ylab='Proportion', main=paste('Sex',isex,' ',fname, ",Step",istep), ylim=c(0,max(tmp[,pos])), axes=F)
+  #         lines(lbin, tmp[tmp$O.P=='P' ,pos], col=2,lty=3, type='o')
+  #         axis(2)
+  #         axis(1,lbin)
+  #       }   }   }
+  #   caption <- paste('Sex = ',isex, "Size compositions by area and time-step, summed over years (weighted by observations - Obs, black vs Exp, red).")
+  #   addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+  # }
+
+  ### Commercial Catch Size Composition
+  tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+  cnames <- colnames(tdat)
+  cnames[substr(cnames,1,1)=='a'] <- paste('prop', 1:sum(substr(cnames,1,1)=='a'))
+  colnames(tdat) <- cnames
+  end <- 3+length(which(grepl('prop',colnames(tdat))))
+  nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+  tdat1 <- tdat  %>% group_by(Fleet,Sex,Year,Step) %>% summarise_at(nms, diff) %>%
+    mutate(yrstep = Year+(Step-1)/(max(Step))) %>% as.data.frame()
+  pos <- which(grepl('prop', colnames(tdat1)))
+  colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
+
+  scale <- 0.05
+  for(isex in unique(tdat1$Sex)){
+    Sex <- case_when( isex %in% -1 ~  'U', isex %in% 0 ~ 'F',isex %in% 1 ~ 'M')
+    filename <- filenametopath(rundir,paste0(isex, "Fitted_Size_Comp3.png"))
+    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=Fdims(1+length(unique(tdat1$Fleet))))
+    for(ifleet in unique(tdat1$Fleet)){
+      tdat2 <- data.frame(tdat1[tdat1$Fleet==ifleet &tdat1$Sex==isex,])
+      fname <- fleetarea$description[fleetarea$fleet==ifleet]
+      if(nrow(tdat2)>0){
+        tdat2 <- reshape2::melt(tdat2, variable.name = "Lbin",value.name = "diff",measure.vars=pos)
+        if(!length(tdat2$Lbin)>0) {
+          tdat2$Lbin <- tdat2$variable
+          tdat2$diff <- tdat2$value  }
+        tdat2$lb <- as.numeric(substr(tdat2$Lbin,4,7))
+        if(nrow(tdat2)>0){
+
+          tmp <- tdat2 %>% filter(abs(diff)>0) %>% mutate(mn=min(lb), mx=max(lb)) %>% group_by(mn, mx) %>% summarise(n=length(mn))
+          suppressWarnings(with(tdat2[tdat2$diff>0,], symbols(yrstep, lb, circles = diff, bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylab='Length Bin', xlab='Fishing Season', bty='l', xlim=c(1970,graphrange[2]),ylim=c(tmp$mn,tmp$mx), main=paste('Sex',isex,', ',fname),las=1)))
+          with(tdat2[tdat2$diff<0,], symbols(yrstep, lb, circles = -diff,bg=rgb(0,0,1,0.2), fg=rgb(0,0,1,0.2), inches=scale, add = T))
+        }}
+    }
+    suppressWarnings(symbols(rep(1,4),seq(1.8,0.6,-0.4),circles=c(1,0.75,0.5,0.25), bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylim=c(0,3), ylab='', xlab='', bty='n', xlim=c(0.5,1.5), axes=F))
+    text(1,2,paste('Size Composition\nSex',isex), cex=0.8, pos=3)
+    text(rep(1.1,4),seq(1.8,0.6,-0.4),c(1,0.75,0.5,0.25), pos=4, cex=0.8)
+    text(1,0.1,'Proportional difference', cex=0.8)
+
+    caption <- paste('Sex = ',isex, "Positive (red) and negative (blue) residuals between the observed and predicted proportions across lengths bins from each model area.")
+    addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+
+  }
+
+  Ilen <- findNclean(c('Initial','N-matrix'), dat, 2,0)
+  colnames(Ilen)[is.na(colnames(Ilen))] <- paste('L',1:length(colnames(Ilen)[is.na(colnames(Ilen))]),sep='')
+  filename <- filenametopath(rundir,paste0("Virgin_Size_Comp.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(Ilen$Area))*length(unique(Ilen$Sex))))
+  for(i in sort(unique(Ilen$Area))){
+    for(s in sort(unique(Ilen$Sex))){
+      tdat2 <- Ilen[Ilen$Area==i & Ilen$Sex==s,]
+      lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
+      mx <- sqrt(max(lens/1e+6))
+      Col <- ifelse(s==1,rgb(1,0,0,0.3),rgb(0,0,1,0.3,0.3))
+      suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+      polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[1,]/1e+6)),0,0), col=Col,border=NA)
+      abline(v=76, lty=1)
+      for(sa in 2:length(unique(tdat2$Age))){
+        polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[sa,]/1e+6)),0,0), col=Col,border=NA)
+      }
+      axis(1,lbin); axis(2)
+    }}
+  caption <- "The size composition at the end of the burn-In.  Each plot represents one area in the model and the various lines are the different sex and age groups. Sex 1 is red and Sex 2 blue."
+  addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+
+  ## Initial size composition
+  Ilen <- findNclean(c('Full','N-matrix'), dat, 2,0)
+  colnames(Ilen)[is.na(colnames(Ilen))] <- paste('L',1:length(colnames(Ilen)[is.na(colnames(Ilen))]),sep='')
+  Ilen %<>% filter(Year==startseason, `Time-step`==max(`Time-step`))
+
+  filename <- filenametopath(rundir,paste0(startseason, "_Size_Comp.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(Ilen$Area))*length(unique(Ilen$Sex))))
+  for(i in sort(unique(Ilen$Area))){
+    for(s in sort(unique(Ilen$Sex))){
+      tdat2 <- Ilen[Ilen$Area==i & Ilen$Sex==s,]
+      lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
+      mx <- sqrt(max(lens/1e+6))
+      Col <- ifelse(s==1,rgb(1,0,0,0.3),rgb(0,0,1,0.3,0.3))
+      suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+      polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[1,]/1e+6)),0,0), col=Col,border=NA)
+      abline(v=76, lty=1)
+      for(sa in 2:length(unique(tdat2$Age))){
+        polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[sa,]/1e+6)),0,0), col=Col,border=NA)
+      }
+      axis(1,lbin); axis(2)
+    }}
+  caption <- "The size composition at the start of the model time-series (Year 1, final time-step).  Each plot represents one area in the model and the various modes are the different sex and age groups. Sex 1 is red and Sex 2 blue."
+  addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
+
+
+  ### Tuning Length Composition Sample Size
+  tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
+  cnames <- colnames(tdat)
+  cnames[is.na(cnames)] <- paste('prop', 1:sum(is.na(cnames)))
+  colnames(tdat) <- cnames
+  end <- 3+length(which(grepl('prop',colnames(tdat))))
+  nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
+  colnames(tdat)[colnames(tdat)=='Obs/Pred'] <- 'O.P'
+  tdat <- tdat[tdat$O.P=="P",]
+  Sexs <- sort(unique(tdat$Sex))
+  Fleets <- sort(unique(tdat$Fleet))
+  tune <- findNclean(c('Length','data','tuning'), dat, 1, convert=1) %>% mutate(Multiscale=NA)
+  didtune <- findNclean(c('#','Weights','by','fleet'), ctl1, 3)
+  tdat$ScaleNsamp <- didtune[match(tdat$Fleet,(didtune$Fleet+1)),5]
+  tdat %<>% mutate(ScaleNsamp=ifelse(is.na(ScaleNsamp),1,ScaleNsamp))
+
+  filename <- filenametopath(rundir,paste0("Tuning_Size_Comp.png"))
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(Fleets))*length(unique(Sexs))))
+  Tuneout <- expand.grid(sex=Sexs,fleet=Fleets,scale=NA)
+  for (isex in 1:length(Sexs)){
+    for (ifleet in 1:length(Fleets)){
+      tmp <- tdat[tdat$Sex==Sexs[isex] & tdat$Fleet==Fleets[ifleet],c("ScaleNsamp","EffN")]
+      rng <- c(0,max(tmp,na.rm=T))
+      plot(tmp$ScaleNsamp, tmp$EffN,pch=16,col=grey(0.4,0.3), ylim=c(0,max(tmp$EffN)), xlim=c(0,max(tmp$ScaleNsamp)), xlab='Scaled Sample Size', ylab='EffN',bty='l')
+      lm1 <- lm(EffN~ScaleNsamp-1, data=tmp)
+      abline(a=0,b=1,lty=1,col="red",lwd=2)
+      abline(a=0,b=coef(lm1),lty=1,col="green",lwd=2)
+      Tuneout$scale[Tuneout$sex==Sexs[isex] & Tuneout$fleet==Fleets[ifleet]] <- round(coef(lm1),5)
+      tune$Multiscale[tune$Sex==isex & tune$Fleet==Fleets[ifleet]] <- round(coef(lm1),5)
+      mtext(paste("Sx= ",Sexs[isex]," Ft= ",Fleets[ifleet], " Multi= ",round(coef(lm1),5)," Francis ",round(tune$Francis_Multiplier[tune$Sex==isex & tune$Fleet==Fleets[ifleet]],5),sep=""),3,line = -0.5, cex = 0.7)
+    } }
+
+  caption <- "By sex and fleet, summed over years and time-steps (red is 1:1 and green is data regression)."
+  addplot(filen=filename,rundir=rundir,category="TuningSizeComp",caption=caption)
+
+  filen <- "Tuning.csv"  # csv files only
+  addtable(intable=tune,filen=filen,rundir=rundir,category="TuningSizeComp",caption="Tuning values.")
+
+  ## Model Outputs
+  ### Relative Legal Biomass by area
+  print("Making Legal Biomass")
+  lb <- findNclean(c('#Legal','Biomass', 'by'), dat, 2, convert = 2)
+  if(ncol(lb)==3) lb$se <- 0
+  lb %<>% dplyr::select(area,year=Year,est,se)   ## Uses the reference legal statement >76
+  #write.csv(lb,'egg.csv')
+  virgin <- data.frame(est=findNclean(c('#Virgin','Legal'), dat, 1)) %>% mutate(area=1:nrow(.))  ## Uses the reference legal statement >76
+  lb %<>% mutate(virgin=virgin$est[match(area,virgin$area)], `Legal Biomass (t)`=est/1e+3, LBlwr=(est-se*SclErr)/1e+3, LBupr=(est+se*SclErr)/1e+3, rel=est/virgin, rellwr=(est-se*SclErr)/virgin, relupr=(est+se*SclErr)/virgin) %>% filter(est>0)
+  lb %<>% filter(year>=GeneralSpecs$Year1) %>% group_by(area) %>% mutate(`B/B0`=rel/max(rel), lwr=rellwr/max(rel), upr=relupr/max(rel), lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
+  areas <- readWorkbook(wb,sheet='area', startRow = 2)
+  lb$areaname <- areas$Name[match(lb$area,areas$AreaCode)]
+  reflev <- findNclean(c('#', 'Biomass', 'target'), ctl1, 1)
+  colnames(reflev) <- c('target','threshold','limit')
+  styr <- findNclean(c('#','First', 'year'), lbin1, 1)
+
+  ## Relative biomass
+  alllb <- lb %>% group_by(year) %>% summarise(est=sum(est), vir=sum(virgin), se=sqrt(sum(se^2))) %>% mutate(rel=est/vir, lwr=(est-se*SclErr)/vir, upr=(est+se*SclErr)/vir) %>% mutate(`B/B0`=rel/max(rel), lwr=lwr/max(rel), upr=upr/max(rel))
+  filename <- filenametopath(rundir,paste0("Relative_Legal_Biom.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(alllb, aes(x=year,y=`B/B0`))+
+          geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2,colour='grey70')+
+          geom_line( linewidth=1)+
+          geom_point(size=1)+
+          geom_hline(yintercept = reflev$target, colour='green', linewidth=1)+
+          geom_hline(yintercept = reflev$threshold, colour='orange', linewidth=1)+
+          geom_hline(yintercept = reflev$limit, colour='red', linewidth=1)+
+          geom_hline(yintercept = 0, colour='white')+
+          theme(panel.background = element_rect(fill = "white",colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20"),
+                axis.text.x = element_text(vjust = 0.5, angle = 45))+
+    ylab('B/B0')+xlab('Year'))
+  caption <- "Annual estimates of all Biomass relative to Virgin."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  ## Relative Biomass by area
+  filename <- filenametopath(rundir,paste0("Relative_Legal_Biom_Area.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(lb, aes(x=year,y=`B/B0`))+
+    geom_errorbar(aes(ymin=lb$lwr, ymax=lb$upr), width=.2,position=position_dodge(0.05), colour='grey70')+
+    geom_line()+
+    geom_point(size=0.75)+
+    geom_hline(yintercept = reflev$target, colour='green')+
+    geom_hline(yintercept = reflev$threshold, colour='orange')+
+    geom_hline(yintercept = reflev$limit, colour='red')+
+    facet_wrap(~areaname)+
+    ylim(0,1.05)+
+    theme(panel.background = element_rect(fill = "white",colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(vjust = 0.5, angle = 45)))
+
+  caption <- "Annual estimates of all Biomass in each model area relative to Virgin."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  ### Legal Biomass (legal size) by Area
+  filename <- filenametopath(rundir,paste0("Legal_Biom.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(lb, aes(x=year,y=`Legal Biomass (t)`))+
+    geom_errorbar(aes(ymin=LBlwr, ymax=LBupr), width=.2,position=position_dodge(0.05), colour='grey70')+
+    geom_line()+
+    geom_point(size=0.75)+
+    facet_wrap(~areaname)+
+    theme(panel.background = element_rect(fill = "white",colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(vjust = 0.5, angle = 45)))
+
+  caption <- "Annual estimates (95% CI) of Legal Biomass (assignment of legal based on reference selectivity) in each model area."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  print("Making Harvest Rates")
+  lb <- findNclean(c('#Harvest','rate'), dat, 2)
+  colnames(lb) <- c('Zone','Year','est', 'sd', 'est76')[1:ncol(lb)]
+  if(exists('lb$sd')) lb %<>% mutate(up95=est+sd*SclErr,lw95=est-sd*SclErr)
+  filename <- filenametopath(rundir,paste0(Sex, "HarvestRate_Biom.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(lb$Zone))))
+  for(i in 1:length(unique(lb$Zone))){
+    tlb <- lb[lb$Zone==i,]
+    mxY <- max(tlb$est)
+    ymn <- 0; ymx <- ifelse(exists('lb$sd'),max(lb$up95,na.rm=T)+0.1, max(lb$est,na.rm=T)+0.1)
+    suppressWarnings(plot(tlb$Year, tlb$est, type='o', axes=F, pch=16, cex=0.9,ylab='Harvest Rate', xlab='Season', main=paste('Zone ',i), xlim=c(graphrange), ylim=c(0,ymx)))
+    if(exists('lb$sd')) polygon(c(tlb$Year, rev(tlb$Year)), c(tlb$up95, rev(tlb$lw95)), col='grey90', border = F)
+    points(tlb$Year, tlb$est, type='o',pch=16)
+    axis(1)
+    axis(2)
+  }
+
+  caption <- "Annual estimates (95% CI) of Harvest Rate (assignment of legal based on the management arrangements during each season) in each management Zone."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  ### Fishing Mortality
+  ## Compute F
+  print("Making Fishing Mortality")
+  catch <- findNclean('Catches', dat, 2)
+  catch%<>% mutate(fdate = Year + Step/7)
+  areas <- unique(catch$Area)
+  filename <- filenametopath(rundir,paste0(Sex, "F_Mort.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(areas))))
+  for(i in 1:length(areas)){
+    tdat <- catch[catch$Area==i,]
+    fleets <- unique(tdat$Fleet)
+    ymx <- max(c(tdat$Fishing_mortality))
+    ymn<- 0; ymx <- 1
+    with(tdat[tdat$Fleet==fleets[1],], plot(fdate, Fishing_mortality, type='o', pch=16,cex=0.7,ylim=c(ymn,ymx), axes=F, ylab='Fishing Mort', xlab='Fishing Season', lty=1, main=paste("Area",i)))
+    if(length(fleets)>1){
+      for (f in 2:length(fleets)){
+        with(tdat[tdat$Fleet==fleets[f],], lines(Year, Fishing_mortality, type='o',cex=0.7,col=f, lty=1))
+      }
+    }
+    axis(1, seq(min(Zcatch$Year), max(Zcatch$Year),2))
+    axis(2,las=1)
+  }
+
+  caption <- "Estimate Fishing mortality by area (the various fleets are shown in different colours)."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  ### Total Mature Biomass
+  print("Making Egg Production")
+  ###Mature Biomass sex by area
+  lb <- findNclean(c('#Mature','Biomass', 'sex'), dat, 2, convert = 2) %>% filter(Year>=GeneralSpecs$Year1)
+  if(length(unique(lb$sex))>1){
+    lb$estM <- lb$est/1e+3
+    filename <- filenametopath(rundir,"Mature.Biomass.Sex_by_Area.png")
+    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=Fdims(length(unique(lb$area))))
+    for(i in 1:length(unique(lb$area))){
+      tlb <- lb[lb$area==i,]
+      mxY <- ceiling(max(tlb$estM))
+      tlb <- lb[lb$sex==c('F','M')[1] & lb$area==i,]
+      suppressWarnings(plot(tlb$Year, tlb$estM, type='o', axes=F, pch=16, cex=0.9,ylab='Biomass >76 (1000s t)', xlab='Season', main=paste('Area ',i), ylim=c(0,mxY), col='red'))
+      tlb <- lb[lb$sex==c('F','M')[2] & lb$area==i,]
+      suppressWarnings(lines(tlb$Year, tlb$estM, type='o', col='blue', pch=16, cex=0.9))
+      axis(1)
+      axis(2)}
+
+    caption <- "Annual estimates of Mature Biomass (1000s t) (assignment of mature  is age-based) in each model area by sex."
+    addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
+  }
+
+  egg <- findNclean(c('#Egg','Production','Total'), dat, 2) %>% filter(Year>=GeneralSpecs$Year1)
+  if(ncol(egg)==2) egg$se <- 0
+  egg %<>% mutate(lwr=est-se*SclErr, upr=est+se*SclErr)
+  filename <- filenametopath(rundir,paste0(Sex, "Breeding_Biomass1.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(1))
+
+  print(
+    ggplot(egg,aes(x=Year,y=est))+
+      geom_errorbar(aes(ymin=lwr,ymax=upr), colour='grey60')+
+      geom_line(linewidth=1) +
+      geom_hline(yintercept = max(egg$est)*reflev$target[1], colour='green')+
+      geom_hline(yintercept = max(egg$est)*reflev$threshold[1], colour='orange')+
+      geom_hline(yintercept = max(egg$est)*reflev$limit[1], colour='red')+
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.5, angle = 45))+
+      ylab('Egg Production')
+  )
+
+  caption <- "Estimated relative egg production (95% CI) of the whole fishery."
+  addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
+
+  ## By BMSA
+  egg <- findNclean(c('#Egg','Production','by'), dat, 2) %>% filter(Year>=GeneralSpecs$Year1)
+  names(egg) <-c('year','area','est','se')[1:ncol(egg)]
+  nareas <- length(unique(egg$area))
+  if(nareas==8){
+    egg2 <- egg %>% mutate(Loc=case_when(area == 2 ~ "South", area %in% c(4,6) ~ 'Central', area == 8 ~ "North", area == 5 ~'Abrolhos', .default = "other")) %>% filter(Loc!='other') %>% mutate(Loc=factor(Loc, levels=c("North",'Abrolhos','Central',"South")))
+    if(length(egg2$se)==0) egg2$se <- 0
+    egg2 %<>% group_by(year, Loc) %>% summarise(est=sum(est), se=sqrt(sum(se^2)))
+    filename <- filenametopath(rundir,paste0(Sex, "BSMA.png"))
+    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=Fdims(length(unique(egg2$Loc))))
+    for(i in 1:length(unique(egg2$Loc))){
+      tdat <- egg2 %>% filter(Loc==sort(unique(egg2$Loc))[i])
+      thres <- 1983:1985
+      if(unique(tdat$Loc)=='North')  thres <- 1990:1993
+      threslevel <- mean(tdat$est[tdat$year%in%thres])
+      limlevel <- threslevel * 0.8
+      ymn<- 0; ymx <- 1
+      with(tdat, plot(year, est/max(est), type='o', pch=16,cex=0.7,ylim=c(ymn,ymx), axes=F, ylab='Relative Egg Production', xlab='Fishing Season', lty=1, main=unique(tdat$Loc)))
+      if(sum(tdat$se)>0) arrows(tdat$year, tdat$est-tdat$se*SclErr, y1=tdat$est-tdat$se*SclErr, code=3, angle=90, length=0.05)
+      lines(range(tdat$year), rep(threslevel/max(tdat$est),2), lwd=1.5, col='orange')
+      lines(range(tdat$year), rep(limlevel/max(tdat$est),2), lwd=1.5, col='red')
+      axis(1)
+      axis(2,las=1)
+    }
+
+    caption <- "Estimated Relative Egg Production by Breeding Stock Management Area."
+    addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
+  }
+
+  ## By Area
+  egg2 <- egg
+  filename <- filenametopath(rundir,paste0(Sex, "Breeding_Biomass2.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(length(unique(egg2$area))))
+  for(i in 1:length(unique(egg2$area))){
+    tdat <- egg2 %>% filter(area==sort(unique(egg2$area))[i])
+    ymn<- 0; ymx <- 1
+    with(tdat, plot(year, est/max(est), type='o', pch=16,cex=0.7,ylim=c(ymn,ymx), axes=F, ylab='Relative Egg Production', xlab='Fishing Season', lty=1, main=paste('Area: ',unique(tdat$area))))
+    axis(1)
+    axis(2,las=1)
+  }
+
+  caption <- "Estimated Relative Egg Production by model area."
+  addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
+
+  ### Natural Mortality
+  print("Making Natural Mortality")
+  nmort <- findNclean(c('Natural','Mortality'), dat, 2)
+  names(nmort) <-c('area','age','year','est')
+  nmort %<>% mutate(est=ifelse(est<0,NA,est))
+  areas <- unique(nmort$area)
+  ages <- unique(nmort$age)
+  yLim <- c(0,max(nmort$est,na.rm=T)*2)
+  filename <- filenametopath(rundir,paste0("M_Mort.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  nmort %<>% filter(!is.na(est)) %>% mutate(Nme=fleetarea$description[match(area,fleetarea$newarea)])
+  print(ggplot(nmort, aes(x=year, y=est, group=age))+
+    geom_line()+
+    ylim(yLim)+
+    labs(y= "Estimate", x='Year')+
+    facet_wrap(~Nme)+
+    theme(panel.background = element_rect(fill = "white",colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(vjust = 0.5, angle = 45)))
+  caption <- "Estimate Natural mortality by area and year (Density dependent mortality)."
+  addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
+
+  ## Estimated parameters
+  pars <- findNclean(c('#','Parameter','Par'), dat, 1, char = T)
+  nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:10];
+  nms <- nms[nms!='#' & nms!='']
+  colnames(pars) <- nms[1:ncol(pars)]
+  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound)
+  filen <- "Est.Params.csv"  # csv files only
+  addtable(intable=pars,filen=filen,rundir=rundir,category="Parameters",
+            caption="Estimated final parameters and gradients.")
+
+  txt5 <- "Built by Simon de Lestang and Andre Punt"
+
+  runnotes <- matrix(c(txt,txt2,txt3,txt4,txt5), nrow=5)
+
+  endtime <- as.character(Sys.time())
+
+  reportlist <- list(  #these 2 are minimal requirements for the replist
+    # though the whole of replist can be NULL if
+    starttime=starttime,  # you are feeling lazy.
+    endtime=endtime
+  )
+
+  ## Copy all files across that made the model
+  start <- list.files('..', pattern = 'DAT')
+  for(f in 1: length(start))  file.copy(paste0("../",start[f]), paste0(rundir,'/',start[f]))
+  ## Copy important output files
+  addfiles <- c('Output.RL','SDReport.RL','model final.par')
+  for(f in 1: length(addfiles))  file.copy(addfiles[f], paste0(rundir,'/',addfiles[f]))
+
+
+  make_html(replist=reportlist,rundir=rundir,width=500,openfile=TRUE,
+            runnotes=runnotes,verbose=FALSE,packagename="makehtml",
+            htmlname="IMuLT")
+
+}

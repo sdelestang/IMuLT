@@ -1,0 +1,810 @@
+
+BuildInputFiles <- function(){
+  library(dplyr)
+  library(magrittr)
+  library(openxlsx)
+
+
+  Files <- list.files(pattern = "ModelStructure")
+  if(length(Files)>0){
+
+  ## Open up file with all info
+  wb <- loadWorkbook(file="ModelStructure.xlsx")
+
+  #This is the location of the data input files and their associated parameters
+  dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
+  startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
+  endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
+  projectseason <- as.numeric(dynamics$value[dynamics$object=='projectedseason'])
+  projectcatch <- as.numeric(dynamics$value[dynamics$object=='projectedcatch'])
+  burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
+  ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
+  sexs <- 0:as.numeric(dynamics$value[dynamics$object=='sexs'])
+  areas <- readWorkbook(wb,sheet='area', startRow = 2)
+  times <- readWorkbook(wb,sheet='times', startRow = 2)
+  fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
+  effic <- readWorkbook(wb,sheet='EfficiencyCreep', startRow = 2)
+  migrate <- readWorkbook(wb,sheet='migrate', startRow = 2)
+  (zones <- length(unique(areas$ManageZone)))
+  area <- areas %>% group_by(ManageZone) %>% reframe(newarea=unique(AreaCode))
+  (zoneareas <- split(area$newarea, area$ManageZone))
+  lens <- seq(dynamics$value[dynamics$object=='lblwr'],dynamics$value[dynamics$object=='lbupr'],dynamics$value[dynamics$object=='lbgap'])+1
+
+  ## Create a new folder for the model if one does not exist
+  (files <- list.files(pattern = 'AgeRun'))
+  (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),sep=''))
+  if(!(nfile%in%files)) {
+    dir.create(paste(nfile,sep='')) ;  dir.create(paste(nfile,"/Output",sep=''))
+  }
+  (fls <- nfile)
+  floc <- paste(getwd(),fls,sep='/')  # location of data files
+  print(paste("Making new directory:: ", floc))
+  print("#################################################################################################")
+
+  #### Starter Filer ####
+  ## Make Starter file
+  print("Building Starter FIle")
+
+  tmp <- list()
+  tmp <- c(tmp, "DATA.DAT                              # General specifications file \n")
+  tmp <- c(tmp, "CONTROL.DAT                              # Control file\n")
+  tmp <- c(tmp, "SELEXSPEC.DAT                        # Specifications for selectivity \n")
+  tmp <- c(tmp, "RETAINSPEC.DAT                       # Specifications for retention \n")
+  tmp <- c(tmp, "RECRUITSPEC.DAT                      # Specifications for recruitment \n")
+  tmp <- c(tmp, "GROWTHSPEC.DAT                       # Specifications for growth \n")
+  tmp <- c(tmp, "MOVESPEC.DAT                         # Specifications in movement \n")
+  tmp <- c(tmp, "TAGFILE.TXT                          # Specifications for tags \n")
+  tmp <- c(tmp, "PROPORTIONS.TXT                      # Proportions \n")
+  tmp <- c(tmp, "PROJECTIONS.DAT                      # Projections file \n\n\n")
+  tmp <- c(tmp, "1                                    # Stop after this phase \n")
+
+  write.table(tmp, paste(floc,'/STARTER.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+
+  #### Data File ####
+print("Building Data File")
+
+lens <- seq(dynamics$value[dynamics$object=='lblwr'],dynamics$value[dynamics$object=='lbupr'],dynamics$value[dynamics$object=='lbgap'])
+lensPlus1 <- c(lens, (lens[2]-lens[1])+tail(lens,1))
+
+## Make data input of new RL model
+tmp <- list()
+tmp <- c(tmp, "# Lobster Data Set", "\n", "# First year of the assessment")
+
+#get latest catch and effort data
+dat <- readWorkbook(wb,sheet='Catch', startRow = 2)
+dat %<>% filter(year%in%startseason:endseason) %>% arrange(year,step,fleet) ## ensure matches the model structure
+tmp <- c(tmp,"\n", startseason, "\n# Last year of the assessment\n", endseason,"\n# Maximum projection years\n", projectseason+5)
+
+bin <- areas %>% group_by(AreaCode) %>% summarise(av=floor(mean(burn_in)))
+
+tmp <- c(tmp, "\n# Burn-in\n", paste(bin$av,collapse=' '),
+         "\n# Time steps per year\n", max(times$tstep),
+         "\n# Number of areas of data included in the file\n", max(areas$AreaCode ),
+         "\n# Number of sexes\n",length(unique(sexs)),
+         "\n# Number of ages\n", ages,
+         "\n# Number of fleets\n",max(fleets$fleet))
+
+## Lower Length bins
+femaleLB <- maleLB <- lensPlus1
+if(max(sexs)==1) tmp <- c(tmp, "\n# Number of size-classes (females then males)\n", length(lensPlus1)-1, " ", length(lensPlus1)-1)
+if(max(sexs)==0) tmp <- c(tmp, "\n# Number of size-classes (one sex)\n", length(lensPlus1)-1)
+
+# Timesteps
+tstmp <- times %>% group_by(tstep) %>% mutate(prop=length(month)/nrow(times)) %>% summarise(prop=mean(prop))
+tmp <- c(tmp, "\n# The Time steps\n# \n", paste(round(tstmp$prop,5), collapse = "\t"))
+
+# tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", dynamics$value[dynamics$object=='tune_years'])
+
+tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", paste(areas$tune_years,collapse=" "))
+
+# Length Bins cont.
+if(max(sexs)==0) tmp <- c(tmp, "\n# Lower Length Bins (one more than number of size-classes)\n", paste(lensPlus1, collapse = "\t"))
+if(max(sexs)==1) tmp <- c(tmp, "\n# Lower Length Bins (one more than number of size-classes)\n", paste(lensPlus1, collapse = "\t"), "\n", paste(lensPlus1, collapse = "\t"))
+
+## Catch data
+tmp <- c(tmp, "\n# Catch data (kg) - Number of observations\n", nrow(dat), "\n#Year\tstep\tfleet\tcatch\n")
+
+for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
+
+##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
+Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd)) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+
+cpuenumbers <- unique(Udat$CpueInd)
+
+## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8
+tmp <- c(tmp, "\n# Index data \n#Number of cpue datasets\n", length(cpuenumbers))
+tmp <- c(tmp, "\n# Type of index (1=weight;2=numbers)\n", paste(c(rep(1,length(cpuenumbers))), collapse=" "))
+tmp <- c(tmp, "\n# Treatment of sigma (unique value represents a unique SS for the series)\n", paste((1:length(cpuenumbers))-1, collapse=" "))  ## Fixsigma
+tmp <- c(tmp, "\n# Treatment of q (a value represents a unique q for that series)\n", paste(cpuenumbers, collapse=" "))
+tmp <- c(tmp, "\n# Environmental Index (value points to index, 0 = no index)\n", paste(rep(0,100)[1:length(cpuenumbers)], collapse=" "))
+## Efficiency creep
+tmp1 <- Udat %>% group_by(CpueInd) %>% summarise(mn=mean(Fleet))
+effcreep <- fleets$effic.creep[match(tmp1$mn,fleets$fleet)]
+tmp <- c(tmp, "\n# Efficiency creep (value points to index, 0 = no index)\n", paste(effcreep, collapse=" "))
+tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
+tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
+#Size of cpue data
+tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
+
+#CpueInd	#Fleet	#Sex	#Year	#Step	#Index	#CV
+tmp <- c(tmp, "\n#CpueInd Fleet\tSex\tYear\tStep\tIndex\tCV\n")
+for(i in 1:nrow(Udat)){ tmp <- c(tmp, paste(Udat[i,], collapse = "\t"),"\n")}
+
+tmp <- c(tmp,"\n# Numbers data \n# Number of catch data sets\n",0)
+tmp <- c(tmp,"\n# Treatment of catch in numbers series\n#", 0, "\n# Minimum sigma\n",0.05)
+
+## Build the numbers data
+tmp <- c(tmp,'\n# The numbers data\n',0)
+tmp <- c(tmp,'\n#Group  Fleet  Year  Step  Catch  CV\n')
+
+## Get the length data
+len <- readWorkbook(wb,sheet='LengthFreq', startRow = 2) %>% filter(Season%in%startseason:endseason)
+tmp <- c(tmp,"\n# Length compostion\n", nrow(len), '\n#Fleet\tSex\tSEASON\ttstep\tInd\t',paste(lensPlus1, collapse = "\t"),'\n')
+for(i in 1:nrow(len)){ tmp <- c(tmp, paste(len[i,], collapse = "\t"),"\n")}
+
+#Puerulus index
+tmp <- c(tmp,"\n# Larval index (puerulus)\n# Likelihood for larval (puerulus) data (0=lognormal, else normal\n",0)
+tmp <- c(tmp,"\n# Delay from puerulus to entering the model (years)\n",3)
+puer <- readWorkbook(wb,sheet='Puerulus',startRow = 2)  %>%  mutate(area=area,mn=round(mn,1), sd=round(cv*mn,2))  %>% dplyr::select(area,season, mn, sd) %>% filter(season %in% startseason:endseason, area %in% areas$AreaCode)
+tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",nrow(puer),'\n# Area\tYear\tIndex\tSD\n')
+for(i in 1:nrow(puer)){ tmp <- c(tmp, paste(puer[i,], collapse = "\t"),"\n")}
+
+#	Environmental	Data   / Fishing efficiency
+#fe <- read.csv(direct('Lobster/Minor stuff/Efficiency/2020/Fish_eff_estimates.csv'))
+# fe <- readWorkbook(wb,sheet='CommEfficiency')
+# fe2 <- expand.grid(year=startseason:endseason, area=fe$newarea, creep=1) %>% mutate(pwr=year-startseason)
+# for(a in unique(fe$newarea)){
+#   fe2$creep[fe2$area==a] <- fe2$creep[fe2$area==a] * fe$annualE[fe$newarea==a]^fe2$pwr[fe2$area==a]}
+# dat <- expand.grid(year=startseason:endseason, Qid=sort(unique(Udat$CpueInd)), step=sort(unique(times$tstep)))
+# dat %<>% arrange(year,Qid,step)
+# dat %<>% mutate(fleet=Udat$Fleet[match(dat$Qid,Udat$CpueInd)], area=fleets$newarea[match(fleet,fleets$fleet)])
+# dat$effcreep <- round(log(fe2$creep[match(paste(dat$year, dat$area), paste(fe2$year,fe2$area))]),5)
+# dat$effcreep[is.na(dat$effcreep)] <- 0
+
+#nseries <- dat %>% group_by(fleet) %>% summarise(num=length(effcreep))
+tmp <- c(tmp,"\n# Environmental Data - ln(Efficiency creep)\n# Number of environmental series (commercial efficiency creep for each area)\n",0)
+# tmp <- c(tmp,"\n# Years of data per series\n",paste(unname(table(dat$Qid)), collapse = "\t"),'\n')
+# tmp <- c(tmp,"# Year\tTstep\tln(creep)\tSeries\n")
+# for(s in 1:length(unique(dat$Qid))){
+#   tdat <- dat[dat$Qid==sort(unique(dat$Qid))[s],]
+#   for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,c('year', 'step', 'effcreep')], collapse = "\t"), "\t#\t",s,"\n")}}
+
+#write.table(tmp,  paste(getwd(),'/Simon/Northa.dat',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+# # Movement Data
+# move <- read.csv(direct('Lobster/Minor stuff/Growth/All_move.growth.data.csv'))
+# move %<>% filter(!is.na(Lsex), Lsex!='U' , LCl>=51, LCl<=200) %>% filter(libm>2)%>% filter(Cloc!=0)%>% filter(Ccl >= 51 , Ccl <=200)
+# move %<>% mutate(sex=ifelse(Lsex=='M',1,2), RelLB=as.numeric(cut(LCl, c(lens[1:(length(lens)-1)]-0.1,180))), RecLB=as.numeric(cut(Ccl, c(lens[1:(length(lens)-1)]-0.1,180)))) %>%
+#   mutate(group=ifelse(source=='comm', 'comm', 'ibss'), fleet=fleetcode$fleet[match(paste(Cloc,group),paste(fleetcode$area,fleetcode$group))]) %>%
+#   select(Lloc,sex,Lseason,Ltstep,RelLB,fleet,Cseason,Ctstep,RecLB) %>% filter(!is.na(fleet)) %>%
+#   group_by(Lloc,sex,Lseason,Ltstep,RelLB,fleet,Cseason,Ctstep,RecLB) %>% summarise(Num=length(sex))
+# unique(move$fleet)
+# tmp <- c(tmp,"\n# Movement and growth data from tagging\n")
+# tmp <- c(tmp,"# Length of Movement data\n", nrow(move), '\n#RelArea   Sex   RelSeason   RelTstep   RelLB   RecFleet   RecSeason   RecTstep   RecLB   NumObs\n')
+# for(i in 1:nrow(move)){ tmp <- c(tmp, paste(move[i,], collapse = "\t"),"\n")}
+
+tmp <- c(tmp, "\n# Final check\n123456")
+
+write.table(tmp, paste(floc,'/DATA.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+
+
+#### Control File ####
+print("Building Control File")
+
+    tmp <- list()
+    tmp <- c(tmp, "# Fishery\n\n# weight-at-length (W=aL^b) (kg) \n")
+    biol <- readWorkbook(wb,sheet='lengthweight', startRow = 2)
+    female.wat <- round(biol$a[biol$sex=='female']*lens^biol$b[biol$sex=='female'] ,3)
+    male.wat <- round(biol$a[biol$sex=='male']*lens^biol$b[biol$sex=='male'] ,3)
+    if(length(female.wat)>0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n", paste(female.wat,collapse = "\t"),"\n") }
+    if(length(female.wat)==0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n") }
+    if(length(female.wat)>0 & length(male.wat)==0){ tmp <- c(tmp, paste(female.wat,collapse = "\t"),"\n") }
+
+    tmp <- c(tmp, "\n# Maturity at length by area \n")
+    matdat <- readWorkbook(wb,sheet='maturity', startRow = 2)
+
+    code <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
+    for(i in 1:nrow(code)){ code[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='mature'][i])/matdat$b[matdat$cat=='mature'][i])),3)}
+    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Maturity age by area \n")
+    mages <- matdat$age[!is.na(matdat$age)]
+    tmp <- c(tmp, paste(mages, collapse = "\t"),"\n")
+
+    tmp <- c(tmp, "\n# Egg production (by area)\n")
+    fecundity <- matdat$a[matdat$cat=='fecundity']*lens^matdat$b[matdat$cat=='fecundity']
+    code2 <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
+    for(i in 1:nrow(code)){ code2[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='dspawn'][i])/matdat$b[matdat$cat=='dspawn'][i])),3)}
+    for(i in 1:nrow(code)){ code[i,] <- round(  (code[i,]+code2[i,])*fecundity,1)}
+    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",0,'\n')
+
+    tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",0,'\n')
+
+    tmp <- c(tmp, "\n# Biomass target, threshold, limit (one per area)\n")
+
+    bio <- readWorkbook(wb,sheet='area', startRow = 2) %>% select(starts_with('biomass'))
+    for(i in 1:nrow(bio)){ tmp <- c(tmp, paste(bio[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Fleet specification\n# Fleet Area Name\n\t")
+    fleetcode2 <- fleets %>% group_by(fleet) %>% summarise(area=unique(newarea), group=description) %>% mutate(fleet=fleet-min(fleet), area=area-min(area))
+    for(i in 1:nrow(fleetcode2)){ tmp <- c(tmp, paste(fleetcode2[i,c('fleet','area','group')], collapse = "\t"),"\n\t")}
+    #as.data.frame(fleetcode2)
+    tmp <- c(tmp, "\n# Number of Zones\n", zones, "\n# Areas in each Zone\n", paste(as.numeric(sapply(zoneareas, length)), collapse = " "),'\n')
+    tmp <- c(tmp, "\n# The Zones\n")
+    for(z in 1:length(zoneareas)){
+      tmp <- c(tmp, paste(zoneareas[[z]]-1, collapse = " "),'\n')}
+
+    tmp <- c(tmp, "\n# Discard mortality\n#Age\tFleet\ttstep\t",paste(startseason:endseason,collapse = "\t"),'\n')
+    dat <- expand.grid(age=(1:ages)-1, fleet=sort(unique(fleets$fleet))-1, step=sort(unique(times$tstep))-1)
+    dat %<>% arrange(age,fleet,step)
+    dat2 <- matrix(0.05, nrow=nrow(dat), ncol=length(startseason:endseason))
+    dat <- cbind(dat,dat2)
+    for(i in 1:nrow(dat)){ tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Recruitment_deviations\n",startseason, "\t\t\t# First year with estimated recruitment deviations\n")
+    tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# last year with estimated recruitment deviations\n")
+    tmp <- c(tmp, -2, "\t\t\t# Phase for recruitment deviations\n")
+
+    tmp <- c(tmp, "\n# Spatial_deviations_in_recruitment\n",startseason, "\t\t\t# First year with estimates spatial recruitment deviations\n")
+    tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# Last year with estimates spatial recruitment deviations\n")
+    tmp <- c(tmp, -6, "\t\t\t# Phase for spatial recruitment deviations\n\n")
+
+    tmp <- c(tmp, "# Prespecify_rec_devs :  dev # Year\n",1,"\t\t\t# 1 = rec_devs are to be pre-specified\n")
+    dat <- data.frame(rec_dev=0, year=(startseason-max(areas$burn_in)):(endseason+projectseason+5))
+    for(i in 1:nrow(dat)){ tmp <- c(tmp, dat[i,1],"\t#\t", dat[i,2],"\n")}
+
+    tmp <- c(tmp, "\n# Prespecify_spatial_rec_devs : dev # Year Area\n",1,"\t\t\t# 1 = Spatial_rec_devs are to be pre-specified\n")
+    dat <- data.frame(Spatial_rec_dev=0, expand.grid(year=(startseason-burnin):(endseason+projectseason+5),area=(2:length(unique(area$newarea)))))
+    for(i in 1:nrow(dat)){ tmp <- c(tmp, dat[i,1],"\t#\t", dat[i,2],"\t", dat[i,3],"\n")}
+
+    wei <- readWorkbook(wb,sheet='Weights', startRow = 2)
+
+    tmp <- c(tmp, "\n# Weights on the data (simple)\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='cpue'], "\t\t# Weight on CPUE data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='numbers'], "\t\t# Weight on catch-numbers data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='length'], "\t\t# Weight on Length-frequency data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='larvae'], "\t\t# Weight on larval data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag1'], "\t\t# Weight on Tag1 data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag2'], "\t\t# Weight on Tag2 data\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialN'], "\t\t# Weight on initial numbers\n")
+    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialPen'], "\t\t# Weight on initial penalty (InitOpt=3 or 5)\n")
+
+    wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
+    wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
+    ## Look for Length tuning file
+    if(max("Length_freq_tunings.csv" %in%list.files(path = paste0(floc,'/Output')))==1){
+      lfwei <- read.csv(paste0(floc,'/Output/Length_freq_tunings.csv')) %>% mutate(type2=3,tstep= -1,codeout='#',id2='Length-Freq from tuning file',value=scale, fleet=fleet-1,sex=sex-1) %>% dplyr::select(type2,fleet,tstep,sex, value,codeout,id2)
+      wei <- rbind(wei,lfwei)
+    }
+    tmp <- c(tmp, "\n# Weights by fleet (Type: 1=cpue,2=numbers,3=length;4=larvae;) - Can tweak by Fleet and index.  See values to -1 for them to encompass all options.  e.g. time-step set to -1 covers all timesteps. our fleets\n# Type\tFleet\tTime-step\tsex\n")
+    tmp <- c(tmp, nrow(wei), "\t# set to number of individual weights defined below - 0 would define no individual weights\n")
+    if(nrow(wei)>0) for(i in 1:nrow(wei)){ tmp <- c(tmp,paste(paste(wei[i,],collapse = "\t")),"\n")}
+
+    tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
+
+    mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
+
+    Mpar1 <- mainpar %>% filter(name=='MeanRecruitment') %>% dplyr::select(-name)
+    tmp <- c(tmp, paste(Mpar1,collapse = "\t"), "\n")
+    Mpar2 <- mainpar[2:(1+length(unique(area$newarea))),] %>% dplyr::select(-name)
+    for(i in 1:nrow(Mpar2)) {tmp <- c(tmp, paste(Mpar2[i,],collapse="\t"),"\n")}
+    off <- 2+length(unique(area$newarea))
+    Mpar3 <- mainpar[off:(off+ages-1),] %>% dplyr::select(-name)
+    for(i in 1:nrow(Mpar3)){ tmp <- c(tmp, paste(Mpar3[i,],collapse="\t"),"\n") }
+    Mpar4 <- mainpar %>% filter(grepl('white', comment, ignore.case=T)) %>% dplyr::select(-name)
+    tmp <- c(tmp, paste(Mpar4,collapse="\t"), "\n")
+    Mpar5 <- mainpar %>% filter(grepl('reds', comment, ignore.case=T)) %>% dplyr::select(-name)
+    tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
+    Mpar6 <- mainpar %>% filter(grepl('SigmaR', comment, ignore.case=T)) %>% dplyr::select(-name)
+    tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
+    Mpar7 <- mainpar %>% filter(grepl('Rintro', name, ignore.case=T)) %>% dplyr::select(-name)
+    for(i in 1:nrow(Mpar7)){ tmp <- c(tmp, paste(Mpar7[i,],collapse="\t"),"\n") }
+    Mpar8 <- mainpar %>% filter(grepl('Initial', name, ignore.case=T)) %>% dplyr::select(-name)
+    tmp <- c(tmp, paste(Mpar8,collapse="\t"), "\n")
+
+    tmp <- c(tmp, "\n# Initial_dev_option\n")
+    tmp <- c(tmp, 0, "\t\t\t\t# 0=convetional; 1=alternative; 2=Something; 3=Something else; 4=Yet another option; 5 as for 3 but with initial values for Rinitial by area\n")
+    tmp <- c(tmp, 1, "\t\t\t\t# Initial value options (0=default; 1=same for all)\n")
+    tmp <- c(tmp, "# Initial size parameters\n")
+    tmp <- c(tmp, paste(-100,100,0,1,collapse='\t'), "\t\t\t# 0=convetional; 1=alternative\n")
+
+    tmp <- c(tmp, "\n# Q parameters\n")
+    Qpar1 <- 1
+    nqs <- length(unique(fleets$fleet[fleets$group=='comm']))*length(unique(times$tstep))
+    for(i in 1:nqs){ tmp <- c(tmp, paste(c(-100,100,Qpar1,-1),collapse="\t"), "\t\t\t# Multiplier for Environmental index - Keep to 1\n")}
+
+    tmp <- c(tmp, "\n# Efficiency parameters (lower, upper, estimate, phase) \n")
+    ecpar1 <- effic[,c('lower','upper','est','Phase')]
+    nECvec <- max(fleets$effic.creep)
+    nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
+    tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")
+    for(nv in 1:nECvec){
+      for(np in 1:nECpar[nv]){
+        tmp <- c(tmp, paste(ecpar1[nv,],collapse="\t"), paste("\t\t\t# Efficiency creep par - Pointer", effic$pointer[nv]," One par every",effic$temporal.cover[nv],"years.\n")   )}}
+
+    tmp <- c(tmp, "\n# variance specification parameters (1=Egg Production; 2=Egg Production x area;3=Recruitment x area; 4=Legal Biomass x area;5=Harvest Rate;6=Catch rates;7=Fishing efficiency;8=Unspecified;9=Unspecified;10=Unspecified)\n")
+    tmp <- c(tmp, "# Number of variance specifications\n",10)
+    tmp <- c(tmp, "\n# variance components\n",paste(c(1,1,1,1,1,1,1,0,0,0),collapse = '\t'),"\n")
+
+    tmp <- c(tmp, "\n1 # use the pin file for specifying parameters (ADMB)")
+    tmp <- c(tmp, "\n1 # last function call (ADMB)\n")
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/CONTROL.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+#### Growth file ####
+
+    print("Building Growth File")
+    growth <- readWorkbook(wb,sheet='Growth', startRow = 2)
+    umat <- unique(growth$matrix)
+    nstm <- length(umat)
+    Sex <- as.numeric(gsub('s','',do.call('rbind',strsplit(umat,'_'))[,2]))-1
+    Tstep <- as.numeric(gsub('ts','',do.call('rbind',strsplit(umat,'_'))[,4]))
+    growth$pointer <- NA
+    compound <- rep(1,length(umat))
+    Area <- rep(NA,length(umat))
+    for(p in 1:length(umat)){
+      growth$pointer[growth$matrix==umat[p]] <- p-1
+      compound[p] <- growth$grow[growth$matrix==umat[p]][1]
+      Area[p] <- paste(growth$area[growth$matrix==umat[p]],collapse=' ') }
+
+    gspec <- data.frame(Pattern=0:(nstm-1), Type=1, Sex=Sex,Extra=0,Pointer=unique(growth$pointer),Mpower=1,hash='#',tsteps=Tstep, growthareas=Area, Compound=compound)
+
+    dat <- expand.grid(sex=sexs, age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
+    dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(r in 1:nrow(dat)){
+      tmparea  <- dat$area[r]+1
+      tmpsex   <-  dat$sex[r]+1
+      tmptstep   <-  dat$step[r]+1
+      for(c in 1:ncol(dat2)){
+        sea <- (startseason:endseason)[c]
+        if(nrow(growth[growth$season==sea & growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep,])>0) {
+          point <- growth$pointer[growth$season==sea & growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep]
+          if(length(point)==0) point <- -1
+          dat2[r,c]  <- point   } else {
+            point <- growth$pointer[growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep]
+            if(length(point)==0) point <- -1
+            dat2[r,c]  <- point   }
+      }}
+
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(sex,age,area,step)
+    tmp <- list()
+    tmp <- c(tmp, "# Growth specification\n\n# Number of growth Patterns (Mpower is legacy and needed for power function on growth)\n",nrow(gspec),"\n")
+    tmp <- c(tmp, "# ", paste(colnames(gspec),collapse='\t'),"\n")
+    for(i in 1:nrow(gspec)){ tmp <- c(tmp,'\t',paste(gspec[i,1:6],collapse = "\t"),'\t# ',paste(gspec[i,7:9],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for growth\t\n# Sex\tAge\tArea\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
+    for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Number prespecified size-transition\n",length(unique(gspec$Pointer)),"\n")
+    tmp <- c(tmp, "# Sex of matrices\n",paste(gspec$Sex,collapse = "\t"),"\n")
+
+    tmp <- c(tmp, "# Prespecified size-transition\n")
+    STM <- growth <- readWorkbook(wb,sheet='SizeTransMatricesNew', startRow = 2, colNames = F)
+    STM[is.na(STM)] <- ''
+    for(i in 1:nrow(STM)){
+      if(grepl('#',STM[i,1],fixed = T)) { tmp <- c(tmp,"\n") } else { STM[i,] <- round(as.numeric(STM[i,]),7) }
+      tmp <- c(tmp,paste(STM[i,],collapse = "\t"),"\n") }
+
+    tmp <- c(tmp, "\n# Growth parameters\n#LB\tUP\tEstimate\tPhase\n")
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/GROWTHSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+#### Movement file ####
+    print("Building Migration File")
+
+    migrate999 <- migrate %>% filter(Season==999)
+    dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
+    dat2 <- matrix(0, nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(i in 1:nrow(migrate999)){
+      dat2[dat$age==(migrate999$Age[i]-1) & dat$area==(migrate999$Source[i]-1) & dat$step==(migrate999$tstep[i]-1),] <- i
+    }
+    migrateNOT999 <- migrate %>% filter(Season<=100)
+    if(nrow(migrateNOT999>0)){
+      nyears <- ncol(dat2)
+      parpoint <- max(dat2)+1
+      for(i in 1:nrow(migrateNOT999)){
+        for(y in 1:ceiling(nyears/migrateNOT999$Season[i])){
+          pos <- ((y-1)*migrateNOT999$Season[i])+(1:migrateNOT999$Season[i])
+          pos <- pos[pos<=nyears]
+          dat2[dat$age==(migrateNOT999$Age[i]-1) & dat$area==(migrateNOT999$Source[i]-1) & dat$step==(migrateNOT999$tstep[i]-1),pos] <- parpoint
+          tmpmigrateNOT999 <- migrateNOT999[i,]
+          tmpmigrateNOT999$pointer <- parpoint
+          migrate999 <- rbind(migrate999,tmpmigrateNOT999)
+          parpoint <- parpoint + 1
+        }}
+    }
+    # ## See if there were any specific years when migration was to be different and implement this.
+    # yrs2change <- unique(migrate$Season[migrate$Season!=999 & migrate$Season>1000])
+    # if(length(yrs2change)>0){
+    #   for(y in 1:length(yrs2change)){
+    #     tmpdf <- migrate[migrate$Season==yrs2change[y],]
+    #     dat2[dat$age==(tmpdf$Age-1) & dat$area==(tmpdf$Source-1) & dat$step==(tmpdf$tstep-1),(startseason:endseason)==tmpdf$Season] <- tmpdf$pointer
+    #   }}
+
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(age, area, step)
+
+    #migratesum <- migrate %>% group_by()
+
+    tmp <- list()
+    tmp <- c(tmp, "# Movement section\n# Number of movement patterns\n",nrow(migrate999)+1,"\n")
+    tmp <- c(tmp, "# Pattern\tType\tDest\tExtra\t(Type 0: none; 1 constant [prespecified or estimated; 1 parameter]; 2 knife-eded-specific [pre-specified or estimated; 2 parameters])\n")
+    tmp <- c(tmp,"\t",paste(c(0,0,0,0),collapse = "\t"),"\n")
+    if(nrow(migrate999)>0) for(i in 1:nrow(migrate999)){ tmp <- c(tmp,"\t",paste(c(i,1,migrate999$Dest[i]-1,0),collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "# Movement specifications\n")
+    tmp <- c(tmp, "#Age\tArea\tTStep\t", paste(startseason:endseason,collapse = "\t"),"\n")
+    for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "# Movement parameters\n# Lower\tUpper\tEstimate\tPhase\t\tSource to Dest & Age\n")
+    Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase)
+    if(nrow(Mpar)>0) {for(i in 1:nrow(Mpar)){ tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}}
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/MOVESPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+    #### Recruitment file ####
+    print("Building Recruitment File")
+
+    tmp <- list()
+    tmp <- c(tmp, "# Recruitment specifications\n\n# Number of sex_area_allocation options\n",1,"\n\n")
+    tmp <- c(tmp, "# Allocate_yearxarea (form 0 is estimate sex split and then area split; form 1 is estimate sex*area split)\n")
+    tmp <- c(tmp, "# Type\tForm\tAlloc_sex_area\n",paste(c(0,0,0),collapse = '\t'),'\n\n')
+
+    dum <- data.frame(type=(1:length(unique(areas$recruitarea)))-1, sex1=0, sex2=0, Extra1=-1, Extra2=-1)
+    dum$sex1 <- -seq(1,(2*nrow(dum))-1,2)
+    dum$sex2 <- dum$sex1-1
+
+    tmp <- c(tmp, "# Number of length_allocation options (size compoisition of recruits by area Not sex)\n",length(unique(areas$recruitarea)),"\n\n")
+    tmp <- c(tmp, "# Allocate_length\n# Type\tAllocate_sex1\tAllocate_sex2\tExtra1\tExtra2\t: 2nd column sex 1 and 3rd col for sex 2 (Offset for PreSpecRecFrac = -1*col.value-1)\n")
+    for(r in 1:nrow(dum)) {
+      tmp <- c(tmp, "\t", paste(dum[r,],collapse = "\t"),paste("\t# Areas ", paste(unique(areas$aname[areas$recruitarea==r]), collapse=','), "\n"))
+    }
+    tmp <- c(tmp, "\n# Recruit by year and time-step\n# TimeStep\t", paste(startseason:(endseason+projectseason+10),collapse = "\t"),"\n")
+    dat <- matrix(-1, nrow=length(unique(times$tstep)), ncol=length(startseason:(endseason+projectseason+10)))
+    dat[unique(times$tstep[times$recruit==1]),] <- 0
+    dat <- cbind(data.frame(ts=sort(unique(times$tstep))-1),dat)
+    for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
+
+    rec <- areas %>% group_by(AreaCode) %>% summarise(area=mean(recruitarea)-1)
+    tmp <- c(tmp, "\n# Recruit by area\n",paste(rec$area,collapse = "\t"),"\n")
+
+    rec <- readWorkbook(wb,sheet='Recruitment', startRow = 2)
+    usepar <- tail(rec$Use.Parameters,1)
+
+    tmp <- c(tmp, "\n# Recruitment fractions use prespecified (0) or calculate from parameters (1). If pre-specified need to code out parameters #\n")
+    tmp <- c(tmp, paste(usepar, "\t# Use parameters 0 = No, 1 = Yes.\n"))
+
+    tmp <- c(tmp, "\n# Number of pre-specified recruitment functions\n",max(areas$recruitarea)*length(sexs),"\n")
+    tmp <- c(tmp, "# Prespecified recruitment fractions (based on mean CL + SD of lobster at the start of the year age 3)\n")
+
+    recdist <- rec %>% dplyr::select(starts_with('Prespecified'))
+    recdist <- recdist[!is.na(recdist[,1]),]
+    for(i in 1:nrow(recdist)){ tmp <- c(tmp,paste(recdist[i,],collapse = "\t"),"\n")  }
+
+    tmp <- c(tmp, "\n#  Recuitment1 parameters\n#Lower\tUpper\tEstimate\tPhase::\t Number of recruitment fraction parameters must match Number of pre-specified recruitment functions above.\n")
+
+    rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
+    for(a in 1:nrow(rec)){ tmp <- c(tmp, paste(rec[a,],collapse='\t'), "\n")  }
+
+    # Bias ramp
+    tmp <- c(tmp, "\n# Bias ramp - insert description here\n",paste(c(startseason, startseason+2, endseason-5, endseason-1),collapse = "\t"),"\t#description\tdescription\tdescription\tdescription\n")
+
+    if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 2)))){
+      puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))
+      tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n#LB\tUP\tEstimate\tPhase\n")
+      for(a in 1:nrow(puerpar)){ tmp <- c(tmp, paste(puerpar[a,],collapse = "\t"), "\n") }} else {
+        tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",0,"\n#LB\tUP\tEstimate\tPhase\n")
+      }
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/RECRUITSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+
+    #### Retainment file ####
+    print("Building Retain/Discard File")
+
+    hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, area, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.02)*0.02)
+    hglist <- sort(unique(c(hgrad$propfl,1)))
+    hgrad99 <- hgrad %>% filter(area==99)
+
+    dat <- expand.grid(sex=sexs, age=(1:ages)-1, fleet=sort(unique(fleets$fleet))-1, step=sort(unique(times$tstep))-1)
+    dat2 <- matrix(length(hglist)-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(r in 1:nrow(hgrad)){
+      if(hgrad$area[r]==99) fl <- fleets$fleet[fleets$group=='comm']-1
+      if(hgrad$area[r]!=99) fl <- fleets$fleet[fleets$group=='comm' & fleets$newarea==hgrad$oldarea[r]]-1
+      dat2[dat$fleet%in%fl & dat$step==(hgrad$tstep[r]-1),(startseason:endseason)==hgrad$season[r]]  <- which(hglist==hgrad$propfl[r])-1}
+
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(sex, age, fleet, step)
+    tmp <- list()
+    tmp <- c(tmp, "# Retain specification (This represents the proportion of LEGAL lobster retained - (1-high-graded due to low value))\n\n# Number Retain Patterns\n",length(hglist),"\n")
+    tmp <- c(tmp, "# Pattern\tType\tSex\tExtra\tPointer","\n")
+    for(i in 1:length(hglist)){ tmp <- c(tmp," ",paste(c((i-1),1,-1,0,i-1),collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for retention. Fleet = ", paste(fleets$group,collapse=' '),"\n# Sex Age Fleet Step ",paste(startseason:endseason,collapse = " "),"\n")
+
+    for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# retention - Proportion of LEGAL lobster retained - NOT high-graded\n",length(hglist),"\n")
+    for(i in 1:length(hglist)){ tmp <- c(tmp,paste(rep(hglist[i],length(lens)),collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Retention parameters\n# Lower\tUpper\tEstimate\tPhase\n")
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/RETAINSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+
+    #### Selection file ####
+    print("Building Gear selectivity File")
+
+    egap <- readWorkbook(wb,sheet='Escapegaps', startRow = 2)
+    egappar <- egap %>% filter(!is.na(yearlink)) %>% mutate(uniq=paste(sex,yearlink)) %>% dplyr::select(!starts_with('fleet'))%>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex))
+
+    ## Look at number of pars
+    fleetyr <- egap %>% dplyr::select(starts_with('fleet'))
+    fleetyr <- fleetyr[egap$season%in%startseason:endseason,]
+    pars <- sort(unique(as.vector(as.matrix(fleetyr))))
+
+    egappar_sum <- egappar %>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex)) %>% group_by(yearlink, Sex,form,uniq) %>% summarise(num=length(Sex), .groups = 'drop') %>% ungroup() %>% mutate(type=case_when(form=='logistic'~3, form=='doublelogistic'~9, form=='knife'~4)) %>% as.data.frame() %>% arrange(Sex) %>% ungroup() %>% mutate(pattern=as.numeric(rownames(.))-1, Pointer=pattern) %>% dplyr::select(pattern, type, Sex, num, Pointer, uniq, yearlink)
+
+egappar_sumog <- egappar_sum
+for(p in pars){
+  if(!p%in%egappar_sum$yearlink){
+    reps <- which(egappar_sumog$yearlink==floor(p))
+    tmpe <- egappar_sum[reps,]
+    tmpe$uniq <- paste(substr(tmpe$uniq,1,1), p)
+    tmpe$pattern <- max(egappar_sum$pattern) + (1:nrow(tmpe))
+    tmpe$yearlink <- p
+    egappar_sum <- rbind(egappar_sum, tmpe)
+  }
+}
+
+    egappar_sum %<>% mutate(Pointer=pattern)
+
+    nes <- nrow(egappar_sum)
+    negappar <- nrow(egappar_sum)
+
+    Selid <- expand.grid(Sex=sort(unique(sexs)), Age=sort(unique(1:ages))-1, Fleet=sort(unique(fleets$fleet))-1, Step=sort(unique(times$tstep))-1) %>% arrange(Sex, Age, Fleet)
+    Semat <- matrix(0, nrow=nrow(Selid), ncol=length(startseason:endseason))
+    SFleets <- as.numeric(gsub('fleet','',colnames(fleetyr)))
+    Sseasons <- egap$season[egap$season%in%startseason:endseason]
+
+    for(i in 1:nrow(Selid)){
+      Yrlinks <- fleetyr[,(SFleets-1)==Selid$Fleet[i]]
+      Sexegappar_sum <- egappar_sum %>% filter(Sex==Selid$Sex[i])
+      Pointers <- Sexegappar_sum$Pointer[match(Yrlinks,Sexegappar_sum$yearlink)]
+      Semat[i,] <- Pointers}
+
+    iswhite <- readWorkbook(wb,sheet='IsWhite', startRow = 2)
+
+    tmp <- list()
+    tmp <- c(tmp, "# Selex specification\n# Number Selex Patterns\n",negappar)
+    tmp <- c(tmp, "\n# Pattern Type Sex Npars Pointer # Type PRESPECIFIED 1, COEFFICIENTS 2, LOGISTIC 3, KNIFE 4, DOUBLELOG 9\n")
+    for(i in 1:nrow(egappar_sum)){ tmp <- c(tmp,paste(egappar_sum[i,1:5],collapse = " "),"\n")}
+
+    ids <- paste(0:7, unique(egappar$comment), sep='=', collapse = ", ")
+
+    tmp <- c(tmp, paste0("# Specifications for selectivity (Selectivity of the pots [escape gaps, females then males],", ids,". \n"), "# Sex Age Fleet Step: ",paste(startseason:endseason,collapse = " "),"\n")
+
+    code <- cbind(Selid,Semat)
+    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
+
+
+    #
+    # for(l in 1:nrow(leg)) {
+    #   for(y in 1:ncol(code)) {
+    #     gapyr <- (startseason:endseason)[l]
+    #       code[l,y] <- unique(egappar_sum$link[egappar_sum$fleet==(leg[l,3]+1)])-1
+    #       }}
+    #
+    # #code[leg$sex==1,] <- code[leg$sex==1,] + length(unique(egap$gaplink))  ## adds offset for males to use a different selectivity
+    # code <- cbind(leg,code)
+    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower Upper Estimate Phase ParLink ID\n")
+    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,parlink,hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(parlink==0,phase, -abs(phase)))
+    ## Now make the multiple links
+    tegapparog <- tegappar
+    for(p in pars){
+      if(!p%in%tegapparog$yearlink){
+        reps <- which(tegapparog$yearlink==floor(p))
+        tmpe <- tegapparog[reps,]
+        tmpe$uniq <- paste(substr(tmpe$uniq,1,1), p)
+        tmpe$yearlink <- p
+        tegappar <- rbind(tegappar, tmpe)
+      }
+    }
+
+    for(i in 1:nrow(tegappar)){
+      tmp <- c(tmp, paste(tegappar[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "# selectivity\n", negappar,"\n")
+    for(i in 1:negappar){
+      tmpegappar <- tegappar[tegappar$uniq==unique(tegappar$uniq)[i],]
+      if(unique(tmpegappar$form)=='logistic')  qselect <- 1.0/(1.0+exp(-tmpegappar$par[grepl('slope',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect',tmpegappar$id)])))
+      if(unique(tmpegappar$form)=='doublelogistic')  {qselect <- (1.0/(1.0+exp(-tmpegappar$par[grepl('slope1',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect1',tmpegappar$id)]))))*(1.0/(1.0+exp(-tmpegappar$par[grepl('slope2',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect2',tmpegappar$id)]))))
+      qselect <- qselect/max(qselect)}
+      qselect <- round(qselect,4)
+      tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
+
+    ## Move onto Legal patterns
+    gauge <- readWorkbook(wb,sheet='LegalID', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
+    tmp <- c(tmp, "\n# Number Legal patterns (What is legal and can be retained [e.g. setose, berried, maxsize, minsize] or in a survey all can be caught)\n", nrow(gauge),"\n# Pattern\tType\tExtra\tPointer\t#  Decade Sex Zone Tstep Depth min guage, maxguage biocontrol\n")
+    #ids2 <- apply(as.matrix(ids),2,function(x) as.character(x))
+    for(i in 1:nrow(gauge)){ tmp <- c(tmp, paste(gauge[i,], collapse = "\t"), "\n")    }
+
+    gauge2 <- readWorkbook(wb,sheet='LegalPattern', startRow = 2) %>% dplyr::select(starts_with('lb'))
+
+    tmp <- c(tmp, "\n# legal patterns\n", nrow(gauge2),"\n")
+    for(i in 1:nrow(gauge2)){ tmp <- c(tmp, paste(round(as.numeric(gauge2[i,]),4), collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for Fleet legal assignment\n#Sex\tAge\tFleet\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
+
+    gauge3 <- readWorkbook(wb,sheet='LegalList', startRow = 2)
+    agemat <- dynamics$value[dynamics$object=='agemat']
+    gauge3$point <- gauge$pointer[match(gauge3$id, gauge$id)]
+    gauge3 %<>% mutate(Sex=ifelse(sex=='F',0,1)) %>% mutate(Sex=Sex-min(Sex))
+    fleets %<>% mutate(zone=areas$ManageZone[match(newarea, areas$AreaCode )])
+
+    leg <- expand.grid(Sex=sexs, Age=0:(ages-1),  Fleet=sort(unique(fleets$fleet))-1,Step=sort(unique(times$tstep))-1)
+    id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
+    code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
+    for(r in 1:nrow(code)){
+      if(fleets$Is.Survey[fleets$fleet==(leg$Fleet[r]+1)]==1) {
+        code[r,] <- gauge$pos[gauge$id=='Survey']
+      } else {
+        for(c in 1:ncol(code)){
+          Sex <- leg$Sex[r] ; Sex <- ifelse(leg$Age[r]<(agemat-1), 1, Sex)  ## This is for WRL to set legal the same as males when age < maturity
+          Season <- (startseason:endseason)[c]
+          Tstep <- leg$Step[r]+1
+          Zone <- which(LETTERS==fleets$zone[fleets$fleet==(leg$Fleet[r]+1)])
+          Depth <- areas$depth[areas$AreaCode==fleets$newarea[fleets$fleet==(leg$Fleet[r]+1)]][1]
+          point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+          code[r,c] <- point
+        }}}
+    code <- cbind(leg, code)
+    code %<>% arrange(Sex, Age, Fleet, Step)
+    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for legal biomass\n#Sex Age Area Step ",paste(startseason:endseason,collapse = " "),"\n")
+    leg <- expand.grid(Sex=sexs, Age=(1:ages)-1,  Area=sort(unique(areas$AreaCode ))-1,Step=sort(unique(times$tstep))-1)
+    id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
+    code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
+
+    for(r in 1:nrow(code)){
+      for(c in 1:ncol(code)){
+        Sex <- leg$Sex[r] ; Sex <- ifelse(leg$Age[r]<(agemat-1), 1, Sex)  ## This is for WRL to set legal the same as males when age < maturity
+        Season <- (startseason:endseason)[c]
+        Tstep <- leg$Step[r]+1
+        Zone <- which(LETTERS==unique(fleets$zone[fleets$newarea==(leg$Area[r]+1)]))
+        Depth <- areas$depth[areas$AreaCode ==unique(fleets$newarea[fleets$newarea==(leg$Area[r]+1)])][1]
+        point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+        code[r,c] <- point
+      }
+      }
+
+    code <- cbind(leg, code)
+    code %<>% arrange(Sex, Age, Area, Step)
+    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
+    ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
+    tmp <- c(tmp, paste(gauge2[nrow(gauge2),], collapse = "\t"))
+
+    tmp <- c(tmp, "\n\n# IsRed specifications - assignment of unique life stage quality\n")
+    dat <- expand.grid(sex=sexs,age=(1:ages)-1, area=sort(unique(areas$AreaCode ))-1, step=sort(unique(times$tstep))-1, state=1)
+    if(nrow(iswhite)>0) {
+      for(i in 1:nrow(iswhite)){
+        dat$state[dat$age==(iswhite$Age[i]-1) & dat$area==(iswhite$Area[i]-1) & dat$step==(iswhite$Tstep[i]-1)] <- 0
+      }}
+    dat %<>% arrange(sex, age, area, step)
+    tmp <- c(tmp, "#Sex Age Area TStep State","\n")
+    for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/SELEXSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+    #### Projection file ####
+    print("Building Projection File")
+
+    find <- function(KeyWord, DataFile, Offset){
+      KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
+      if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))+Offset
+      if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))+Offset
+      if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))+Offset
+      if(length(KeyWord)==4) pos1 <- which(4==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])+grepl(KeyWord[4],DataFile[,4])))+Offset
+      return(pos1)}
+
+
+    tmp <- list()
+    tmp <- c(tmp, "# Notes\n")
+    tmp <- c(tmp, "# Recruitment, movement, growth propotions are as for the last year\n")
+    tmp <- c(tmp, "\n# Number of projection years (must be less than the maximum number of projection years)\n")
+    tmp <- c(tmp,projectseason,'\n')
+    tmp <- c(tmp, "# Selectivity\n")
+    tmp <- c(tmp, "# Specifications for selectivity (Selectivity of the pots [escape gaps, males then females], 0 = None, 1 = 54 mm, 2 = 55 mm)\n")
+
+    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    pos1 <- find(c("#",'Specifications','for','selectivity'), tdat, 2)
+    pos2 <- find(c("#",'Selectivity'), tdat, -1)
+    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
+    colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
+    tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
+    for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Retention\n")
+    tmp <- c(tmp, "# Specifications for retention. Fleet = comm comm comm comm comm comm comm comm comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor rec rec rec rec ibss ibss ibss ibss ibss iss iss iss iss\n")
+    tdat  <- read.table(paste(floc,'/RETAINSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    pos1 <- find(c("#",'Specifications','for','retention'), tdat, 2)
+    pos2 <- find(c("#",'retention',"-"), tdat, -1)
+    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
+    colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
+    tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
+    for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "#\n# Specifications for Fleet legal assignment\n")
+    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    pos1 <- find(c("#",'Specifications','for','Fleet'), tdat, 2)
+    pos2 <- find(c("#",'Specifications','for','legal'), tdat, -1)
+    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
+    colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
+    tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
+    for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n#	Discard	mortality\n")
+    tdat  <- read.table(paste(floc,'/CONTROL.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat[tdat==''&!is.na(tdat)] <- NA
+    pos1 <- find(c("#",'Discard','mortality'), tdat, 2)
+    pos2 <- find(c("#",'Recruitment_deviations'), tdat, -1)
+    tdat <- tdat[pos1:pos2,c(1:3, sum(!is.na(tdat[pos1,])))  ]
+    for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
+    colnames(tdat) <- c("Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
+    tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
+    for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
+
+    tdat  <- read.table(paste(floc,'/DATA.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    pos1 <- find(c("#",'Catch','data'), tdat, 3)
+    pos2 <- find(c("#",'Index','data'), tdat, -1)
+    Names <- tdat[pos1-1,c(1:4)]
+    tdat <- tdat[pos1:pos2,c(1:4)]
+    names(tdat) <- Names
+    tdat %<>% filter(`#Year`==max(`#Year`)) %>% mutate(prop=as.numeric(catch)/sum(as.numeric(catch))) %>%
+      mutate(catch=round(projectcatch*prop,1)) %>% dplyr::select(-prop)
+
+    tmp <- c(tmp, "\n# Specifications for projections (1=catch;2=effort;3=?)\n",1,"\n#\n# Catch data (kg) - Number of observations\n", projectseason*nrow(tdat), "\n")
+    tmp <- c(tmp,paste(colnames(tdat), collapse = "\t"), "\n")
+
+    for(i in 1:projectseason){
+      tdat$`#Year` <- endseason+i
+      for(j in 1:nrow(tdat)){
+        tmp <- c(tmp, paste(tdat[j,], collapse = "\t"),"\n")
+      }}
+
+    write.table(tmp, paste(floc,'/PROJECTIONS.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+
+
+
+
+
+
+  } else {print("ModelStructure.xlsx is not located in the current file")}
+
+}

@@ -1,7 +1,9 @@
 Package: IMuLT
 Title: Integrated Model using Length Transition (IMuLT)
 Version: 0.1.0
-Authors@R: person("Simon", "de Lestang", email = "simon.delestang@dpird.wa.gov.au", role = c("aut", "cre"))
+Authors@R: c(
+    person("Simon", "de Lestang", email = "simon.delestang@dpird.wa.gov.au", role = c("aut", "cre")),
+    person("Andre", "Punt", role = "aut"))
 Description: A package to load, control and run the stock assessment model IMuLT.
 License: GPL-3
 Encoding: UTF-8

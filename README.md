@@ -21,8 +21,9 @@ The following packages will be automatically installed:
 - reshape2
 - svDialogs
 - stats4
-- makehtml
-- hplot
+- makehtml {devtools::install_github("https://github.com/haddonm/makehtml")}
+- hplot {devtools::install_github("https://github.com/haddonm/hplot")}
+- codeutils {devtools::install_github("https://github.com/haddonm/codeutils")}
 - dplyr
 - magrittr
 - tidyr

@@ -19,7 +19,7 @@ devtools::install_github("https://github.com/haddonm/makehtml")
 devtools::install_github("https://github.com/haddonm/codeutils")
 devtools::install_github("https://github.com/haddonm/hplot")
 
-# Install IMuLT
+# Install IMuLT (This can take a while (~1 minute) as the model must be compiled)
 devtools::install_github("sdelestang/IMuLT")
 ```
 

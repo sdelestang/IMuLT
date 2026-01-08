@@ -4,10 +4,20 @@ A package to load, control and run the stock assessment model IMuLT for Crustace
 
 ## Installation
 
+IMuLT requires several packages, including some only available from GitHub:
+
 Install directly from GitHub using devtools:
 ```r
 # Install devtools if you don't have it
 install.packages("devtools")
+
+# Install a CRAN dependancy
+install.packages("TMB")
+
+# Install GitHub dependancies
+devtools::install_github("https://github.com/haddonm/makehtml")
+devtools::install_github("https://github.com/haddonm/codeutils")
+devtools::install_github("https://github.com/haddonm/hplot")
 
 # Install IMuLT
 devtools::install_github("sdelestang/IMuLT")
@@ -21,8 +31,6 @@ The following packages will be automatically installed:
 - reshape2
 - svDialogs
 - stats4
-- makehtml
-- hplot
 - dplyr
 - magrittr
 - tidyr

@@ -22,3 +22,4 @@ Depends:
     tidyr,
     ggplot2,
     openxlsx
+LinkingTo: TMB, RcppEigen

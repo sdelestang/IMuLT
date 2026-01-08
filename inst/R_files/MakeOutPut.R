@@ -30,7 +30,7 @@ MakeOutPut <- function(is95=TRUE){
     invisible(dir.create(rundirA))
     invisible(file.copy(rundir,rundirA, recursive = T))
     print("Archived old report")}
-    invisible(file.remove(f))
+    suppressWarnings(invisible(file.remove(f)))
   }
 
   dirExists(rundir,verbose=TRUE)  ## This makes it

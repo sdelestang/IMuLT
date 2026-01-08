@@ -3,9 +3,10 @@ library(magrittr)
 library(reshape2)
 library(ggplot2)
 library(tidyr)
+#if(!exists("fls")) fls <- list.files(pattern = 'Run')[1]
 dat  <- read.table(paste("../",fls,"/Output/Output.RL",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
 
-selx <- read.table(paste("../",fls,"/SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100) 
+selx <- read.table(paste("../",fls,"/SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
 
 lbin1  <- read.table(paste("../",fls,"/DATA.dat",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
 
@@ -22,7 +23,7 @@ findNclean <- function(KeyWord, DataFile, Offset=1, convert=0, char=F){
   if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))
   if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))
   if(length(KeyWord)==4) pos1 <- which(4==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])+grepl(KeyWord[4],DataFile[,4])))
-  if(!(pos1+1)%in%hash) { 
+  if(!(pos1+1)%in%hash) {
     pos2 <- hash[hash>(pos1+Offset)][1]-1
     adj <- 0 } else {
       pos2 <- hash[hash>(pos1+1+Offset)][1]-1
@@ -45,8 +46,8 @@ findNclean <- function(KeyWord, DataFile, Offset=1, convert=0, char=F){
         chartmp <- tmp
         if(nrow(tmp)==1)  suppressWarnings(tmp[convert] <- (apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
         if(nrow(tmp)>1)   suppressWarnings(tmp[,convert] <- data.frame(apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
-        tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,])] 
-        if(char==T) { return(chartmp) } 
+        tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,])]
+        if(char==T) { return(chartmp) }
         if(char==F) {if(!is.null(dim(tmp))) colnames(tmp) <- rname[1:length(colnames(tmp))]
         return(tmp) }}} else { return(NA) } } else { return(NA) }
 }

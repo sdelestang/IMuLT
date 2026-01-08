@@ -1,1 +1,9 @@
 .Rproj.user
+
+inst/libs/
+src/*.o
+src/*.so
+src/*.dll
+.Rproj.user
+.Rhistory
+.RData

@@ -8,16 +8,6 @@
       }
     )
   }
-
-  # Source workflow scripts
-  r_files <- system.file("R_files", package = "IMuLT")
-  if(dir.exists(r_files)) {
-    tryCatch({
-      source(file.path(r_files, "BackgroundLoadOutput.R"), local = FALSE)
-    }, error = function(e) {
-      message("Note: Workflow scripts not yet available")
-    })
-  }
 }
 
 .onUnload <- function(libpath) {

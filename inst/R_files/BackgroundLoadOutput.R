@@ -3,7 +3,8 @@ library(magrittr)
 library(reshape2)
 library(ggplot2)
 library(tidyr)
-#if(!exists("fls")) fls <- list.files(pattern = 'Run')[1]
+
+if(!exists("fls")) fls <- list.files(pattern = 'Run')[1]
 dat  <- read.table(paste("../",fls,"/Output/Output.RL",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
 
 selx <- read.table(paste("../",fls,"/SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)

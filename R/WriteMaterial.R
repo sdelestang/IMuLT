@@ -1,3 +1,173 @@
+
+#' Write Comprehensive Model Output Files
+#'
+#' Master output function to write all IMuLT model results to standardized output
+#' files. Creates Output.RL (main results), SDReport.RL (parameter estimates and
+#' standard errors), and Model.ppp (parameter values) for use in diagnostics,
+#' plotting, and subsequent analyses.
+#'
+#' @param Report List of model results from objective function evaluation, containing
+#'   all predicted values, likelihoods, derived quantities, and population dynamics
+#' @param SDrep Data frame of standard error report from RTMB/TMB sdreport(), containing
+#'   parameter estimates and standard errors for reported variables
+#' @param fullrep Complete standard error report including all parameters and derived
+#'   quantities with estimates, standard errors, and names
+#' @param pin Named list of initial parameter values (input to optimization)
+#' @param pout Named list of final parameter values (output from optimization)
+#' @param GeneralSpecs List from ReadGeneralFile() containing model dimensions
+#' @param ControlSpecs List from ReadControlFile() containing control specifications
+#' @param TheData List from ReadDataFile() containing all model data
+#' @param CurrPhase Integer indicating estimation phase (default = 2)
+#' @param best Numeric vector of best parameter values from optimization (default = -1)
+#' @param grad Numeric vector of final gradients for all parameters (default = -1)
+#'
+#' @return Invisibly returns NULL. Side effects include creating output files:
+#' \itemize{
+#'   \item Output.RL - Main results file with all model outputs
+#'   \item SDReport.RL - Standard error report (copy of fullrep)
+#'   \item Model.ppp - Parameter file with estimated and fixed values
+#' }
+#'
+#' @details
+#' This is the comprehensive output writer for IMuLT. It organizes all model results
+#' into a standardized format for subsequent analysis, plotting, and reporting. The
+#' function automatically handles missing standard errors (when sdreport not run).
+#'
+#' **Output.RL Structure** (main results file):
+#'
+#' *Likelihood Components*:
+#' \itemize{
+#'   \item Total objective function value
+#'   \item Individual likelihood components (catch, CPUE, numbers, length, larval)
+#'   \item Weighted and unweighted likelihoods by data type
+#'   \item Penalty terms (initial N, recruitment, recruitment smoothing)
+#'   \item Likelihood breakdown by fleet/group
+#' }
+#'
+#' *Parameter Estimates*:
+#' \itemize{
+#'   \item Complete parameter table with names, indices, estimates, SEs, gradients, bounds
+#'   \item Distinction between estimated (positive phase) and fixed parameters
+#'   \item Total count of estimated parameters
+#' }
+#'
+#' *Population Dynamics*:
+#' \itemize{
+#'   \item Egg production (total and by area)
+#'   \item Recruitment (total and by area, with SEs when available)
+#'   \item Recruitment size distributions
+#'   \item Legal biomass by area (various definitions: >76mm, reference selectivity)
+#'   \item Mature biomass by sex and area
+#'   \item Virgin/unfished biomass
+#'   \item Extended projections when applicable
+#' }
+#'
+#' *Mortality and Exploitation*:
+#' \itemize{
+#'   \item Harvest rates by management zone
+#'   \item Fishing mortality (F) by year, time step, and fleet
+#'   \item Natural mortality (M) by area, age, and year (including density dependence)
+#' }
+#'
+#' *Model Fits to Data*:
+#' \itemize{
+#'   \item Catch data: observed, predicted, and fishing mortality by fleet
+#'   \item Index data: observations, predictions, residuals with CVs
+#'   \item Catch-in-numbers: fits and residuals
+#'   \item Length compositions: observed vs predicted with effective sample sizes
+#'   \item Larval/puerulus data: observations vs predictions
+#'   \item Fishing efficiency trends (technological creep)
+#' }
+#'
+#' *Biological Processes*:
+#' \itemize{
+#'   \item Selectivity patterns (actualized for each combination of factors)
+#'   \item Retention patterns (legal size selectivity)
+#'   \item Growth curves by year, area, sex, and age
+#'   \item Recruitment distributions (spatial and size-based)
+#'   \item Movement patterns by size
+#' }
+#'
+#' *Population Structure*:
+#' \itemize{
+#'   \item Initial N-matrix: starting population by area/sex/age/length
+#'   \item Simplified N-matrix: population summed across ages by year
+#'   \item Full N-matrix: complete population array (area × year × step × sex × age × length)
+#'   \item F-matrix: fishing mortality array (year × step × fleet)
+#' }
+#'
+#' *Data Diagnostics*:
+#' \itemize{
+#'   \item Length composition tuning (Francis multipliers for reweighting)
+#'   \item Effective sample sizes vs input sample sizes
+#'   \item Sigma estimates for each data type
+#'   \item Lambda (overdispersion) parameters
+#'   \item Q (catchability) estimates by index
+#' }
+#'
+#' **Model.ppp File**: Contains parameter values in simple format for reading by
+#' external programs. Lists both estimated (with final values) and fixed (with
+#' initial values) parameters with comments indicating parameter names and indices.
+#'
+#' **Handling Missing Standard Errors**: When standard errors are unavailable
+#' (sdreport not run), the function outputs estimates only, adding 'nose' or 'se=NA'
+#' flags as appropriate. This allows output generation even when Hessian is singular.
+#'
+#' **Year Indexing**: The function carefully converts between model year indices
+#' (which may start at 1) and calendar years (Year1 through Year2), including
+#' burn-in period adjustments where necessary. Larval data years account for both
+#' burn-in and settlement delay (Larval_Offset).
+#'
+#' **Output Directory Management**: If an 'Output' subdirectory exists, the function
+#' changes to it before writing files, then returns to the parent directory afterward.
+#'
+#' **Data Tuning Statistics**: Calculates Francis (1011) weighting multipliers for
+#' length composition data by comparing variance of residuals in mean length. Also
+#' computes effective sample sizes using McAllister-Ianelli method for comparison
+#' with input sample sizes.
+#'
+#' The function relies on tidyr, dplyr, and magrittr for data manipulation when
+#' handling standard error output from RTMB/TMB.
+#'
+#' @note This function should be called after successful model optimization to
+#' preserve results. The output files are read by MakeOutPut() for report generation
+#' and by other analysis functions. File formats are specific to IMuLT and must
+#' maintain their structure for compatibility with downstream processing.
+#'
+#' @references
+#' Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock assessment
+#' models. Canadian Journal of Fisheries and Aquatic Sciences, 68(6), 1124-1138.
+#'
+#' @examples
+#' \dontrun{
+#' # After optimization
+#' obj <- MakeADFun(data, parameters, map = final_map)
+#' opt <- nlminb(start, obj$fn, obj$gr, lower = lower, upper = upper)
+#'
+#' # Get standard errors
+#' sdrep <- sdreport(obj)
+#'
+#' # Write outputs
+#' Report <- obj$report()
+#' WriteOutput(
+#'   Report = Report,
+#'   SDrep = summary(sdrep, "report"),
+#'   fullrep = summary(sdrep, "all"),
+#'   pin = parameters,
+#'   pout = opt$par,
+#'   GeneralSpecs = GeneralSpecs,
+#'   ControlSpecs = ControlSpecs,
+#'   TheData = Data,
+#'   best = opt$par,
+#'   grad = obj$gr(opt$par)
+#' )
+#' }
+#'
+#' @seealso
+#' \code{\link{MakeOutPut}} for generating HTML reports from output files
+#' \code{\link{LoadOutputData}} for reading output files
+#'
+#' @keywords internal
 WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,TheData,CurrPhase=2,best=rep(-1,1000),grad=rep(-1,1000)){
 
   library(tidyr)

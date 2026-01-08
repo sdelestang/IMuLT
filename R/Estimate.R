@@ -1,4 +1,77 @@
-
+#' Configure Parameter Initialization and Estimation Maps for Current Phase
+#'
+#' Internal function that prepares parameter structures for RTMB/TMB optimization
+#' by setting initial values, bounds, and creating a "map" that controls which
+#' parameters are estimated versus fixed for the current estimation phase.
+#'
+#' @param ParOld Numeric vector of parameter values from previous phase(s). Used
+#'   to initialize parameters that were estimated in earlier phases at their
+#'   converged values
+#' @param parameters Named list of parameter arrays/vectors matching the RTMB/TMB
+#'   model structure. Must include all parameter types defined in InitialVars
+#' @param InitialVars Nested list from ReadInitialValues() containing Initial,
+#'   Bnd, and Phase components for each parameter type
+#' @param CurrPhase Integer indicating the current estimation phase (1, 2, 3, etc.)
+#'
+#' @return List containing components needed for RTMB/TMB optimization:
+#' \itemize{
+#'   \item map - Named list of factor vectors controlling parameter estimation.
+#'     NA values indicate fixed parameters; integer values group parameters
+#'     (same integer = estimated as single shared parameter)
+#'   \item parameters - Parameter list with values initialized appropriately
+#'     for the current phase
+#'   \item EstVec - Numeric vector of parameter values to be estimated in
+#'     current phase (initial values for optimization)
+#'   \item lowBnd - Lower bounds for parameters being estimated
+#'   \item uppBnd - Upper bounds for parameters being estimated
+#' }
+#'
+#' @details
+#' This function implements phased parameter estimation for RTMB/TMB models.
+#' Parameters are estimated in sequential phases, with earlier phases converging
+#' before later parameters are activated. This approach:
+#' \itemize{
+#'   \item Improves optimization stability for complex models
+#'   \item Reduces parameter correlations
+#'   \item Allows core parameters to stabilize first
+#'   \item Makes troubleshooting easier
+#' }
+#'
+#' **Phase logic for each parameter**:
+#' \itemize{
+#'   \item Phase < 0 or 0: Always fixed at initial value
+#'   \item Phase < CurrPhase: Previously estimated, fixed at converged value (from ParOld)
+#'   \item Phase = CurrPhase: Currently being estimated, included in map and EstVec
+#'   \item Phase > CurrPhase: Not yet estimated, fixed at initial value
+#' }
+#'
+#' The "map" is RTMB/TMB's mechanism for controlling which parameters are estimated.
+#' It's a named list parallel to the parameter structure, containing factor vectors
+#' where NA indicates a fixed parameter and integers identify parameters to estimate.
+#'
+#' **Special handling of dummy parameter**: If no parameters are estimated in the
+#' current phase, a dummy parameter is activated to prevent optimization failures.
+#' This ensures the model can run even when all biological parameters are fixed.
+#'
+#' The function uses a nested SinglePhase() helper that processes each parameter
+#' type individually, building up the complete map, estimation vector, and bounds.
+#'
+#' @examples
+#' \dontrun{
+#' # Phase 1: Estimate only core parameters
+#' phase1 <- SetInitialAndPhases(ParOld = NULL, parameters, InitialVars, CurrPhase = 1)
+#' obj <- RTMB::MakeADFun(data, phase1$parameters, map = phase1$map)
+#' opt1 <- nlminb(phase1$EstVec, obj$fn, obj$gr,
+#'                lower = phase1$lowBnd, upper = phase1$uppBnd)
+#'
+#' # Phase 2: Add selectivity parameters, holding phase 1 at converged values
+#' phase2 <- SetInitialAndPhases(opt1$par, parameters, InitialVars, CurrPhase = 2)
+#' obj <- RTMB::MakeADFun(data, phase2$parameters, map = phase2$map)
+#' opt2 <- nlminb(phase2$EstVec, obj$fn, obj$gr,
+#'                lower = phase2$lowBnd, upper = phase2$uppBnd)
+#' }
+#'
+#' @keywords internal
 SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
 {
 
@@ -77,7 +150,41 @@ SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
   return(ReturnObj)
 }
 
-
+#' Get Maximum Estimation Phase Number
+#'
+#' Helper function to determine the highest estimation phase across all parameter
+#' types in the model specification.
+#'
+#' @param InitialVars Nested list from ReadInitialValues() containing parameter
+#'   specifications with Phase components
+#'
+#' @return Integer indicating the maximum phase number found across all parameters
+#'
+#' @details
+#' This function scans through all parameter types and finds the highest phase
+#' number specified. This is useful for:
+#' \itemize{
+#'   \item Determining how many optimization phases are needed
+#'   \item Loop control in sequential phase estimation
+#'   \item Validation that all phases are sequential
+#' }
+#'
+#' The function returns a minimum value of 1 even if all parameters have negative
+#' phases (all fixed), ensuring at least one phase exists for model evaluation.
+#'
+#' @examples
+#' \dontrun{
+#' InitVals <- ReadInitialValues(...)
+#' max_phase <- getPhase(InitVals)
+#' # Run optimization through all phases
+#' for (phase in 1:max_phase) {
+#'   # ... estimation code ...
+#' }
+#' }
+#'
+#' @seealso \code{\link{SetInitialAndPhases}} for phase-based parameter configuration
+#'
+#' @keywords internal
 getPhase <- function(InitialVars){
   mX <- 1
   num <- length(InitialVars)

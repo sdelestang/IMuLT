@@ -1,3 +1,110 @@
+#' Generate Comprehensive HTML Report from IMuLT Model Outputs
+#'
+#' Master function to create a complete HTML report summarizing IMuLT model results.
+#' Reads model output files, creates diagnostic plots and tables for all model
+#' components, and compiles them into an organized HTML document with navigation.
+#'
+#' @param is95 Logical indicating whether to use 95% confidence intervals (TRUE)
+#'   or 68% confidence intervals (FALSE, approximately ±1 SE). Default is TRUE
+#'
+#' @return Invisibly returns NULL. Side effects include:
+#' \itemize{
+#'   \item Creates 'Summary/result/' directory with HTML report and all figures
+#'   \item Optionally archives previous report to timestamped folder
+#'   \item Opens HTML report in default browser
+#'   \item Copies input DAT files and key output files to report directory
+#' }
+#'
+#' @details
+#' This function is the main post-processing workflow for IMuLT stock assessments.
+#' It creates a comprehensive, organized HTML report containing:
+#'
+#' **Model Diagnostics**:
+#' \itemize{
+#'   \item Likelihood components (raw and weighted)
+#'   \item Penalty terms (initial N, recruitment, recruitment smoothing)
+#'   \item Estimated parameter table with gradients and bounds
+#'   \item Data tuning statistics for size compositions (Francis multipliers)
+#' }
+#'
+#' **Data and Model Specifications**:
+#' \itemize{
+#'   \item Data availability plot showing temporal coverage by fleet/area
+#'   \item Fleet descriptions and area definitions
+#'   \item Selectivity curves by sex and fleet
+#'   \item Retention curves (legal size regulations) by sex, fleet, and time
+#'   \item Growth curves derived from size-transition matrices
+#' }
+#'
+#' **Model Fits to Observations**:
+#' \itemize{
+#'   \item Commercial catches (observed vs predicted by area and total)
+#'   \item Abundance indices (CPUE) with confidence intervals
+#'   \item Fishing efficiency trends (technological creep)
+#'   \item Size composition fits (multiple visualizations: overlaid, residuals, time series)
+#'   \item Puerulus settlement data fits
+#' }
+#'
+#' **Population Dynamics Outputs**:
+#' \itemize{
+#'   \item Recruitment estimates by area and year
+#'   \item Recruitment size distributions
+#'   \item Movement/migration patterns between areas
+#'   \item Legal biomass (B/B0) trajectories with reference points
+#'   \item Harvest rates by management zone
+#'   \item Fishing mortality by area and fleet
+#'   \item Egg production (spawning stock) with breeding stock management area summaries
+#'   \item Natural mortality (including density dependence if applicable)
+#'   \item Virgin and initial population size structures
+#' }
+#'
+#' **Report Organization**: Uses the makehtml/hplot package system to create
+#' a navigable HTML interface with categories (sidebar menu) containing related
+#' plots and tables. Each plot includes a descriptive caption.
+#'
+#' **Archiving**: Prompts user whether to archive previous report. If 'Y',
+#' copies existing report to timestamped 'archive' folder before creating new report.
+#'
+#' **File Dependencies**: Requires the following files in working directory:
+#' \itemize{
+#'   \item Output.RL - Main model outputs
+#'   \item SDReport.RL - Parameter estimates and standard errors
+#'   \item Echo.out - Echo of specifications
+#'   \item Parameters_solved.txt - Table of estimated parameters
+#'   \item ../DATA.DAT, ../CONTROL.DAT, ../SELEXSPEC.DAT, ../MOVESPEC.DAT - Input files
+#'   \item ../../ModelStructure.xlsx - Model configuration workbook
+#' }
+#'
+#' **Special Processing**:
+#' \itemize{
+#'   \item Automatically detects 8-area model for Breeding Stock Management Area plots
+#'   \item Handles variable sex structure (combined, female only, or both sexes)
+#'   \item Adapts plot panels based on number of areas/fleets using Fdims() helper
+#'   \item Converts between different data representations (numbers ↔ proportions)
+#'   \item Handles missing standard errors gracefully
+#' }
+#'
+#' The function loads required packages: makehtml, hplot, dplyr, magrittr, tidyr,
+#' ggplot2, reshape2, and openxlsx.
+#'
+#' @note This function should be run from the model output directory (typically
+#' 'Run/') after successful model estimation. It expects a specific directory
+#' structure with input files one level up (../) and ModelStructure.xlsx two
+#' levels up (../../).
+#'
+#' @examples
+#' \dontrun{
+#' # After running IMuLT model, generate report with 95% CIs
+#' setwd("Run/")
+#' MakeOutPut(is95 = TRUE)
+#'
+#' # Generate report with narrower 68% CIs
+#' MakeOutPut(is95 = FALSE)
+#' }
+#'
+#' @seealso \code{\link{LoadOutputData}} for loading outputs without report generation
+#'
+#' @export
 MakeOutPut <- function(is95=TRUE){
 
   library(makehtml)

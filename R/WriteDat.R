@@ -1,3 +1,110 @@
+#' Write DATA.DAT File for IMuLT Model
+#'
+#' Internal function to create a complete DATA.DAT file containing all model input
+#' data. Can write original data, expected values from model predictions, or
+#' pseudo-data sets with simulated observation error for bootstrap/simulation testing.
+#'
+#' @param Report List of model outputs from optimization, containing predicted
+#'   values (PredCpue, PredNumbers, PredLengthComp, PredLarval) and estimated
+#'   variance parameters (SigmaCpue, SigmaNumbers)
+#' @param TheData List containing all model data components (dimensions, observations,
+#'   specifications) typically from ReadDataFile()
+#' @param DatFile Character string specifying output file path (typically "DATA.DAT")
+#' @param Nsim Integer controlling output type:
+#'   \itemize{
+#'     \item -1: Write original observed data
+#'     \item  0: Write expected values (model predictions with no error)
+#'     \item >0: Generate pseudo-data set number Nsim with simulated observation error
+#'   }
+#'
+#' @return Invisibly returns NULL. Side effect is writing DATA.DAT file to disk.
+#'
+#' @details
+#' This function writes a complete DATA.DAT file in the IMuLT format, which includes:
+#'
+#' **Model Dimensions and Configuration**:
+#' \itemize{
+#'   \item Year range (Year1, Year2), burn-in period
+#'   \item Time steps per year, number of areas, sexes, ages, fleets
+#'   \item Number of size classes by sex
+#'   \item Time step durations and length bins
+#'   \item Iteration control for initial conditions
+#' }
+#'
+#' **Data Types Written**:
+#' \itemize{
+#'   \item **Catch data**: Commercial catches by year, time step, and fleet
+#'   \item **Index data**: CPUE/abundance indices with specifications for each series
+#'     (type, sigma treatment, catchability treatment, environmental linkage)
+#'   \item **Catch-in-numbers**: Total numbers caught by fleet/year/step
+#'   \item **Length compositions**: Size frequency data by fleet/sex/year/step
+#'   \item **Larval data**: Puerulus settlement indices by area and year
+#'   \item **Environmental data**: Covariate time series (e.g., temperature, climate indices)
+#' }
+#'
+#' **Simulation Mode (Nsim > 0)**:
+#' When generating pseudo-data, the function simulates realistic observation error:
+#' \itemize{
+#'   \item **CPUE/Index data**: Lognormal error with bias correction:
+#'     \code{pred * exp(rnorm(0, sigma) - sigma²/2)}
+#'   \item **Catch-in-numbers**: Lognormal error as above
+#'   \item **Length compositions**: Multinomial resampling accounting for overdispersion
+#'     via LambdaLength2 parameters, then rescaled to original sample size
+#'   \item **Larval indices**: Lognormal error with specified CV
+#' }
+#'
+#' **Expected Values Mode (Nsim = 0)**:
+#' Writes model predictions without error, useful for:
+#' \itemize{
+#'   \item Diagnostic checks (model should fit perfectly to its own predictions)
+#'   \item Creating reference datasets
+#'   \item Verifying prediction calculations
+#' }
+#'
+#' **Original Data Mode (Nsim = -1)**:
+#' Writes the actual observed data, useful for:
+#' \itemize{
+#'   \item Creating backup copies of original data
+#'   \item Documenting data used in a specific model run
+#'   \item Transferring data between model versions
+#' }
+#'
+#' **Data Specifications**: The function preserves all data series specifications:
+#' \itemize{
+#'   \item Index types (weight vs numbers based)
+#'   \item Sigma treatment flags (fixed vs estimated by series)
+#'   \item Q treatment (catchability estimation approach)
+#'   \item Environmental index linkages
+#'   \item Likelihood options (normal vs lognormal for larvae)
+#' }
+#'
+#' **Overdispersion Handling**: Length composition simulations use the
+#' LambdaLength2 overdispersion parameters to inflate effective sample size
+#' during multinomial resampling, then rescale to maintain original sample sizes.
+#'
+#' The function adjusts year values between model indexing (starts at 1) and
+#' calendar years (Year1 through Year2), including burn-in period adjustments
+#' for larval data.
+#'
+#' @note All numeric output is written in matrix form with consistent column
+#' alignment for readability. Headers and comments are included for each data
+#' section to match the expected DATA.DAT format.
+#'
+#' @examples
+#' \dontrun{
+#' # Write original data to file
+#' WriteDataFile(Report, Data, "DATA_original.DAT", Nsim = -1)
+#'
+#' # Write expected values (model predictions)
+#' WriteDataFile(Report, Data, "DATA_expected.DAT", Nsim = 0)
+#'
+#' # Generate 100 pseudo-data sets for bootstrap
+#' for (i in 1:100) {
+#'   WriteDataFile(Report, Data, paste0("DATA_sim_", i, ".DAT"), Nsim = i)
+#' }
+#' }
+#'
+#' @keywords internal
 WriteDataFile <- function(Report,TheData,DatFile,Nsim)
 {
  # Extract stuff needed
@@ -11,11 +118,11 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
  Nfleet <- TheData$Nfleet
  Nlen <- TheData$Nlen
  MaxLen <- max(Nlen)
- 
+
  if (Nsim == -1) write("# Original Data File\n",DatFile)
  if (Nsim == 0) write("# Expected values\n",DatFile)
  if (Nsim > 0) write(paste("# Psuedo data set",Nsim,"\n"),DatFile)
- 
+
  write(paste("# First year of the assessment\n",Year1,sep=""),DatFile,append=T)
  write(paste("# Last year of the assessment\n",Year2,sep=""),DatFile,append=T)
  write(paste("# Burn-in\n",TheData$BurnIn,sep=""),DatFile,append=T)
@@ -24,7 +131,7 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
  write(paste("# Number of sexes\n",Nsex,sep=""),DatFile,append=T)
  write(paste("# Number of ages\n",Nage-1,sep=""),DatFile,append=T)
  write(paste("# Number of fleets\n",Nfleet,sep=""),DatFile,append=T)
- 
+
  write(paste("# Number of size-classes (males then females)"),DatFile,append=T)
  write(Nlen,DatFile,append=T)
  write("# The Time steps",DatFile,append=T)
@@ -32,11 +139,11 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
  write(Data$TimeStepLen[1,],DatFile,ncol=Nstep,append=T)
  write(paste("# Loop counter for initial conditions\n",TheData$Num_Iteration,sep=""),DatFile,append=T)
  write(paste("# Years over which to tune\n",TheData$Tune_Years,sep=""),DatFile,append=T)
- 
+
  write(paste("\n# Lower Length Bins (one more than number of size-classes"),DatFile,append=T)
  for (Isex in 1:Nsex)
   write(TheData$LowLenBin[Isex,1:(Nlen[Isex]+1)],DatFile,append=T,ncol=Nlen[Isex]+1)
- 
+
  # Catches
  write(paste("\n# Catch data\n",Nfleet*Nyear*Nstep,"\n# Year step fleet catch",sep=""),DatFile,append=T)
  CatOut <- matrix(0,nrow=Nfleet*Nyear*Nstep,ncol=4)
@@ -46,7 +153,7 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
    for (Ifleet in 1:Nfleet)
     { Ipnt <- Ipnt + 1; CatOut[Ipnt,] <- c(Iyear+Year1-1,Istep,Ifleet,Data$Catch[Iyear,Istep,Ifleet])  }
   write(t(CatOut),DatFile,ncol=4,append=T)
-  
+
  # Cpue
  NcpueDataSeries <- TheData$NcpueDataSeries
  write("\n# Index data",DatFile,append=T)
@@ -60,13 +167,13 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
  write("# Environmental index",DatFile,append=T)
  write(TheData$EnvIndCpue,DatFile,append=T,ncol=NcpueDataSeries)
  write(paste("# Minimum sigma\n",TheData$SigmaCpueOffset,sep=""),DatFile,append=T)
- 
+
  write(paste("# The cpue data\n",TheData$Ncpue,sep=""),DatFile,append=T)
  CpueOut <- matrix(0,nrow=TheData$Ncpue,ncol=7)
  write("#CpueInd #Fleet	#Sex	#Year	#Step	#Index	        #CV",DatFile,append=T)
  for (Idata in 1:TheData$Ncpue)
   {
-   CpueOut[Idata,1:5] <- TheData$IndexI[Idata,] 
+   CpueOut[Idata,1:5] <- TheData$IndexI[Idata,]
    IdataSet <- TheData$FixSigmaCpue[TheData$IndexI[Idata,1]+1]
    SigmaUse <- Report$SigmaCpue[IdataSet+1]*TheData$IndexR[Idata,2]
    CpueOut[Idata,4] <- CpueOut[Idata,4] + Year1
@@ -76,7 +183,7 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
    if (Nsim > 0) CpueOut[Idata,6] <- Report$PredCpue[Idata,1]*exp(rnorm(1,0,SigmaUse)-SigmaUse^2/2.0)
   }
  write(t(CpueOut),DatFile,ncol=7,append=T)
- 
+
  # Catch-in-numbers
  NcatchDataSeries <- TheData$NcatchDataSeries
  write("\n# Numbers data",DatFile,append=T)
@@ -99,8 +206,8 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
    if (Nsim > 0) NumbersOut[Idata,5] <- Report$PredNumbers[Idata,1]*exp(rnorm(1,0,SigmaUse)-SigmaUse^2/2.0)
   }
  write(t(NumbersOut),DatFile,ncol=6,append=T)
-  
- # length data 
+
+ # length data
  NlenComp <- TheData$NlenComp
  write(paste("\n# Length compostion\n",NlenComp),DatFile,append=T)
  write("#Fleet	Sex	SEASON	StpLen	Ind",DatFile,append=T)
@@ -119,7 +226,7 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
    if (Nsim > 0)LengthOut[Idata,6:(5+NlenC)] <- as.numeric(rmultinom(1,round(TheData$Stage1W[Idata]*Overdisp),Report$PredLengthComp[Idata,1:NlenC]))/Overdisp
   }
  write(t(LengthOut),DatFile,ncol=5+MaxLen,append=T)
- 
+
  # larval data
  write("\n# Larval index",DatFile,append=T)
  write(paste("# Likelihood for larval data (0=Lognormal; otherwise normal)\n",TheData$LarvalLikeOpt,sep=""),DatFile,append=T)
@@ -139,8 +246,8 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
     if (Nsim > 0) LarvalOut[Idata,3] <- Report$PredLarval[Idata,1]*exp(rnorm(1,0,SigmaUse)-SigmaUse^2/2.0)
    }
  write(t(LarvalOut),DatFile,ncol=4,append=T)
-  
- # Envronmental data 
+
+ # Envronmental data
  write("\n# Environmental Data",DatFile,append=T)
  write(paste("# Number of environmental series\n",TheData$NenvSeries,sep=""),DatFile,append=T)
  write("# Years of data per series",DatFile,append=T)
@@ -156,10 +263,10 @@ WriteDataFile <- function(Report,TheData,DatFile,Nsim)
      EnvOut[Ipnt,2] <- TheData$EnvData[Iyear,Iseries+1]
     }
  write(t(EnvOut),DatFile,ncol=2,append=T)
-    
- 
- 
- 
-  
- 
+
+
+
+
+
+
 }

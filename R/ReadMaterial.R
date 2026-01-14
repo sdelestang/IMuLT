@@ -1464,9 +1464,9 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   NrecruitPatternsB <- as.numeric(RecruitFile[Index,1])
   write(paste("Number of rectuitment patterns",NrecruitPatternsB),EchoFile,append=T)
 
-  RecruitSpecsB<-matrix (0,nrow=NrecruitPatternsB,ncol=1+2*GeneralSpecs$Nsex)
+  RecruitSpecsB<-matrix (0,nrow=NrecruitPatternsB,ncol=1+2+GeneralSpecs$Nsex)
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Allocate_length")+1;
-  for (Ipat in 1:NrecruitPatternsB) RecruitSpecsB[Ipat,] <- as.numeric(RecruitFile[Index+Ipat,1:(1+2*GeneralSpecs$Nsex)])
+  for (Ipat in 1:NrecruitPatternsB) RecruitSpecsB[Ipat,] <- as.numeric(RecruitFile[Index+Ipat,1:(1+2+GeneralSpecs$Nsex)])
   write("Specifications for recuitment",EchoFile,append=T)
   write(t(RecruitSpecsB),EchoFile,append=T,ncol=1+2*GeneralSpecs$Nsex)
 

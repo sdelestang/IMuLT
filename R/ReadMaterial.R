@@ -2399,18 +2399,18 @@ toXL <- function(x, rnames=FALSE){
 #' @export
 LoadData <- function() {
   # read in files
-  StarterFile <<- read.table("Starter.dat",comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+  StarterFile <<- read.table("Starter.dat",comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   Starter <<- ReadStarterFile(StarterFile)
-  DataFile <<- read.table(Starter$DataFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  ControlFile <<- read.table(Starter$ControlFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  SelexFile <<- read.table(Starter$SelexFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  RetenFile <<- read.table(Starter$RetainFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  RecruitFile <<- read.table(Starter$RecruitFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  GrowthFile <<- read.table(Starter$GrowthFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  MoveFile <<- read.table(Starter$MoveFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+  DataFile <<- read.table(Starter$DataFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  ControlFile <<- read.table(Starter$ControlFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  SelexFile <<- read.table(Starter$SelexFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  RetenFile <<- read.table(Starter$RetainFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  RecruitFile <<- read.table(Starter$RecruitFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  GrowthFile <<- read.table(Starter$GrowthFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  MoveFile <<- read.table(Starter$MoveFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   #TagFile <- read.table(Starter$TagFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
   #PropnFile <- read.table(Starter$PropFFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  ProjFile <<- read.table(Starter$ProjectionsFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+  ProjFile <<- read.table(Starter$ProjectionsFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
 
   EchoFile <<- "Output/Echo.out"
   write(paste(rep(".", 100),collapse=' ') ,EchoFile)

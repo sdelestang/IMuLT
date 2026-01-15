@@ -816,7 +816,7 @@ for(p in pars){
     tmp <- c(tmp, "# Selectivity\n")
     tmp <- c(tmp, "# Specifications for selectivity (Selectivity of the pots [escape gaps, males then females], 0 = None, 1 = 54 mm, 2 = 55 mm)\n")
 
-    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','selectivity'), tdat, 2)
     pos2 <- find(c("#",'Selectivity'), tdat, -1)
     tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
@@ -827,7 +827,7 @@ for(p in pars){
 
     tmp <- c(tmp, "\n# Retention\n")
     tmp <- c(tmp, "# Specifications for retention. Fleet = comm comm comm comm comm comm comm comm comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor comm_monitor rec rec rec rec ibss ibss ibss ibss ibss iss iss iss iss\n")
-    tdat  <- read.table(paste(floc,'/RETAINSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat  <- read.table(paste(floc,'/RETAINSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','retention'), tdat, 2)
     pos2 <- find(c("#",'retention',"-"), tdat, -1)
     tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
@@ -837,7 +837,7 @@ for(p in pars){
     for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "#\n# Specifications for Fleet legal assignment\n")
-    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','Fleet'), tdat, 2)
     pos2 <- find(c("#",'Specifications','for','legal'), tdat, -1)
     tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
@@ -847,7 +847,7 @@ for(p in pars){
     for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n#	Discard	mortality\n")
-    tdat  <- read.table(paste(floc,'/CONTROL.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat  <- read.table(paste(floc,'/CONTROL.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     tdat[tdat==''&!is.na(tdat)] <- NA
     pos1 <- find(c("#",'Discard','mortality'), tdat, 2)
     pos2 <- find(c("#",'Recruitment_deviations'), tdat, -1)
@@ -857,7 +857,7 @@ for(p in pars){
     tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
     for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,], collapse = "\t"),"\n")}
 
-    tdat  <- read.table(paste(floc,'/DATA.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+    tdat  <- read.table(paste(floc,'/DATA.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Catch','data'), tdat, 3)
     pos2 <- find(c("#",'Index','data'), tdat, -1)
     Names <- tdat[pos1-1,c(1:4)]

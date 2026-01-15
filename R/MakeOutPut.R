@@ -757,6 +757,7 @@ MakeOutPut <- function(is95=TRUE){
   ### Puerulus Data
   print("Making Recruitment")
   rec <- findNclean(c('Larval','data'), dat, 1)
+  if(!is.na(rec)){
     if(!is.na(rec[1,1]))  {
       recsd <- sdr[grepl('Larval', sdr$name),]
       if(length(recsd$SE[!is.na(recsd$SE)])>0) {rec <- cbind(rec,recsd) } else {rec %<>% mutate(upr=Predicted, lwr=Predicted)}
@@ -777,7 +778,7 @@ MakeOutPut <- function(is95=TRUE){
       caption <- "Observed (black) and estimated (red 9% CI grey) puerulus levels in each area of the model."
       addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
     }
-
+}
   # Mean recruitment by area
   rec <- findNclean(c('Recruitment','by'), dat, 1,0)
   if(!'se'%in%colnames(rec)) rec %<>% mutate(se=0)

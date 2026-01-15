@@ -607,6 +607,9 @@ print("Building Control File")
 
     ## Look at number of pars
     fleetyr <- egap %>% dplyr::select(starts_with('fleet'))
+    if(ncol(fleetyr)==1) {tfleetyr <- fleetyr;
+      colnames(tfleetyr) <- 'fleet999';
+      fleetyr <- cbind(fleetyr, tfleetyr)  }
     fleetyr <- fleetyr[egap$season%in%startseason:endseason,]
     pars <- sort(unique(as.vector(as.matrix(fleetyr))))
 

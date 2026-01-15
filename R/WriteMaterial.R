@@ -348,8 +348,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Legal Biomass sex by area (in predefined timestep weight of all lobster using 'Reference selectivity pattern')",OutputFile,append=T)  ## LegalBioAllbySex runs Burn-in to lastyear
   Years <- 1:(Nyears+1)+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1
   tmp <- as.data.frame((Report$LegalBioAllbySex))
-  tmp <- tmp[tmp[,1]>0, ]
   tmp$year <- GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)
+  tmp <- tmp[tmp[,1]>0, ]
   tmp$year <- tmp$year+(0:(nrow(tmp)-1))
   Sexes <- ifelse(GeneralSpecs$Nsex==1,'U',c('F','M'))
   colnames(tmp) <- c(paste(rep(Sexes,each=GeneralSpecs$Narea),rep(1:GeneralSpecs$Narea,GeneralSpecs$Nsex)), 'year')
@@ -360,8 +360,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Mature Biomass sex by area (in predefined timestep weight of all lobster of mature age)",OutputFile,append=T)
   Years <- 1:(Nyears+1)+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1 # MatureBioAllbySex runs Burn-in to lastyear
   tmp <- as.data.frame((Report$MatureBioAllbySex))
-  tmp <- tmp[tmp[,1]>0, ]
   tmp$year <- GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)
+  tmp <- tmp[tmp[,1]>0, ]
   tmp$year <- tmp$year+(0:(nrow(tmp)-1))
   Sexes <- ifelse(GeneralSpecs$Nsex==1,'U',c('F','M'))
   colnames(tmp) <- c(paste(rep(Sexes,each=GeneralSpecs$Narea),rep(1:GeneralSpecs$Narea,GeneralSpecs$Nsex)), 'year')

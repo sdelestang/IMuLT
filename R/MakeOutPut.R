@@ -326,6 +326,9 @@ MakeOutPut <- function(is95=TRUE){
   print("Making Data Summary")
   CAtch <- find('Catch data by', echo, 1); ECAtch <- find('Number of cpue', echo, -1)
   CAtch <- echo[CAtch:ECAtch,]
+  if(dim(CAtch)[1]==1){
+    ttmp <- rep(0, dim(CAtch)[2])
+    CAtch <- rbind(CAtch, ttmp)  }
   CAtch <- CAtch[,!is.na(CAtch[1,])&CAtch[1,]!='']
   CAtch <- apply(CAtch,2,as.numeric)
   nyears <- 1+(as.numeric(echo[find('Year2', echo, 0),2]) - as.numeric(echo[find('Year1', echo, 0),2])) + as.numeric(echo[find('MaxProjYr', echo, 0),2])

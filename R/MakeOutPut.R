@@ -463,9 +463,12 @@ MakeOutPut <- function(is95=TRUE){
         tfleet3 <- tfleet2[,6:ncol(tfleet2)]
         ## Look into the future
         if(i < length(unique(ret$fleet))){
-          future <- ret[ret$sex==sx & ret$fleet==i+1,]
-          future <- future[,6:ncol(tfleet2)]
-          future <- sum(!duplicated(apply(as.matrix(future),1,paste0,collapse=' ')))      }
+          future <- 1
+          if(length(unique(ret$fleet))>1){
+            future <- ret[ret$sex==sx & ret$fleet==i+1,]
+            future <- future[,6:ncol(tfleet2)]
+            future <- sum(!duplicated(apply(as.matrix(future),1,paste0,collapse=' ')))      }
+          }
         if(nrow(tfleet3)>=9 | i==length(unique(ret$fleet)) | future>length(unique(tfleet2$tstep))){
           filename <- filenametopath(rundir,paste("Sex",sx,"Fleets",(lastfleet+1),"-",i,"Retention.png"))
           plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)

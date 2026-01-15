@@ -461,9 +461,9 @@ MakeOutPut <- function(is95=TRUE){
         tfleet2 <- tfleet2[!duplicated(apply(as.matrix(tfleet3),1,paste0,collapse=' ')),]
         tfleet2 <- tfleet2[order(tfleet2$year),]
         tfleet3 <- tfleet2[,6:ncol(tfleet2)]
+        future <- 1
         ## Look into the future
         if(i < length(unique(ret$fleet))){
-          future <- 1
           if(length(unique(ret$fleet))>1){
             future <- ret[ret$sex==sx & ret$fleet==i+1,]
             future <- future[,6:ncol(tfleet2)]

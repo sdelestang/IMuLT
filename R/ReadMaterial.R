@@ -2413,7 +2413,7 @@ LoadData <- function() {
   ProjFile <<- read.table(Starter$ProjectionsFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
 
   EchoFile <<- "Output/Echo.out"
-  write(paste(rep(".", 100),collapse=' ') ,EchoFile)
+  write(paste(rep(".", 300),collapse=' ') ,EchoFile)
   write("The is an echo file",EchoFile)
 
   # Read in the data file

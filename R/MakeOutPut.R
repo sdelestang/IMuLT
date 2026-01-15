@@ -147,12 +147,12 @@ MakeOutPut <- function(is95=TRUE){
 
   #### Open up all data ####
 
-  dat  <- read.table("Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-  echo  <- read.table("Echo.out",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-  selx <- read.table(paste("../SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-  lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-  ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-  mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
+  dat  <- read.table("Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  echo  <- read.table("Echo.out",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  selx <- read.table(paste("../SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   wb <- loadWorkbook(file="../../ModelStructure.xlsx")
 
   #This is the location of the data input files and their associated parameters

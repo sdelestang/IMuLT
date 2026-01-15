@@ -198,8 +198,9 @@ for(i in 1:nrow(len)){ tmp <- c(tmp, paste(len[i,], collapse = "\t"),"\n")}
 tmp <- c(tmp,"\n# Larval index (puerulus)\n# Likelihood for larval (puerulus) data (0=lognormal, else normal\n",0)
 tmp <- c(tmp,"\n# Delay from puerulus to entering the model (years)\n",3)
 puer <- readWorkbook(wb,sheet='Puerulus',startRow = 2)  %>%  mutate(area=area,mn=round(mn,1), sd=round(cv*mn,2))  %>% dplyr::select(area,season, mn, sd) %>% filter(season %in% startseason:endseason, area %in% areas$AreaCode)
+if(dim(puer)[1]==0) { tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",'0\n# Area\tYear\tIndex\tSD\n') } else {
 tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",nrow(puer),'\n# Area\tYear\tIndex\tSD\n')
-for(i in 1:nrow(puer)){ tmp <- c(tmp, paste(puer[i,], collapse = "\t"),"\n")}
+for(i in 1:nrow(puer)){ tmp <- c(tmp, paste(puer[i,], collapse = "\t"),"\n")} }
 
 #	Environmental	Data   / Fishing efficiency
 #fe <- read.csv(direct('Lobster/Minor stuff/Efficiency/2020/Fish_eff_estimates.csv'))
@@ -551,7 +552,7 @@ print("Building Control File")
     # Bias ramp
     tmp <- c(tmp, "\n# Bias ramp - insert description here\n",paste(c(startseason, startseason+2, endseason-5, endseason-1),collapse = "\t"),"\t#description\tdescription\tdescription\tdescription\n")
 
-    if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 2)))){
+    if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 3)))){
       puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))
       tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n#LB\tUP\tEstimate\tPhase\n")
       for(a in 1:nrow(puerpar)){ tmp <- c(tmp, paste(puerpar[a,],collapse = "\t"), "\n") }} else {

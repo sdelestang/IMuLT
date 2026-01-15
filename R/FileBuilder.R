@@ -737,7 +737,13 @@ for(p in pars){
           Zone <- which(LETTERS==fleets$zone[fleets$fleet==(leg$Fleet[r]+1)])
           ZoneAlp <- fleets$zone[fleets$fleet==(leg$Fleet[r]+1)]
           Depth <- areas$depth[areas$AreaCode==fleets$newarea[fleets$fleet==(leg$Fleet[r]+1)]][1]
-          point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp, as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+          gauge4 <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp, as.character(Zone),'X')&gauge3$id!='Survey',]
+          if(nrow(gauge4)>1){
+            if(length(unique(gauge4$ts))>1) gauge4 %<>% filter(ts==Tstep)
+            if(length(unique(gauge4$sex))>1) gauge4 %<>% filter(sex==Sex)
+            if(nrow(gauge4)>1){ gauge4 <- gauge4[1,] }
+              }
+          point <- gauge4 %>% dplyr::select(point) %>% as.numeric()
           code[r,c] <- point
         }}}
     code <- cbind(leg, code)
@@ -757,7 +763,13 @@ for(p in pars){
         Zone <- which(LETTERS==unique(fleets$zone[fleets$newarea==(leg$Area[r]+1)]))
         ZoneAlp <- fleets$zone[fleets$newarea==(leg$Area[r]+1)]
         Depth <- areas$depth[areas$AreaCode ==unique(fleets$newarea[fleets$newarea==(leg$Area[r]+1)])][1]
-        point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp,as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+        gauge4 <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp,as.character(Zone),'X')&gauge3$id!='Survey',]
+        if(nrow(gauge4)>1){
+          if(length(unique(gauge4$ts))>1) gauge4 %<>% filter(ts==Tstep)
+          if(length(unique(gauge4$sex))>1) gauge4 %<>% filter(sex==Sex)
+          if(nrow(gauge4)>1){ gauge4 <- gauge4[1,] }
+        }
+        point <- gauge4 %>% dplyr::select(point) %>% as.numeric()
         code[r,c] <- point
       }
       }

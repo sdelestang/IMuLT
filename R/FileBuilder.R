@@ -708,6 +708,15 @@ for(p in pars){
     gauge3 <- readWorkbook(wb,sheet='LegalList', startRow = 2)
     agemat <- dynamics$value[dynamics$object=='agemat']
     gauge3$point <- gauge$pointer[match(gauge3$id, gauge$id)]
+    ## Expand X for sex out into identified rows
+    for(i in 1:nrow(gauge3)){
+      if(gauge3$sex[i]=='X'){
+          tgauge3 <- gauge3[i,]
+          tgauge3$sex <- 'M'
+          gauge3$sex[i] <- 'F'
+          gauge3 <- rbind(gauge3, tgauge3)
+        }    }
+
     gauge3 %<>% mutate(Sex=ifelse(sex=='F',0,1)) %>% mutate(Sex=Sex-min(Sex))
     fleets %<>% mutate(zone=areas$ManageZone[match(newarea, areas$AreaCode )])
 
@@ -723,8 +732,9 @@ for(p in pars){
           Season <- (startseason:endseason)[c]
           Tstep <- leg$Step[r]+1
           Zone <- which(LETTERS==fleets$zone[fleets$fleet==(leg$Fleet[r]+1)])
+          ZoneAlp <- fleets$zone[fleets$fleet==(leg$Fleet[r]+1)]
           Depth <- areas$depth[areas$AreaCode==fleets$newarea[fleets$fleet==(leg$Fleet[r]+1)]][1]
-          point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+          point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp, as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
           code[r,c] <- point
         }}}
     code <- cbind(leg, code)
@@ -742,8 +752,9 @@ for(p in pars){
         Season <- (startseason:endseason)[c]
         Tstep <- leg$Step[r]+1
         Zone <- which(LETTERS==unique(fleets$zone[fleets$newarea==(leg$Area[r]+1)]))
+        ZoneAlp <- fleets$zone[fleets$newarea==(leg$Area[r]+1)]
         Depth <- areas$depth[areas$AreaCode ==unique(fleets$newarea[fleets$newarea==(leg$Area[r]+1)])][1]
-        point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
+        point <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp,as.character(Zone),'X')&gauge3$id!='Survey',] %>% dplyr::select(point) %>% as.numeric()
         code[r,c] <- point
       }
       }

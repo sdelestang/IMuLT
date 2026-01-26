@@ -55,6 +55,15 @@ BuildInputFiles <- function(){
   library(magrittr)
   library(openxlsx)
 
+  ## Make function that adjusts sex definations loaded through the excel file.
+  adjsex <- function(x,nsex){
+    if(nsex==1) { xout <- rep(0, length(x)) }
+    if(nsex==2) { xout <- ifelse(toupper(x)%in%c('B','C'),0,ifelse(toupper(x)=='F',1,ifelse(toupper(x)=='M',2,x)))  }
+    invalid <- unique(setdiff(x, c('B','C','F','M')))
+    if(any(!x[!is.na(x)] %in% c('B','C','F','M'))) { print(paste("Unusual sex definition", invalid))   }
+    if(is.numeric(x)){ xout <- x }
+    return(as.numeric(xout))
+  }
 
   Files <- list.files(pattern = "ModelStructure")
   if(length(Files)>0){
@@ -70,7 +79,8 @@ BuildInputFiles <- function(){
   projectcatch <- as.numeric(dynamics$value[dynamics$object=='projectedcatch'])
   burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
-  sexs <- 0:as.numeric(dynamics$value[dynamics$object=='sexs'])
+  sexs <- 0:(as.numeric(dynamics$value[dynamics$object=='sexs'])-1)
+  nsex <- length(sexs)
   areas <- readWorkbook(wb,sheet='area', startRow = 2)
   times <- readWorkbook(wb,sheet='times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
@@ -160,6 +170,7 @@ for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
 ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
 Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd)) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+Udat %<>% mutate(Sex=adjsex(Sex, nsex))
 
 cpuenumbers <- unique(Udat$CpueInd)
 
@@ -191,6 +202,7 @@ tmp <- c(tmp,'\n#Group  Fleet  Year  Step  Catch  CV\n')
 
 ## Get the length data
 len <- readWorkbook(wb,sheet='LengthFreq', startRow = 2) %>% filter(Season%in%startseason:endseason)
+len %<>% mutate(Sex=adjsex(Sex, nsex))
 tmp <- c(tmp,"\n# Length compostion\n", nrow(len), '\n#Fleet\tSex\tSEASON\ttstep\tInd\t',paste(lensPlus1, collapse = "\t"),'\n')
 for(i in 1:nrow(len)){ tmp <- c(tmp, paste(len[i,], collapse = "\t"),"\n")}
 
@@ -314,7 +326,7 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp, dat[i,1],"\t#\t", dat[i,2],"\t", dat[i,3],"\n")}
 
     wei <- readWorkbook(wb,sheet='Weights', startRow = 2)
-
+    wei %<>% mutate(sex=adjsex(sex, nsex = 2)-1)
     tmp <- c(tmp, "\n# Weights on the data (simple)\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='cpue'], "\t\t# Weight on CPUE data\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='numbers'], "\t\t# Weight on catch-numbers data\n")
@@ -876,12 +888,6 @@ for(p in pars){
       }}
 
     write.table(tmp, paste(floc,'/PROJECTIONS.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
-
-
-
-
-
-
 
   } else {print("ModelStructure.xlsx is not located in the current file")}
 

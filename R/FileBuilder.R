@@ -60,7 +60,9 @@ BuildInputFiles <- function(){
     if(nsex==1) { xout <- rep(0, length(x)) }
     if(nsex==2) { xout <- ifelse(toupper(x)%in%c('B','C'),0,ifelse(toupper(x)=='F',1,ifelse(toupper(x)=='M',2,x)))  }
     invalid <- unique(setdiff(x, c('B','C','F','M')))
-    if(any(!x[!is.na(x)] %in% c('B','C','F','M'))) { print(paste("Unusual sex definition", invalid))   }
+    if(any(!x[!is.na(x)] %in% c('B','C','F','M'))) {
+      warning("Unusual sex definition: ", paste(invalid, collapse=', '), '.\n',
+              call. = FALSE)   }
     if(is.numeric(x)){ xout <- x }
     return(as.numeric(xout))
   }

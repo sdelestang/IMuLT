@@ -1733,7 +1733,7 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
   Nproj <- as.numeric(ProjFile[Index,1])
   #print(Nproj)
 
-  Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="selectivity")+2;
+  Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="gear")+2;
   SelPntFut <- array(-1,dim=c(GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nfleet,GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep))
   Ipnt <- 0
   if (Nproj > 0)
@@ -2464,6 +2464,6 @@ LoadData <- function() {
   Data <<- append(Data,MoveSpecs)
 
   outtmp <- isnafunc2()
-  if(!is.null(outtmp[[2]]))   { message("\nSome data objects are empty: ", paste(outtmp[[2]], collapse = ', '), '\n') }
+  if(!is.null(outtmp[[2]]))   { message("\nSome data objects are empty (which can be OK): ", paste(outtmp[[2]], collapse = ', '), '\n') }
 }
 

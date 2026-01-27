@@ -615,8 +615,8 @@ print("Building Control File")
 
     #### Selection file ####
     print("Building Gear selectivity File")
-
-    egap <- readWorkbook(wb,sheet='Escapegaps', startRow = 2)
+   ## Retention
+    egap <- readWorkbook(wb,sheet='Selectivity', startRow = 2)
     egappar <- egap %>% filter(!is.na(yearlink)) %>% mutate(uniq=paste(sex,yearlink)) %>% dplyr::select(!starts_with('fleet'))%>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex))
 
     ## Look at number of pars
@@ -640,11 +640,10 @@ for(p in pars){
     egappar_sum <- rbind(egappar_sum, tmpe)
   }
 }
-
     egappar_sum %<>% mutate(Pointer=pattern)
-
     nes <- nrow(egappar_sum)
     negappar <- nrow(egappar_sum)
+
 
     Selid <- expand.grid(Sex=sort(unique(sexs)), Age=sort(unique(1:ages))-1, Fleet=sort(unique(fleets$fleet))-1, Step=sort(unique(times$tstep))-1) %>% arrange(Sex, Age, Fleet)
     Semat <- matrix(0, nrow=nrow(Selid), ncol=length(startseason:endseason))
@@ -666,22 +665,10 @@ for(p in pars){
 
     ids <- paste(0:7, unique(egappar$comment), sep='=', collapse = ", ")
 
-    tmp <- c(tmp, paste0("# Specifications for selectivity (Selectivity of the pots [escape gaps, females then males],", ids,". \n"), "# Sex Age Fleet Step: ",paste(startseason:endseason,collapse = " "),"\n")
+    tmp <- c(tmp, paste0("# Specifications for selectivity (for example escape gaps),", ids,". \n"), "# Sex Age Fleet Step: ",paste(startseason:endseason,collapse = " "),"\n")
 
     code <- cbind(Selid,Semat)
     for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
-
-
-    #
-    # for(l in 1:nrow(leg)) {
-    #   for(y in 1:ncol(code)) {
-    #     gapyr <- (startseason:endseason)[l]
-    #       code[l,y] <- unique(egappar_sum$link[egappar_sum$fleet==(leg[l,3]+1)])-1
-    #       }}
-    #
-    # #code[leg$sex==1,] <- code[leg$sex==1,] + length(unique(egap$gaplink))  ## adds offset for males to use a different selectivity
-    # code <- cbind(leg,code)
-    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower Upper Estimate Phase ParLink ID\n")
     tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,parlink,hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(parlink==0,phase, -abs(phase)))
@@ -709,58 +696,45 @@ for(p in pars){
       qselect <- round(qselect,4)
       tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
 
-    ## Move onto Legal patterns
-    gauge <- readWorkbook(wb,sheet='LegalID', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
-    tmp <- c(tmp, "\n# Number Legal patterns (What is legal and can be retained [e.g. setose, berried, maxsize, minsize] or in a survey all can be caught)\n", nrow(gauge),"\n# Pattern\tType\tExtra\tPointer\t#  Decade Sex Zone Tstep Depth min guage, maxguage biocontrol\n")
-    #ids2 <- apply(as.matrix(ids),2,function(x) as.character(x))
+
+    ## Retention -  Move onto Legal patterns
+    #gauge <- readWorkbook(wb,sheet='LegalID', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
+
+    gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
+
+    tmp <- c(tmp, "\n# Number Legal patterns (What is legal and can be retained [e.g. above Min Legal length, not egg bearing] or in a survey all can be caught)\n", nrow(gauge),"\n# Pattern\tType\tExtra\tPointer\t#  Description\n")
+
     for(i in 1:nrow(gauge)){ tmp <- c(tmp, paste(gauge[i,], collapse = "\t"), "\n")    }
-
-    gauge2 <- readWorkbook(wb,sheet='LegalPattern', startRow = 2) %>% dplyr::select(starts_with('lb'))
-
+    gauge <- readWorkbook(wb,sheet='Retention', startRow = 2)
+    Pos <- which(colnames(gauge)=='IsConstantLegal')+1
+    gauge2 <- gauge[,Pos:ncol(gauge)]
     tmp <- c(tmp, "\n# legal patterns\n", nrow(gauge2),"\n")
     for(i in 1:nrow(gauge2)){ tmp <- c(tmp, paste(round(as.numeric(gauge2[i,]),4), collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n# Specifications for Fleet legal assignment\n#Sex\tAge\tFleet\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
 
-    gauge3 <- readWorkbook(wb,sheet='LegalList', startRow = 2)
-    agemat <- dynamics$value[dynamics$object=='agemat']
-    gauge3$point <- gauge$pointer[match(gauge3$id, gauge$id)]
-    ## Expand X for sex out into identified rows
-    for(i in 1:nrow(gauge3)){
-      if(gauge3$sex[i]=='X'){
-          tgauge3 <- gauge3[i,]
-          tgauge3$sex <- 'M'
-          gauge3$sex[i] <- 'F'
-          gauge3 <- rbind(gauge3, tgauge3)
-        }    }
-
-    gauge3 %<>% mutate(Sex=ifelse(sex=='F',0,1)) %>% mutate(Sex=Sex-min(Sex))
-    fleets %<>% mutate(zone=areas$ManageZone[match(newarea, areas$AreaCode )])
+    gauge3 <- gauge[,1:which(colnames(gauge)=='IsConstantLegal')] %>% mutate(Sex=ifelse(Sex=='F',1, ifelse(Sex=='M',2,Sex)))
+    # Count how many X values and then sort by this.
+    gauge3$nX <- apply(as.matrix(gauge3), 1, function(x)  length(x[x=='X']))
+    gauge3 %<>% arrange(desc(nX))
 
     leg <- expand.grid(Sex=sexs, Age=0:(ages-1),  Fleet=sort(unique(fleets$fleet))-1,Step=sort(unique(times$tstep))-1)
     id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
     code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
-    for(r in 1:nrow(code)){
-      if(fleets$Is.Survey[fleets$fleet==(leg$Fleet[r]+1)]==1) {
-        code[r,] <- gauge$pos[gauge$id=='Survey']
-      } else {
-        for(c in 1:ncol(code)){
-          Sex <- leg$Sex[r] ; Sex <- ifelse(leg$Age[r]<(agemat-1), 1, Sex)  ## This is for WRL to set legal the same as males when age < maturity
-          Season <- (startseason:endseason)[c]
-          Tstep <- leg$Step[r]+1
-          Zone <- which(LETTERS==fleets$zone[fleets$fleet==(leg$Fleet[r]+1)])
-          ZoneAlp <- fleets$zone[fleets$fleet==(leg$Fleet[r]+1)]
-          Depth <- areas$depth[areas$AreaCode==fleets$newarea[fleets$fleet==(leg$Fleet[r]+1)]][1]
-          gauge4 <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp, as.character(Zone),'X')&gauge3$id!='Survey',]
-          if(nrow(gauge4)>1){
-            if(length(unique(gauge4$ts))>1) gauge4 %<>% filter(ts==Tstep)
-            if(length(unique(gauge4$sex))>1) gauge4 %<>% filter(sex==Sex)
-            if(nrow(gauge4)>1){ gauge4 <- gauge4[1,] }
-              }
-          point <- gauge4 %>% dplyr::select(point) %>% as.numeric()
-          code[r,c] <- point
-        }}}
+    Yrs <- startseason:endseason
+    for(r in 1:nrow(gauge3)){
+      tgau <- gauge3[r,]
+      if(tgau$StartSeason=='X') {SS <- startseason}else{SS <- tgau$StartSeason}
+      if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$endseason} # ES <-1950
+      if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
+      if(tgau$Fleet=='X') {Ft <- fleets$fleet-1}else{Ft <- as.numeric(tgau$Fleet)-1}
+      if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else{Ts <- as.numeric(tgau$TimeStep)-1}
+      if(tgau$Age=='X') {Ag <-  sort(unique(ages))-1}else{Ag <- as.numeric(tgau$Age)-1}
+      code[leg$Sex%in%Sx & leg$Age%in%Ag & leg$Fleet%in%Ft & leg$Step%in%Ts, SS<=Yrs & ES>=Yrs] <- tgau$pos-1
+      }
+
     code <- cbind(leg, code)
+    code[, 1:10]
     code %<>% arrange(Sex, Age, Fleet, Step)
     for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
 
@@ -768,25 +742,17 @@ for(p in pars){
     leg <- expand.grid(Sex=sexs, Age=(1:ages)-1,  Area=sort(unique(areas$AreaCode ))-1,Step=sort(unique(times$tstep))-1)
     id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
     code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
-
-    for(r in 1:nrow(code)){
-      for(c in 1:ncol(code)){
-        Sex <- leg$Sex[r] ; Sex <- ifelse(leg$Age[r]<(agemat-1), 1, Sex)  ## This is for WRL to set legal the same as males when age < maturity
-        Season <- (startseason:endseason)[c]
-        Tstep <- leg$Step[r]+1
-        Zone <- which(LETTERS==unique(fleets$zone[fleets$newarea==(leg$Area[r]+1)]))
-        ZoneAlp <- fleets$zone[fleets$newarea==(leg$Area[r]+1)]
-        Depth <- areas$depth[areas$AreaCode ==unique(fleets$newarea[fleets$newarea==(leg$Area[r]+1)])][1]
-        gauge4 <- gauge3[gauge3$Sex%in%c(Sex,'X')&gauge3$sea%in%c(Season,'XXXX') & gauge3$ts%in%c(Tstep,'X') & gauge3$depth%in%c(Depth,'X') & gauge3$zone%in%c(ZoneAlp,as.character(Zone),'X')&gauge3$id!='Survey',]
-        if(nrow(gauge4)>1){
-          if(length(unique(gauge4$ts))>1) gauge4 %<>% filter(ts==Tstep)
-          if(length(unique(gauge4$sex))>1) gauge4 %<>% filter(sex==Sex)
-          if(nrow(gauge4)>1){ gauge4 <- gauge4[1,] }
-        }
-        point <- gauge4 %>% dplyr::select(point) %>% as.numeric()
-        code[r,c] <- point
-      }
-      }
+gauge4 <- gauge3 %>% filter(UseArea==1) %>% mutate(Area=fleets$newarea[match(Fleet,fleets$fleet)])
+for(r in 1:nrow(gauge4)){
+  tgau <- gauge4[r,]
+  if(tgau$StartSeason=='X') {SS <- startseason}else{SS <- tgau$StartSeason}
+  if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$endseason} # ES <-1950
+  if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
+  if(tgau$Area=='X') {Ar <- sort(unique(fleets$newarea))-1} else {Ar <- as.numeric(tgau$Area)-1}
+  if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else {Ts <- as.numeric(tgau$TimeStep)-1}
+  if(tgau$Age=='X') {Ag <-  sort(unique(ages))-1} else {Ag <- as.numeric(tgau$Age)-1}
+  code[leg$Sex%in%Sx & leg$Age%in%Ag & leg$Area%in%Ar & leg$Step%in%Ts, SS<=Yrs & ES>=Yrs] <- tgau$pos-1
+}
 
     code <- cbind(leg, code)
     code %<>% arrange(Sex, Age, Area, Step)
@@ -794,7 +760,7 @@ for(p in pars){
 
     tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
     ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
-    tmp <- c(tmp, paste(gauge2[nrow(gauge2),], collapse = "\t"))
+    tmp <- c(tmp, paste(gauge2[gauge3$pos[gauge3$IsConstantLegal==1],], collapse = "\t"))
 
     tmp <- c(tmp, "\n\n# IsRed specifications - assignment of unique life stage quality\n")
     dat <- expand.grid(sex=sexs,age=(1:ages)-1, area=sort(unique(areas$AreaCode ))-1, step=sort(unique(times$tstep))-1, state=1)
@@ -828,7 +794,7 @@ for(p in pars){
     tmp <- c(tmp, "\n# Number of projection years (must be less than the maximum number of projection years)\n")
     tmp <- c(tmp,projectseason,'\n')
     tmp <- c(tmp, "# Selectivity\n")
-    tmp <- c(tmp, "# Specifications for selectivity (Selectivity of the pots [escape gaps, males then females], 0 = None, 1 = 54 mm, 2 = 55 mm)\n")
+    tmp <- c(tmp, "# Specifications for gear selectivity (for example impact of escape gaps)\n")
 
     tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','selectivity'), tdat, 2)

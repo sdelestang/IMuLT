@@ -39,6 +39,17 @@ isnafunc <- function(x,i){
   } else {print(paste('There is no data for', names(Data)[i]))   }
 }
 
+isnafunc2 <- function(){
+  natmp <- NULL; blanktmp <- NULL
+  for(i in 1:length(Data)){
+    x <- Data[[i]]
+  if(length(x)>0) {
+    if(is.na(sum(x))){ natmp <- c(natmp, names(Data)[i])   }
+  } else {  blanktmp <- c(blanktmp, names(Data)[i])   }
+  }
+  return(list(natmp=natmp, blanktmp=blanktmp))
+  }
+
 #' Parse STARTER.DAT File
 #'
 #' Internal function to read and parse the STARTER.DAT file which contains
@@ -1961,7 +1972,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  }
  write("Starting values for main parameters",EchoFile,append=T)
  write(MainPars,EchoFile,append=T)
- if(is.na(sum(MainPars))) { print('There is a NA in MainPars'); OK <- 0   }
+ if(is.na(sum(MainPars))) { warning("\nThere are NA's in Main Pars\n", call. = FALSE); OK <- 0   }
 
  # Recruitment estimation
  Index <- MatchTable(ControlFile,Char1="#",Char2="Recruitment_deviations");
@@ -1988,7 +1999,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  if (PreSpecifyRecDevs == 1)
   for (Dyr in 1: NrecDev) RecDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])
  #print(RecDevPars);
- if(is.na(sum(RecDevPars))) { print('There is a NA in RecDevPars'); OK <- 0   }
+ if(is.na(sum(RecDevPars))) { warning("\nThere are NA's in Recruitment deviations Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(ControlFile,Char1="#",Char2="Prespecify_spatial_rec_devs");
  PreSpecifySpatRecDevs <- as.numeric(ControlFile[Index+1,1])
@@ -1996,7 +2007,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  if (PreSpecifySpatRecDevs == 1){
    for (Dyr in 1: NrecSpatDev) RecSpatDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])}
  if (NrecSpatDev==0) { NrecSpatDev <- 1; RecSpatDevPars = 0; RecSpatDevBnd <- matrix(c(-15,15),ncol=2,nrow=2); RecSpatDevPhase <- -1; }
- if(is.na(sum(PreSpecifySpatRecDevs))) { print('There is a NA in PreSpecifySpatRecDevs'); OK <- 0   }
+ if(is.na(sum(PreSpecifySpatRecDevs))) { warning("\nThere are NA's in Spatial Recruitment Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+1;
  NlenSel <- max(1,SelexSpecs$NselPars)
@@ -2015,7 +2026,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   } else { SelPhase[1] <- -100  }
  write("Initial selectivity parameters",EchoFile,append=T)
  if (SelexSpecs$NselPars>0) write(SelPars,EchoFile,append=T,ncol=SelexSpecs$NselPars)
- if(is.na(sum(SelPars))) { print('There is a NA in SelPars'); OK <- 0   }
+ if(is.na(sum(SelPars))) { warning("\nThere are NA's in Selectivity Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(RetenFile,Char1="#",Char2="Retention",Char3="parameters")+1;
  NlenRet <- max(1,RetenSpecs$NretPars)
@@ -2034,7 +2045,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  } else {RetPhase[1] <- -100}
  write("Initial retention parameters",EchoFile,append=T)
  if (RetenSpecs$NretPars>0) write(RetPars,EchoFile,append=T,ncol=RetenSpecs$NretPars)
- if(is.na(sum(RetPars))) { print('There is a NA in RetentionPars'); OK <- 0   }
+ if(is.na(sum(RetPars))) { warning("\nThere are NA's in Retention Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1",Char3="parameters")+1;
  NRecPars <- ifelse(RecruitSpecs$CalcRecruitFrac==0, RecruitSpecs$NrecruitPars, RecruitSpecs$NrecruitPars+RecruitSpecs$NfixedRecruits*2)
@@ -2050,7 +2061,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   }
  write("Initial recuitment parameters",EchoFile,append=T)
  write(RecruitPars,EchoFile,append=T,ncol=NRecPars)
- if(is.na(sum(RecruitPars))) { print('There is a NA in RecruitmentPars'); OK <- 0   }
+ if(is.na(sum(RecruitPars))) { warning("\nThere are NA's in Recruitment Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power")+1;
  NPuerPow <- as.numeric(RecruitFile[Index,1])
@@ -2072,7 +2083,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
    PuerPowBnd <- matrix(1,nrow=1,ncol=2)
    PuerPowPhase <- -99
  }
- if(is.na(sum(PuerPowPars))) { print('There is a NA in PuerlusPowerPars'); OK <- 0   }
+ if(is.na(sum(PuerPowPars))) { warning("\nThere are NA's in Puerulus Pars\n", call. = FALSE); OK <- 0   }
 
  NlenGr <- max(1,GrowthSpecs$NgrowthPars)
  GrowthPars <- rep(0,NlenGr)
@@ -2090,7 +2101,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   }
  else
   GrowthPhase[1] <- -100
- if(is.na(sum(GrowthPars))) { print('There is a NA in GrowthPars'); OK <- 0   }
+ if(is.na(sum(GrowthPars))) { warning("\nThere are NA's in Growth Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+1;
  if(MoveSpecs$NmovePars>0){
@@ -2110,7 +2121,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
      MoveBnd <- matrix(1,nrow=1,ncol=2)
      MovePhase <- -99
  }
- if(is.na(sum(MovePars))) { print('There is a NA in MovePars'); OK <- 0   }
+ if(is.na(sum(MovePars))) { warning("\nThere are NA's in Move Pars\n", call. = FALSE); OK <- 0   }
 
  if (ControlSpecs$InitOpt==0) NInitPar <- 1;
  if (ControlSpecs$InitOpt==1||ControlSpecs$InitOpt==3||ControlSpecs$InitOpt==5) NInitPar <- GeneralSpecs$Narea*GeneralSpecs$Nage*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
@@ -2136,7 +2147,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
     InitParsPhase[Ipar] <- as.numeric(ControlFile[Index+Jpar,4])
     if (ControlSpecs$InitOpt==0 || ControlSpecs$InitOpt==4) InitParsPhase[Ipar] <- -1
    }
- if(is.na(sum(InitPars))) { print('There is a NA in InitialPars'); OK <- 0   }
+ if(is.na(sum(InitPars))) { warning("\nThere are NA's in Initial Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(ControlFile,Char1="#",Char2="Q",Char3="parameters");
  NQ <- max(1,GeneralSpecs$NQpars)
@@ -2153,7 +2164,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
      QPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
     }
   }   else { QPhase[1] <- -100}
- if(is.na(sum(QPars))) { print('There is a NA in QPars'); OK <- 0   }
+ if(is.na(sum(QPars))) { warning("\nThere are NA's in Q Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters") +1;
  Nef <- max(1,Data$NefficPar)
@@ -2169,9 +2180,9 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
    }
  }
  else { efPhase[1] <- -100 }
- if(is.na(sum(efPars))) { print('There is a NA in Efficiency Pars'); OK <- 0   }
+ if(is.na(sum(efPars))) { warning("\nThere are NA's in Efficiency Pars\n", call. = FALSE); OK <- 0   }
 
- if(OK==1) { print("All initial parameters are numerics no NAs were found")}
+ if(OK==1) { message("All initial parameters are provided")}
  ReturnObj <- NULL
  ReturnObj$MainPars$Initial <- MainPars
  ReturnObj$MainPars$Bnd <- MainBnd
@@ -2280,10 +2291,11 @@ Parssolved <- function(InitialVars){
     tmp_n <- InitialVars[par][[1]]$Phase
     tmp_nsum <- paste(unique(tmp_n[tmp_n>0]),collapse = ' ')
     pos <- which(tmp_n>0)
+    npos <- length(pos)
     if(max(tmp_n)>MaxPhase) MaxPhase <<- max(tmp_n)
     if(length(pos)>0) {
       if(par!="MainPars") pos <-1
-      if(!exists('parsolve')) {parsolve <- data.frame(Parameter=par,Number=pos,Phases=tmp_nsum)} else parsolve <- rbind(parsolve,data.frame(Parameter=par,Number=pos,Phases=tmp_nsum))
+      if(!exists('parsolve')) { parsolve <- data.frame(Parameter=par,Number=npos,Phases=tmp_nsum)} else parsolve <- rbind(parsolve,data.frame(Parameter=par,Number=npos,Phases=tmp_nsum))
     }}
   if(!exists('parsolve')) {parsolve <- NA}
   write.table(parsolve,'Output/Parameters_solved.txt',quote = F, sep='\t',row.names = F)
@@ -2450,5 +2462,8 @@ LoadData <- function() {
   # Read in the Movement file
   MoveSpecs <<- ReadMoveFile(MoveFile,GeneralSpecs)
   Data <<- append(Data,MoveSpecs)
+
+  outtmp <- isnafunc2()
+  if(!is.null(outtmp[[2]]))   { message("\nSome data objects are empty: ", paste(outtmp[[2]], collapse = ', '), '\n') }
 }
 

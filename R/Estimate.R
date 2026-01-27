@@ -538,7 +538,9 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
 #'
 #' @export
 LoadPars <- function(aask=''){
-  for(i in 1:length(Data)){ isnafunc(Data[[i]],i)}
+  #for(i in 1:length(Data)){    isnafunc(Data[[i]],i)   }
+  outtmp <- isnafunc2()
+  if(!is.null(outtmp[[1]]))   { warning("\nThere are some NA's in your data: ", paste(outtmp[[1]], collapse = ', '), '\n', call. = FALSE) }
   InitialVars <<- ReadInitialValues(ControlFile,SelexFile,RetainFile,RecruitFile,GrowthFile,MoveFile,GeneralSpecs,ControlSpecs,SelexSpecs,RetenSpecs,GrowthSpecs,MoveSpecs)
   if(aask=='test')dlg_message("Check Console for summary of parameter inputs")
   if(Data$Narea==1){## need to trick SetInitialAndPhases because only one area

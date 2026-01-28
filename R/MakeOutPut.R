@@ -378,9 +378,9 @@ MakeOutPut <- function(is95=TRUE){
   parset(plots=c(1,1), mar=c(1,1,1,1))
   plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1, axes=F, xlab='Year.Timestep', ylab='')
   lab1 <- lab %>% group_by(source, type,id1) %>% summarise(mnpos1=mean(order))
-  mtext(side=4,at=lab1$mnpos1,lab1$source, las=1, cex=0.7)
-  mtext(side=2,at=lab$order,lab$area, las=1, cex=0.5)
-  mtext(side=2,line=2,at=lab1$mnpos1,lab1$type, las=1, cex=0.7)
+  mtext(side=4,at=lab1$mnpos1,lab1$source, las=1, cex=1)
+  mtext(side=2,at=lab$order,lab$area, las=1, cex=1)
+  mtext(side=2,line=2,at=lab1$mnpos1,lab1$type, las=1, cex=1)
   axis(1)
   caption <- "Data loaded into the model as recorded in the echo file."
   addplot(filen=filename,rundir=rundir,category="Data",caption=caption)

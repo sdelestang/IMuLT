@@ -57,7 +57,7 @@ BuildInputFiles <- function(){
 
   ## Make function that adjusts sex definations loaded through the excel file.
   adjsex <- function(x,nsex){
-    if(nsex==1) { xout <- rep(0, length(x)) }
+    if(nsex==1) { xout <- rep(1, length(x)) }
     if(nsex==2) { xout <- ifelse(toupper(x)%in%c('B','C'),0,ifelse(toupper(x)=='F',1,ifelse(toupper(x)=='M',2,x)))  }
     invalid <- unique(setdiff(x, c('B','C','F','M')))
     if(any(!x[!is.na(x)] %in% c('B','C','F','M'))) {
@@ -204,7 +204,7 @@ tmp <- c(tmp,'\n#Group  Fleet  Year  Step  Catch  CV\n')
 
 ## Get the length data
 len <- readWorkbook(wb,sheet='LengthFreq', startRow = 2) %>% filter(Season%in%startseason:endseason)
-len %<>% mutate(Sex=adjsex(Sex, nsex))
+len %<>% mutate(Sex=adjsex(Sex, nsex), Sex=ifelse(min(Sex)==0, Sex+1, Sex))
 tmp <- c(tmp,"\n# Length compostion\n", nrow(len), '\n#Fleet\tSex\tSEASON\ttstep\tInd\t',paste(lensPlus1, collapse = "\t"),'\n')
 for(i in 1:nrow(len)){ tmp <- c(tmp, paste(len[i,], collapse = "\t"),"\n")}
 
@@ -328,7 +328,7 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp, dat[i,1],"\t#\t", dat[i,2],"\t", dat[i,3],"\n")}
 
     wei <- readWorkbook(wb,sheet='Weights', startRow = 2)
-    wei %<>% mutate(sex=adjsex(sex, nsex = 2)-1)
+    wei %<>% mutate(sex=adjsex(sex, nsex)-1,)
     tmp <- c(tmp, "\n# Weights on the data (simple)\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='cpue'], "\t\t# Weight on CPUE data\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='numbers'], "\t\t# Weight on catch-numbers data\n")

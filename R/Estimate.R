@@ -740,8 +740,8 @@ UpdateLFWeights <- function(todo='No'){
     ## Find the length freqs weights
     pos1 <- which(1==(grepl('length',DataFile[,8])))
     if(length(pos1)!=nrow(tmp)) {
-      print("Predetermined weights do not match length compoitions")
-      break  }
+      stop("Predetermined weights do not match length compositions")  # Changed!
+    }
     for(i in 1:length(pos1)){
       ttmp <- DataFile[pos1[i],1:10]
       Scale <- tmp$Multiscale[(tmp$Fleet-1)==as.numeric(ttmp[,2]) & (tmp$Sex-1)==as.numeric(ttmp[,4])]
@@ -749,5 +749,5 @@ UpdateLFWeights <- function(todo='No'){
     }
     write.table(DataFile, 'CONTROL.DAT',na=" ", sep=" ", row.names = F, col.names = F, quote=F)
   }
-  }
+}
 

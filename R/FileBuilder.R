@@ -734,7 +734,6 @@ for(p in pars){
       }
 
     code <- cbind(leg, code)
-    code[, 1:10]
     code %<>% arrange(Sex, Age, Fleet, Step)
     for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
 
@@ -742,6 +741,15 @@ for(p in pars){
     leg <- expand.grid(Sex=sexs, Age=(1:ages)-1,  Area=sort(unique(areas$AreaCode ))-1,Step=sort(unique(times$tstep))-1)
     id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
     code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
+    if(length(unique(gauge3$Fleet))==1 & unique(gauge3$Fleet)=='X') {
+      gauge3$UseArea <- 0
+      for(f in unique(fleets$newarea)){
+        tgauge <- gauge3[1,]
+        tgauge$Fleet <- fleets$fleet[fleets$newarea==f][1]
+        tgauge$UseArea <- 1
+        gauge3 <- rbind(gauge3, tgauge)
+      }
+      }
 gauge4 <- gauge3 %>% filter(UseArea==1) %>% mutate(Area=fleets$newarea[match(Fleet,fleets$fleet)])
 for(r in 1:nrow(gauge4)){
   tgau <- gauge4[r,]
@@ -760,7 +768,7 @@ for(r in 1:nrow(gauge4)){
 
     tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
     ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
-    tmp <- c(tmp, paste(gauge2[gauge3$pos[gauge3$IsConstantLegal==1],], collapse = "\t"))
+    tmp <- c(tmp, paste(gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][1,], collapse = "\t"))
 
     tmp <- c(tmp, "\n\n# IsRed specifications - assignment of unique life stage quality\n")
     dat <- expand.grid(sex=sexs,age=(1:ages)-1, area=sort(unique(areas$AreaCode ))-1, step=sort(unique(times$tstep))-1, state=1)

@@ -406,7 +406,7 @@ print("Building Control File")
 #### Growth file ####
 
     print("Building Growth File")
-    growth <- readWorkbook(wb,sheet='Growth', startRow = 2)
+    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex))
     umat <- unique(growth$matrix)
     nstm <- length(umat)
     Sex <- as.numeric(gsub('s','',do.call('rbind',strsplit(umat,'_'))[,2]))-1

@@ -529,7 +529,7 @@ print("Building Control File")
     tmp <- list()
     tmp <- c(tmp, "# IsTagData\n",0,"\n")
     write.table(tmp, paste(floc,'/TAGSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
-    tmp <- c(tmp,nrow(prop),"\t# Number proportion observations\n", "# Year Tstep area type1 type2\n")
+    tmp <- c(tmp,0,"\t# Number proportion observations\n", "# Year Tstep area type1 type2\n")
     write.table(tmp, paste(floc,'/TAGPROP.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
   }
 

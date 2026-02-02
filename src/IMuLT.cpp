@@ -1845,24 +1845,25 @@ Type objective_function<Type>::operator() ()
   DATA_IMATRIX(Lar_dataI); thedata.Lar_dataI = Lar_dataI;
   DATA_MATRIX(Lar_dataR); thedata.Lar_dataR = Lar_dataR;
   DATA_ARRAY(EnvData); thedata.EnvData = EnvData;
- // DATA_INTEGER(NtagGroups); thedata.NtagGroups = NtagGroups;
- // DATA_SCALAR(InitialLoss); thedata.InitialLoss = InitialLoss;
-//  DATA_SCALAR(TagLossRate); thedata.TagLossRate = TagLossRate;
-//  DATA_INTEGER(NrepSplit); thedata.NrepSplit = NrepSplit;
-//  DATA_INTEGER(NtagLag); thedata.NtagLag = NtagLag;
-//  DATA_VECTOR(RepRate); thedata.RepRate = RepRate;
-//  DATA_IVECTOR(FitTagSizes); thedata.FitTagSizes = FitTagSizes;
-//  DATA_IVECTOR(Year1Tag); thedata.Year1Tag = Year1Tag;
-//  DATA_IVECTOR(Year2Tag); thedata.Year2Tag = Year2Tag;
-//  DATA_INTEGER(TagYr1); thedata.TagYr1 = TagYr1;
-//  DATA_INTEGER(TagYr2); thedata.TagYr2 = TagYr2;
-//  DATA_INTEGER(NyearTags); thedata.NyearTags = NyearTags;
-//  DATA_ARRAY(TagRel); thedata.TagRel = TagRel;
-//  DATA_ARRAY(TagRec); thedata.TagRec = TagRec;
-//  DATA_ARRAY(RecapObs); thedata.RecapObs = RecapObs;
-//  DATA_MATRIX(NrelTotal); thedata.NrelTotal = NrelTotal;
-//  DATA_MATRIX(NotReportedObs); thedata.NotReportedObs = NotReportedObs;
-//  DATA_ARRAY(PropRepSplit); thedata.PropRepSplit = PropRepSplit;
+  DATA_INTEGER(IsTagData); thedata.IsTagData = IsTagData;
+  DATA_INTEGER(NtagGroups); thedata.NtagGroups = NtagGroups;
+  DATA_SCALAR(InitialLoss); thedata.InitialLoss = InitialLoss;
+  DATA_SCALAR(TagLossRate); thedata.TagLossRate = TagLossRate;
+  DATA_INTEGER(NrepSplit); thedata.NrepSplit = NrepSplit;
+  DATA_INTEGER(NtagLag); thedata.NtagLag = NtagLag;
+  DATA_VECTOR(RepRate); thedata.RepRate = RepRate;
+  DATA_IVECTOR(FitTagSizes); thedata.FitTagSizes = FitTagSizes;
+  DATA_IVECTOR(Year1Tag); thedata.Year1Tag = Year1Tag;
+  DATA_IVECTOR(Year2Tag); thedata.Year2Tag = Year2Tag;
+  DATA_INTEGER(TagYr1); thedata.TagYr1 = TagYr1;
+  DATA_INTEGER(TagYr2); thedata.TagYr2 = TagYr2;
+  DATA_INTEGER(NyearTags); thedata.NyearTags = NyearTags;
+  DATA_ARRAY(TagRel); thedata.TagRel = TagRel;
+  DATA_ARRAY(TagRec); thedata.TagRec = TagRec;
+  DATA_ARRAY(RecapObs); thedata.RecapObs = RecapObs;
+  DATA_MATRIX(NrelTotal); thedata.NrelTotal = NrelTotal;
+  DATA_MATRIX(NotReportedObs); thedata.NotReportedObs = NotReportedObs;
+  DATA_ARRAY(PropRepSplit); thedata.PropRepSplit = PropRepSplit;
 
   DATA_INTEGER(NcatchDataSeries); thedata.NcatchDataSeries = NcatchDataSeries;
   DATA_IVECTOR(FixSigmaCatchN); thedata.FixSigmaCatchN = FixSigmaCatchN;
@@ -2256,11 +2257,11 @@ for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
 
 //  // Tagging data
 if(thedata.IsTagData==1){
-  //  Ntag.setZero(); RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
-  //  TagLike1.setZero();TagLike2.setZero();
-  //  for (int SexPass=0;SexPass<Nsex;SexPass++)
-  //   for (int GrpPass=0;GrpPass<NtagGroups;GrpPass++)
-  //    XX = TagDym(dataset,thedata, SexPass,GrpPass,N,ActSelex, ActReten, ActLegal,ActGrowth, ActMove, M, Hrate, QRedsPar,MWhitesPar,Ntag,RecapNum,NotReported,TagLike1,TagLike2,PredTagSize);
+    Ntag.setZero(); RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
+    TagLike1.setZero();TagLike2.setZero();
+    for (int SexPass=0;SexPass<Nsex;SexPass++)
+     for (int GrpPass=0;GrpPass<NtagGroups;GrpPass++)
+      XX = TagDym(dataset,thedata, SexPass,GrpPass,N,ActSelex, ActReten, ActLegal,ActGrowth, ActMove, M, Hrate, QRedsPar,MWhitesPar,Ntag,RecapNum,NotReported,TagLike1,TagLike2,PredTagSize);
   }
 
 // Legal Biomass by Year, Area, time step at the end of a time step

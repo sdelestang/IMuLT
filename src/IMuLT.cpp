@@ -2079,6 +2079,8 @@ Type objective_function<Type>::operator() ()
   Type Weighted_NumbersLike;
   Type Weighted_LengthLike;
   Type Weighted_LarvalLike;
+  Type Weighted_TagLike1;
+  Type Weighted_TagLike2;
   Type Rec_Penal;
   Type Rec_Penal_Smooth;
   Type Rec_Penal_SumZero;
@@ -2477,8 +2479,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     {
      dataset.Catch(Iyear,Istep,0) = 10000;
      Catch(Iyear,Istep,0) = dataset.Catch(Iyear,Istep,0);
-     XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,
-                               IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
+     XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
     } // year and season
 
 

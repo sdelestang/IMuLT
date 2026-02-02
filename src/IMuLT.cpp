@@ -176,14 +176,14 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
     */
 
     // Logistic
-    if (PatSpec(IselPattern,1) == SELEX_LOGISTIC) // SELEX_LOGISTIC  
+    if (PatSpec(IselPattern,1) == SELEX_LOGISTIC) // SELEX_LOGISTIC
     {
       p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2);
       IselParPnt += 2;
       Isex = PatSpec(IselPattern,2);
       for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1.0/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)));
     }
-    
+
       // Double Logistic
     if (PatSpec(IselPattern,1) == SELEX_DOUBLE_LOGISTIC)
     {
@@ -197,7 +197,7 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
         ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
     }
-    
+
     /*
     // Knife-edged
     if (PatSpec(IselPattern,1) == SELEX_KNIFE)
@@ -350,7 +350,7 @@ template <class Type>
  ActRecruitLenDist.setZero();
  IrecruitParPnt = -1;
  IrecSpatPnt = -1;
- 
+
  // Extract the AreaSexDist
  for (int IrecruitPattern=0;IrecruitPattern<dat.NrecruitPatternsA;IrecruitPattern++)
   {
@@ -358,10 +358,10 @@ template <class Type>
    if (dat.RecruitSpecsA(IrecruitPattern,1)==0)
     {
      IrecruitParPnt += 1;
-     SexSplit(0) = 1.0/(1.0+exp(RecruitPars(IrecruitParPnt))); 
+     SexSplit(0) = 1.0/(1.0+exp(RecruitPars(IrecruitParPnt)));
      SexSplit(1) = 1.0-SexSplit(0);
      if(dat.Nsex==1) { SexSplit(0) = 1.0; SexSplit(1) = 0.0; }
-     
+
      for (int Iarea=0;Iarea<dat.Narea;Iarea++)
       {
        if (Iarea==0)
@@ -375,7 +375,7 @@ template <class Type>
       for (int Year=0;Year<dat.Nyear+dat.MaxProjYr;Year++)
        for (int Istep=0;Istep<dat.Nstep;Istep++)
         if (dat.RecruitPnt(Year,Istep)==IrecruitPattern)
-         { 
+         {
           // Insert
           Total = 0;
           for (int Iarea=0;Iarea<dat.Narea;Iarea++)
@@ -401,11 +401,11 @@ template <class Type>
          // normalize
          for (int Iarea=0;Iarea<dat.Narea;Iarea++)
           for (int Isex=0;Isex<dat.Nsex;Isex++)
-           ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total; 
+           ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total;
         }
-         
+
      }
-   
+
    // allow for area-specific sex-ratios at recruitment
    if (dat.RecruitSpecsA(IrecruitPattern,1)==1)
     {
@@ -459,7 +459,7 @@ template <class Type>
 
     }
   }
-  
+
  // Now deal with recruitment distribution
  for (int IrecruitPattern=0;IrecruitPattern<dat.NrecruitPatternsB;IrecruitPattern++)
   {
@@ -488,7 +488,7 @@ template <class Type>
     }
 
   }
-   
+
  XX = 1;
  return(XX);
 }
@@ -548,7 +548,7 @@ template <class Type>
                          int Iyear, int Istep, array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
                          int IsVirgin, matrix<Type> &Feqn2, array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, vector<Type> &MatBio, matrix<Type> &MatBioArea, matrix<Type> &RecruitmentByArea,
-                         vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar, 
+                         vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
                          vector<Type> &VirginBio, vector<Type> &CurrentBio){
 
  array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
@@ -562,7 +562,7 @@ template <class Type>
  vector<Type> MoveVec(dat.MaxLen);                                             // Matrix multiplication
  vector<Type> HratePass(dat.Nfleet);                                           // Pass of harvest rare
  Type RetainTemp,TotalRec, ScaleWhiteM, ScaleRedQ;
-   
+
  int SelPointer,RetPointer,LegalPointer,MovePointer,RecruitPointer,GrowthPointer;           // Pointers
  int YearAdjust1,YearAdjust2,IsMoves,IdestArea,RecruitLenPointer;
 
@@ -579,7 +579,7 @@ template <class Type>
    { YearAdjust1 = Iyear; YearAdjust2 = Iyear;}
   else
    { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
- 
+
  // Recruitment (at the start of the time-step)
  RecruitPointer = dat.RecruitPnt(YearAdjust1,Istep);
  if (RecruitPointer >= 0)
@@ -594,16 +594,16 @@ template <class Type>
      }
    }
  }
-  
+
  // Current Biomass
    CurrentBio.setZero();
    for (int Iarea=0;Iarea<dat.Narea;Iarea++){
      for (int Isex=0;Isex<dat.Nsex;Isex++){
        for (int Iage=0;Iage<dat.Nage;Iage++){
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {  
-           CurrentBio(Iarea) += N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * WeightLen(Isex,Isize); }}}}  // Weight in each area, first year/time-step 
-   
- // Maturity and fecundity 
+         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
+           CurrentBio(Iarea) += N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * WeightLen(Isex,Isize); }}}}  // Weight in each area, first year/time-step
+
+ // Maturity and fecundity
  if (Istep==dat.MatTimeStep)  {
    MatBio(dat.BurnIn+Iyear) = 0;
    for (int Iarea=0;Iarea<dat.Narea;Iarea++) {
@@ -613,7 +613,7 @@ template <class Type>
         for (int Isize=0;Isize<dat.Nlen(0);Isize++){
          MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iarea,Isize);}}}
      MatBio(dat.BurnIn+Iyear) += MatBioArea(Iarea,dat.BurnIn+Iyear);  }}
-  
+
  // Need to set selectivity
  for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++) {
   for (int Isex=0;Isex<dat.Nsex;Isex++) {
@@ -639,13 +639,13 @@ template <class Type>
     }
    }
   }
-  
- 
+
+
  Ntemp.setZero();
  HratePass.setZero();
  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
   {
-  
+
    // Find the F for this time-step
    if (IsVirgin==0)
     {
@@ -661,7 +661,7 @@ template <class Type>
         if(dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = HratePass(Ifleet);
       }
     }
-   
+
    // Compute Z given F and M
    for (int Isex=0;Isex<dat.Nsex;Isex++)
     for (int Iage=0;Iage<dat.Nage;Iage++)
@@ -682,14 +682,14 @@ template <class Type>
 	     }
        Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) = Z_rate(Isex,Iage,Isize);
       }}
-    
-  
+
+
    // Remove mortality
    for (int Isex=0;Isex<dat.Nsex;Isex++)
     for (int Iage=0;Iage<dat.Nage;Iage++)
      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
       Ntemp(Iarea,Isex,Iage,Isize) = N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize));
-  
+
    // growth
    for (int Isex=0;Isex<dat.Nsex;Isex++)
     for (int Iage=0;Iage<dat.Nage;Iage++)
@@ -707,7 +707,7 @@ template <class Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Ntemp(Iarea,Isex,Iage,Isize) = Ntemp2(Isize);
        }
      } // growth
-     
+
   } // area
 
  Nmove.setZero();
@@ -729,14 +729,14 @@ template <class Type>
           Nmove(IdestArea,Isex,Iage,Isize) += MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
           Nmove(Iarea,Isex,Iage,Isize) -= MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
          }
-        // redistribute lobster so they can potentially move more than one area in a timestep (only in increasing area number) 
+        // redistribute lobster so they can potentially move more than one area in a timestep (only in increasing area number)
        // for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){                   // delete to change back
        //   Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);} // delete to change back
              } // Sex
      } // If there was a move
    } // All areas and ages
  }
- 
+
  // Only update if needed
  //
    if (IsMoves==1)
@@ -747,7 +747,7 @@ template <class Type>
        for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
         Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);}}}}
    }
- 
+
  // Update seasons
  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
   for (int Isex=0;Isex<dat.Nsex;Isex++)
@@ -777,7 +777,7 @@ template <class Type>
        }
       } // if
    } // sex
-  
+
  return(XX);
 }
 
@@ -804,18 +804,18 @@ template <class Type>
  Qval.setZero();
  Ndata.setZero();
  CpueEcreep.setZero();
- 
+
  // Make efficiency creep matrix from parameters with time lags
  int Lenefseries = CpueEcreep.rows();
  int Nefseries = CpueEcreep.cols();
  int efcnt = -1; int parcnt = -1;
  Type Tmppar;  // store temporary parameter
  for (int Nef=0;Nef<Nefseries;Nef++){
-   CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep) 
+   CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep)
    parcnt = parcnt + 1;
    efcnt = -1;
    for (int Yef=1;Yef<Lenefseries;Yef++){
-     if(Yef<(dat.Nyear))  { 
+     if(Yef<(dat.Nyear))  {
        efcnt = efcnt+1;
        if(efcnt==thedata.EffCrLag(Nef)){
          efcnt = -1;
@@ -986,7 +986,7 @@ template <class Type>
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) PredLengthComp(Ipnt,Ilen) /= Total;
    }
 
-  
+
  // Now calculate the likelihood
  LengthLikeComps.setZero();
   for (int Ipnt=0;Ipnt<thedata.NlenComp;Ipnt++)
@@ -1001,7 +1001,7 @@ template <class Type>
        NeglogLikelihood -= thedata.LambdaLength2(Ifleet,Istep,Isex)*Contrib;
       }
    }
-   
+
  return(NeglogLikelihood);
 }
 
@@ -1014,7 +1014,7 @@ template <class Type>
 
  Type NeglogLikelihood;
  NeglogLikelihood = 0;
-   
+
  int Iarea, Idata,Iyr;
  Type Obs,CV,ncnt,SS,Residual;
  vector<Type> qestLar(dat.Narea);
@@ -1257,30 +1257,30 @@ template <class Type>
                          array <Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
                          array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
-                         matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar, 
+                         matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
                          vector<Type> &VirginBio, vector<Type> &VirginLegalBio, vector<Type> &LegalRef,vector<Type> &CurrentBio) {
 
   Type Initial_pen;
   int IsVirgin;                                                           // Set to 1 for unfished state
   matrix<Type> Feqn2(dat.Nfleet,dat.Nstep); Feqn2.setZero();              // Initial F (not used in projections)
   matrix<Type> Feqn3(dat.Nfleet,dat.Nstep); Feqn3.setZero();              // Initial F (not used in projections)
-  matrix<Type> Feqn4(dat.Nfleet,dat.Nstep); Feqn4.setZero();              // Used to set Burn_in F to zero if one rarea does not want burn in 
+  matrix<Type> Feqn4(dat.Nfleet,dat.Nstep); Feqn4.setZero();              // Used to set Burn_in F to zero if one rarea does not want burn in
   vector<Type> XX(2);                                                     // Dummy variables
   array<Type> Fvals(dat.Nfleet,dat.Num_Iteration,dat.Nstep);                             // Storage for tuning of Fs
   array<Type> Ninit2(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
-  
+
   Ninit = VirginN(dat, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
          Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Type(0.0));
-  //  Get bare bones numbers by area, sex, age and length - one recruitment / move / grow - no F Mort. 
-  
+  //  Get bare bones numbers by area, sex, age and length - one recruitment / move / grow - no F Mort.
+
   // Virgin Biomass from Ninit -  Has M but not F - does not work correctly as changes slightly with burn in below. But is a temporary starting point
   VirginBio.setZero();
   for (int Iarea=0;Iarea<dat.Narea;Iarea++){
     for (int Isex=0;Isex<dat.Nsex;Isex++){
       for (int Iage=0;Iage<dat.Nage;Iage++){
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {  
-          VirginBio(Iarea) += Ninit(Iarea,Isex,Iage,Isize) * WeightLen(Isex,Isize);}}}}  // Weight in each area, first year/time-step 
-  
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
+          VirginBio(Iarea) += Ninit(Iarea,Isex,Iage,Isize) * WeightLen(Isex,Isize);}}}}  // Weight in each area, first year/time-step
+
   // Now compute
   IsVirgin = 0;
   for (int JJ=0;JJ<=dat.Num_Iteration-1;JJ++)
@@ -1293,19 +1293,19 @@ template <class Type>
        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
-        
+
     // One year zero catch projection  This updates the future time-step
     for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
      for (int Istep=0;Istep<dat.Nstep;Istep++)
       XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
                         VirginBio, CurrentBio);
-    
+
     // Multiyear projection with No F (F set to Zero) This updates the future time-step under no fishing
-    for (int Iyear=-dat.BurnIn+1;Iyear<dat.Tune_Years;Iyear++)  
+    for (int Iyear=-dat.BurnIn+1;Iyear<dat.Tune_Years;Iyear++)
      for (int Istep=0;Istep<dat.Nstep;Istep++)
       XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
                         VirginBio, CurrentBio);
-    
+
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
      for (int Istep=0;Istep<dat.Nstep;Istep++)
       for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
@@ -1317,17 +1317,17 @@ template <class Type>
          Feqn2(Ifleet,Istep) /= float(dat.Tune_Years);
         }
     }
-  
+
   //  At this point we have a better Virgin Biomass created.  Use this for output etc.
   VirginBio.setZero(); VirginLegalBio.setZero();
   for (int Iarea=0;Iarea<dat.Narea;Iarea++){
     for (int Isex=0;Isex<dat.Nsex;Isex++){
       for (int Iage=0;Iage<dat.Nage;Iage++){
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {  
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
           VirginBio(Iarea) += N(Iarea,0,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
           VirginLegalBio(Iarea) += LegalRef(Isize) * N(Iarea,0,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
-          }}}}  
-    
+          }}}}
+
   // Penalty on non-convergence
   Initial_pen = 0;
   for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
@@ -1352,14 +1352,14 @@ template <class Type>
   // Multiyear projection with F (but to year 0)
   for (int Iyear=-dat.BurnIn+1;Iyear<0;Iyear++){
    for (int Istep=0;Istep<dat.Nstep;Istep++){
-     for (int Iarea=0;Iarea<dat.Narea;Iarea++){                          // Simon add.  Allow for turning F to Zero in burnin so we can have multiple burn_in times 
+     for (int Iarea=0;Iarea<dat.Narea;Iarea++){                          // Simon add.  Allow for turning F to Zero in burnin so we can have multiple burn_in times
        for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++) {
          if (dat.Area_fleet(Iarea,Ifleet)==1){
-           Feqn4(Ifleet,Istep) = Feqn2(Ifleet,Istep);                    // Always set Feqn4 to Feqn2 as default 
+           Feqn4(Ifleet,Istep) = Feqn2(Ifleet,Istep);                    // Always set Feqn4 to Feqn2 as default
            if(-dat.BurnInVec(Iarea)>Iyear) Feqn4(Ifleet,Istep) = 0; }}}  // Set Feqn4 to Zero is before Burn_in wants to start
      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn4,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
                          VirginBio, CurrentBio);}}
-  
+
  return(Initial_pen);
 
 }
@@ -1433,7 +1433,7 @@ template <class Type>
 
 // ========================================================================================================================
 
-/*template <class Type>
+template <class Type>
  Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
              matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
              array<Type> &ActGrowth,matrix<Type> &ActMove,
@@ -1732,7 +1732,7 @@ template <class Type>
 
  return( NeglogLikelihood);
 }
-*/
+
 // ========================================================================================================================
 
 template<class Type>
@@ -1756,7 +1756,7 @@ Type objective_function<Type>::operator() ()
   DATA_INTEGER(NlegalPatterns); dataset.NlegalPatterns=NlegalPatterns;
   DATA_IVECTOR(Nlen); dataset.Nlen=Nlen;
   DATA_INTEGER(BurnIn); dataset.BurnIn=BurnIn;
-  DATA_IVECTOR(BurnInVec); dataset.BurnInVec=BurnInVec; 
+  DATA_IVECTOR(BurnInVec); dataset.BurnInVec=BurnInVec;
   DATA_INTEGER(Num_Iteration); dataset.Num_Iteration=Num_Iteration;
   DATA_INTEGER(Tune_Years); dataset.Tune_Years=Tune_Years;
   DATA_IMATRIX(SelSpec); dataset.SelSpec=SelSpec;
@@ -1907,32 +1907,32 @@ Type objective_function<Type>::operator() ()
 
   //int BurnIn = 0;
   //for(int Iarea=0;Iarea<Narea;Iarea++){ if(BurnIn<BurnInVec(Iarea)) BurnIn=BurnInVec(Iarea); }
-  //dataset.BurnIn=BurnIn; 
+  //dataset.BurnIn=BurnIn;
 
   // Deal with mainpars
-    // Adjust main parameters to account for linked parameters 
-  for(int mp=0;mp<MparsLink.size();mp++){    
+    // Adjust main parameters to account for linked parameters
+  for(int mp=0;mp<MparsLink.size();mp++){
     if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1); }
-  
+
   // Apply priors if requested
   Type MainParPriorPen = 0;
   int nrowMP = MparsPrior.rows();
   for (int r=0;r<nrowMP;r++) {
       if(MparsPrior(r,0)==1){
         MainParPriorPen +=  0.5*square(MainPars(r,0)-MparsPrior(r,1))/MparsPrior(r,2);
-      }}  
-  
+      }}
+
   // Split MainPars out into their various groups
   Rbar = MainPars(0);
   for(int Iarea=0;Iarea<Narea;Iarea++){
     for (int Iage=0;Iage<Nage;Iage++){
-      M(Iarea,Iage) =   MainPars(1+Iarea) * MainPars(1+Narea+Iage); }} 
+      M(Iarea,Iage) =   MainPars(1+Iarea) * MainPars(1+Narea+Iage); }}
   MWhitesPar = MainPars(1+Narea+Nage);
   QRedsPar = MainPars(2+Narea+Nage);
   SigmaR = MainPars(3+Narea+Nage);
   for (int Iarea=0;Iarea<Narea;Iarea++) LogRinitial(Iarea) = MainPars(4+Narea+Nage+Iarea);
   Finitial = exp(MainPars(4+2*Narea+Nage));
-  
+
   //Pull recruitment fractions out of RecruitPars - but can leave them in original RecruitPars
   if(CalcRecruitFrac==1){
     int Nfrac = RecruitFrac.rows();                   // How many Recruitment fractions are needed
@@ -1943,14 +1943,14 @@ Type objective_function<Type>::operator() ()
       RecFracM(Ifrac) = RecruitPars((Ifrac*2)+jumpoff);
       RecFracSd(Ifrac) = RecruitPars((Ifrac*2)+1+jumpoff);
     }
-    
+
   // Strip-out and replace the original RecruitPars - this may not be necessary but keeps things cleaner
     vector <Type> RecruitPars2(jumpoff);
     for(int Ifrac=0;Ifrac<jumpoff;Ifrac++){
       RecruitPars2(Ifrac) = RecruitPars(Ifrac);
     }
     RecruitPars = RecruitPars2;
- 
+
     // Set up recruitment fractions if CalcRecruitFrac==1
     Type len1, len2;
     for(int Ifrac=0; Ifrac<Nfrac; ++Ifrac){
@@ -1962,14 +1962,14 @@ Type objective_function<Type>::operator() ()
      }
    dataset.RecruitFrac = RecruitFrac;
    }
-  
+
   // Set up selectivity parameters that need to swap around due to linkages.
-  for(int sp=0;sp<SelparsLink.size();sp++){    
+  for(int sp=0;sp<SelparsLink.size();sp++){
     if(SelparsLink(sp)>0) SelPars(sp)=SelPars(SelparsLink(sp)-1); }
 
   // Local variables
   Type        neglogL;                                                                     // Negative log likelihood
-    
+
   array<Type> N(Narea, BurnIn+Nyear+MaxProjYr+1, Nstep, Nsex, Nage, MaxLen); N.setZero();  // N matrix
   array<Type> Z(Narea, BurnIn+Nyear+MaxProjYr+1, Nstep, Nsex, Nage, MaxLen); Z.setZero();  // Z matrix
   vector<Type> Recruits(BurnIn+Nyear+MaxProjYr+1);                                         // Recruitment output
@@ -2015,7 +2015,7 @@ Type objective_function<Type>::operator() ()
   vector<Type> VirginLegalBio(Narea);
  // vector<Type> AvM(BurnIn+Nyear+MaxProjYr+1);                                                           // Average M each year
   vector<Type> CurrentBio(Narea);                                                         // Current biomass used to produce M
-  
+
   for (int Iyear=-BurnIn;Iyear<Nyear+Nproj+1;Iyear++)
    {
     if (Iyear<Bias_Ramp_Yr1)
@@ -2032,13 +2032,13 @@ Type objective_function<Type>::operator() ()
        else
         BiasMult(BurnIn+Iyear) = 0;
     }
- 
+
   ActRecDev.setZero();
   for (int Iyear=RecYr1;Iyear<=RecYr2;Iyear++)
    ActRecDev(Iyear) = RecDevs(Iyear-RecYr1);
   for (int Iyear=0;Iyear<BurnIn+Nyear+Nproj+1;Iyear++)
    Recruits(Iyear) = exp(Rbar)*exp(ActRecDev(Iyear)-BiasMult(Iyear)*SigmaR*SigmaR/2.0);
-  
+
   array<Type> selexF(Nfleet,Nsex,Nage,MaxLen);                            // Selectivity
   array<Type> retainF(Nfleet,Nsex,Nage,MaxLen);                           // Retention
   array<Type> selretwght(Nfleet,Nsex,Nage,MaxLen);                        // Product of selectivity,retention and weight
@@ -2051,7 +2051,7 @@ Type objective_function<Type>::operator() ()
   vector<Type> CpueLikeComps(NcpueDataSeries);                            // Cpue likelihood by fleet
   vector<Type> SigmaCpue(NcpueDataSeries);                                // Sigmas
   vector<Type> CpueQ(NcpueDataSeries);                                    // Catchability
-  matrix<Type> CpueEcreep(Nyear+MaxProjYr+1,EffCrLag.size());                                 
+  matrix<Type> CpueEcreep(Nyear+MaxProjYr+1,EffCrLag.size());
   vector<Type> NumbersLikeComps(NcatchDataSeries);                        // Numbers likelihood by series
   vector<Type> SigmaNumbers(NcatchDataSeries);                            // Sigmas
   vector<Type> LengthLikeComps(Nfleet);                                   // Length likelihood by fleet
@@ -2082,10 +2082,10 @@ Type objective_function<Type>::operator() ()
   ActSelex = SetUpSelex(dataset, SelPars, SelexFI, SelSpec, NselPatterns);
   ActReten = SetUpSelex(dataset, RetPars, RetenFI, RetSpec, NretPatterns);
   ActLegal = SetUpLegal(dataset, LegalFI, LegalSpec, NlegalPatterns);
-  ActMove = SetUpMove(dataset, MovePars);  
+  ActMove = SetUpMove(dataset, MovePars);
   Test2 = SetUpRecruit(dataset, RecruitPars, RecSpatDevs, ActRecruitAreaSexDist, ActRecruitLenDist );
   ActGrowth = SetUpGrow(dataset, GrowthPars);
-  
+
   // Recruitment
   int RecruitPointer; int YearAdjust; Type TotalRec;
   for (int Iyear=-BurnIn;Iyear<Nyear+Nproj+1;Iyear++)
@@ -2107,11 +2107,11 @@ Type objective_function<Type>::operator() ()
          }
        }
      }
-  
+
   // Reset
   Hrate.setZero();  N.setZero(); Z.setZero(); MatBio.setZero(); MatBioArea.setZero();
-  
-  
+
+
   // Set up initial state (traditional)
   if (InitOpt==0)
    {
@@ -2197,7 +2197,7 @@ Type objective_function<Type>::operator() ()
         N(Iarea,BurnIn,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize)*exp(LogRinitial(Iarea))/exp(Rbar);
      }
 
-  
+
    // Set up initial state (alternative)
   if (InitOpt==5)
    {
@@ -2214,7 +2214,7 @@ Type objective_function<Type>::operator() ()
          Ipnt += 1;
         }
     }
-  
+
 // Project the model forward
 IsVirgin = 0;                                                                        // Need to compute Fs
 for (int Iyear=0;Iyear<Nyear;Iyear++)
@@ -2224,19 +2224,19 @@ for (int Iyear=0;Iyear<Nyear;Iyear++)
                              IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,
                              QRedsPar,MWhitesPar,VirginBio, CurrentBio);
   } // year and season
-  
+
 // Make growth curves for diagnostics
-array<Type> GrowthOut(Nyear,Narea,Nsex,Nage,MaxLen); 
-vector<Type> Lentemp(MaxLen);                                              
+array<Type> GrowthOut(Nyear,Narea,Nsex,Nage,MaxLen);
+vector<Type> Lentemp(MaxLen);
 vector<Type> Lentemp2(MaxLen);
-int GrowthPointer;              
+int GrowthPointer;
 for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
     for (int Iarea=0;Iarea<Narea;Iarea++) {
       for (int Isex=0;Isex<Nsex;Isex++) {
         for (int Iage=0;Iage<Nage;Iage++) {
           if(Iyear==0) GrowthOut(Iyear,Iarea,Isex,Iage,0) = 1;                     // seed with a lobster
           for (int Isize=0;Isize<Nlen(Isex);Isize++)  Lentemp(Isize) = GrowthOut(Iyear,Iarea,Isex,Iage,Isize);  //grab current size com.
-            for (int Istep=0;Istep<Nstep;Istep++) {      
+            for (int Istep=0;Istep<Nstep;Istep++) {
               GrowthPointer = GrowthPnt(Iarea,Isex,Iage,Iyear,Istep);
               if (GrowthPointer >=0) {
             // Key issue (pointer to growth matrix)
@@ -2249,22 +2249,22 @@ for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
         } // Step
             for (int Isize=0;Isize<Nlen(Isex);Isize++) GrowthOut(Iyear+1,Iarea,Isex,Iage,Isize) = Lentemp2(Isize);  // Put in the next year
       } // Age
-    } // Sex 
+    } // Sex
    } // Area Ntemp2
   } // Year
-   
-   
-//  // Tagging data
-//  Ntag.setZero(); RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
-//  TagLike1.setZero();TagLike2.setZero();
-//  for (int SexPass=0;SexPass<Nsex;SexPass++)
-//   for (int GrpPass=0;GrpPass<NtagGroups;GrpPass++)
-//    XX = TagDym(dataset,thedata, SexPass,GrpPass,N,ActSelex, ActReten, ActLegal,ActGrowth, ActMove, M, Hrate, QRedsPar,MWhitesPar,
-//                Ntag,RecapNum,NotReported,TagLike1,TagLike2,PredTagSize);
 
-   
+
+//  // Tagging data
+if(thedata.IsTagData==1){
+  //  Ntag.setZero(); RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
+  //  TagLike1.setZero();TagLike2.setZero();
+  //  for (int SexPass=0;SexPass<Nsex;SexPass++)
+  //   for (int GrpPass=0;GrpPass<NtagGroups;GrpPass++)
+  //    XX = TagDym(dataset,thedata, SexPass,GrpPass,N,ActSelex, ActReten, ActLegal,ActGrowth, ActMove, M, Hrate, QRedsPar,MWhitesPar,Ntag,RecapNum,NotReported,TagLike1,TagLike2,PredTagSize);
+  }
+
 // Legal Biomass by Year, Area, time step at the end of a time step
-int Ipoint;int Ipoint76; 
+int Ipoint;int Ipoint76;
 LegalBioTS.setZero();LegalBio76TS.setZero();
 for (int Iyear=0;Iyear<Nyear;Iyear++) {
   for (int Iarea=0;Iarea<Narea;Iarea++) {
@@ -2276,7 +2276,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
             LegalBioTS(Iyear,Iarea,Istep) += LegalFI(Ipoint,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
             LegalBio76TS(Iyear,Iarea,Istep) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
           }}}}}}
-      
+
   // Average Legal Biomass by Year and Area - average by the length of the time step
   LegalBio.setZero();LegalBio76.setZero();
   for (int Iyear=0;Iyear<Nyear;Iyear++) {
@@ -2287,7 +2287,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
           }}}
 
 
-   // Legal Biomass at predetermined timestep. Including Burn In.  
+   // Legal Biomass at predetermined timestep. Including Burn In.
    int YearAdjusted;
    LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
    for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){
@@ -2300,8 +2300,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
                LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
                if(Iage>=(MatAge(Iarea)-1)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
            }}}}
-   
-  
+
+
    // Simon's Cumulative catch reduced by average M based on time caught
   CumCatch.setZero();
   Type avM = M.sum()/(float(Nage)*float(Narea));    // Calculate Av M
@@ -2372,8 +2372,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
       }}}
       HarvestRateZn(Iyear,Izone)= HR1/cumCatchYSA;                                // Remove weighting
     }}
-  
-   
+
+
   // Harvest Rate 2 off Hrate used in the catch equation
   // Sum Hrate across time steps and record by area (also do for catch to weight averaging)
   HrateYA.setZero();
@@ -2381,10 +2381,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     for (int Istep=0;Istep<Nstep;Istep++)   {
       for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)  {
         Iarea = Fleet_area(Ifleet);
-        HrateYA(Iyear,Iarea) += Hrate(BurnIn+Iyear,Istep,Ifleet); 
+        HrateYA(Iyear,Iarea) += Hrate(BurnIn+Iyear,Istep,Ifleet);
         CatchYA(Iyear,Iarea) += Catch(Iyear,Istep,Ifleet) ;
         }}}
-  
+
   // Average Hrate across areas within a zone
   Type HrateTmp, CatchTmp;
   for (int Iyear=0;Iyear<Nyear;Iyear++)   {
@@ -2398,8 +2398,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
              } }
      HarvestRate(Iyear,Izone) = (1-exp(-HrateTmp/CatchTmp));                        // For each Zone workout final HR from F
     }}
-   
-  
+
+
    // Harvest rate 3
    Type TotalLB, TotalLB76, CatchLB;
    for (int Iyear=0;Iyear<Nyear;Iyear++)    {
@@ -2421,10 +2421,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
        SHarvestRate76(Iyear,Izone) = CatchLB/TotalLB76;
      }
    }
-  
-  Rec_Penal = 0;           
-  Rec_Penal_SumZero = 0;   // Keep estimated recruit devs summing to Zero 
-    
+
+  Rec_Penal = 0;
+  Rec_Penal_SumZero = 0;   // Keep estimated recruit devs summing to Zero
+
   //Initial_pen = 0;
   for (int Iyear=RecYr1;Iyear<=RecYr2;Iyear++){
    Rec_Penal += log(SigmaR) + RecDevs(Iyear-RecYr1)*RecDevs(Iyear-RecYr1)/(2.0*SigmaR*SigmaR);
@@ -2434,7 +2434,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   Rec_Penal_Smooth = 0; // Keep sequential recruit devs close to each other
   for (int Iyear=1;Iyear<RecDevs.size();Iyear++){ // start at 1 not 0 to allow for offset
     Rec_Penal_Smooth += 1.0*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
-  
+
   neglogL = dummy*dummy + Rec_Penal + Initial_pen + Rec_Penal_Smooth + Rec_Penal_SumZero;
   vector<Type> Select(Nlen(0));
 
@@ -2443,7 +2443,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   CpueLike = CpueLikelihood(dataset,thedata, N, Z, ActSelex, ActReten,ActLegal, WeightLen, PredCpue, CpueLikeComps,SigmaCpue,CpueQ,CpueEcreep,Qpars,efpars,M,QRedsPar);
   LengthLike = LengthLikelihood(dataset,thedata, N,ActSelex,ActReten,ActLegal,  PredLengthComp,LengthLikeComps,Select,QRedsPar);
   LarvalLike = LarvalLikelihood(dataset,thedata, RecruitmentByArea,PuerulusByArea,PredLarval,LarvalLikeComps,PuerPowPars);
-   
+
   Weighted_CpueLike = LambdaCpue*CpueLike;
   Weighted_NumbersLike = LambdaNumbers*NumbersLike;
   Weighted_LengthLike = LambdaLength*LengthLike;
@@ -2454,10 +2454,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   neglogL += LambdaNumbers*NumbersLike;
   neglogL += LambdaLength*LengthLike;
   neglogL += LambdaLarval*LarvalLike;
-  
+
   // add Penalities
-  neglogL += MainParPriorPen; 
-    
+  neglogL += MainParPriorPen;
+
   // Now do projections
   if (DoProject==1)
   for (int Iyear=Nyear;Iyear<Nyear+Nproj;Iyear++)
@@ -2469,7 +2469,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
                                IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
     } // year and season
 
-  
+
   if (DoProject==0 || DoProject==1)
    {
     REPORT(HarvestRate);
@@ -2496,10 +2496,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     //if(VarTypes(7)==1) {ADREPORT(HarvestRate);}
     //if(VarTypes(8)==1) {ADREPORT(HarvestRate);}
     //if(VarTypes(9)==1) {ADREPORT(HarvestRate);}
-    
+
     REPORT(N);
     REPORT(CatchCheck);
-    
+
   	REPORT(ActSelex);
     REPORT(ActLegal);
   	REPORT(ActReten);
@@ -2570,8 +2570,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(GrowthOut);
     REPORT(CpueEcreep);
     REPORT(MainParPriorPen);
-     
+
     }
-   
+
     return neglogL;
 }

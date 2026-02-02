@@ -89,7 +89,6 @@ ReadStarterFile <- function(StarterFile)
   return(ReturnObj)
 }
 
-# ===================================================================================
 
 #' Parse General Model Specifications from DATA.DAT
 #'
@@ -247,129 +246,127 @@ ReadGeneralFile <- function(DataFile)
 #' @keywords internal
 ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
 {
- # Tag loss rates
- Index <- MatchTable(TagFile,Char1="#Initial_tag_loss"); InitialLoss <- as.numeric(TagFile[Index+1,1]);
- Index <- MatchTable(TagFile,Char1="#Long-term_tag_loss"); TagLossRate <- as.numeric(TagFile[Index+1,1]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Types",Char4="reporting"); NrepSplit <- as.numeric(TagFile[Index+1,1]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Reporting",Char3="rates"); RepRate <- as.numeric(TagFile[Index+1,1:NrepSplit]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Use",Char3="size"); FitTagSizes <- as.numeric(TagFile[Index+1,1:NrepSplit]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Number",Char4="periods"); NtagLag <- as.numeric(TagFile[Index+1,1]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Groups"); NtagGroups <- as.numeric(TagFile[Index+1,1]);
- Index <- MatchTable(TagFile,Char1="#",Char2="Group",Char3="years"); Year1Tag <- as.numeric(TagFile[Index+1,1:NtagGroups]); Year2Tag <- as.numeric(TagFile[Index+2,1:NtagGroups]);
- TagYr1 <- Year1Tag[1]; TagYr2 <- Year2Tag[NtagGroups]; NyearTags <- TagYr2-TagYr1+1;
- TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
- Index <- MatchTable(TagFile,Char1="#",Char2="Releases");
- Ipnt <- 0
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    {
-     Ipnt <- Ipnt +1
-     for (Iyear in 1:NyearTags)
-      for (Istep in 1:GeneralSpecs$Nstep)
-       {
-        Ipnt <- Ipnt + 1
-        TagRel[Isex,Igrp,Iarea,Iyear,Istep,] <- as.numeric(TagFile[Index+Ipnt,6:(6+GeneralSpecs$MaxLen)]);
-        # sum(TagRel[,,,,,])
-       }
-    }
- #print(Index+Ipnt)
- Index <- MatchTable(TagFile,Char1="#",Char2="Recaptures")[1];
- TagRec <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
- Ipnt <- 0
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Irep in 1:NrepSplit)
-     {
-      Ipnt <- Ipnt +1
-      for (Iyear in 1:NyearTags)
-       for (Istep in 1:GeneralSpecs$Nstep)
-       {
-        Ipnt <- Ipnt + 1
-        TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,] <- as.numeric(TagFile[Index+Ipnt,7:(7+GeneralSpecs$MaxLen)]);
-        #print(TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,])
-       }
-    }
- # print(Index+Ipnt)
+  # Tag loss rates
+  Index <- MatchTable(TagFile,Char1="#",Char2="IsTagData"); IsTagData <- as.numeric(TagFile[Index+1,1]);
+  if(IsTagData==0){
+    InitialLoss <- 0;TagLossRate <- 0;NrepSplit <- 1;RepRate <- 0;FitTagSizes <- 0;NtagLag <- 0;NtagGroups <- 1; Year1Tag <- Year1
+    TagYr1 <- Year1; TagYr2 <- Year1+2; NyearTags <- TagYr2-TagYr1+1;
+    TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
+    TagRec <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
+    RecapObs <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep))
+    NrelTotal <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+    NotReportedObs <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+    PropRepSplit<-array(0,dim=c(NyearTags,GeneralSpecs$Nstep,GeneralSpecs$Narea,NrepSplit));  }
 
- Index <- MatchTable(TagFile,Char1="#",Char2="Recaptures")[2];
- RecapObs <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep))
- Ipnt <- 0
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Irep in 1:NrepSplit)
-     {
-      Ipnt <- Ipnt +1
-      for (Iyear in 1:NyearTags)
-       {
-        Ipnt <- Ipnt + 1
-        RecapObs[Isex,Igrp,Iarea,Irep,Iyear,] <- as.numeric(TagFile[Index+Ipnt,6:(5+GeneralSpecs$Nstep)]);
-        #print(TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,])
-       }
+  if(IsTagData==1){
+    Index <- MatchTable(TagFile,Char1="#",Char2="Initial",Char3="tagloss"); InitialLoss <- as.numeric(TagFile[Index+1,1]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Longterm",Char3="tagloss"); TagLossRate <- as.numeric(TagFile[Index+1,1]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Number",Char4="reporting"); NrepSplit <- as.numeric(TagFile[Index+1,1]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Reporting",Char3="rates"); RepRate <- as.numeric(TagFile[Index+1,1:NrepSplit]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Use",Char3="size"); FitTagSizes <- as.numeric(TagFile[Index+1,1:NrepSplit]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Number",Char4="tsteps"); NtagLag <- as.numeric(TagFile[Index+1,1]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char3="areas"); NtagGroups <- as.numeric(TagFile[Index+1,1]);
+    Index <- MatchTable(TagFile,Char1="#",Char2="First",Char3="release"); Year1Tag <- as.numeric(TagFile[Index+1,1])
+
+    TagYr1 <- Year1Tag; TagYr2 <- Year2; NyearTags <- TagYr2-TagYr1+1;
+    TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
+    Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char4="lbin");
+    NRtags <- as.numeric(TagFile[Index+1,1])
+    for (i in 1:NRtags) {
+      Isex <- as.numeric(TagFile[Index+2+i,1])
+      Igrp <- as.numeric(TagFile[Index+2+i,2])
+      Iarea <- as.numeric(TagFile[Index+2+i,2])
+      Iyear <- as.numeric(TagFile[Index+2+i,3])-TagYr1+1
+      Istep <- as.numeric(TagFile[Index+2+i,4])
+      TagRel[Isex,Igrp,Iarea,Iyear,Istep,] <- as.numeric(TagFile[Index+2+i,5:(5+GeneralSpecs$MaxLen)]);
+  }
+
+    Index <- MatchTable(TagFile,Char1="#",Char2="Recaptures",Char4="lbin");
+    TagRec <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
+    NRtags <- as.numeric(TagFile[Index+1,1])
+    for (i in 1:NRtags) {
+      Isex <- as.numeric(TagFile[Index+2+i,1])
+      Igrp <- as.numeric(TagFile[Index+2+i,2])
+      Iarea <- as.numeric(TagFile[Index+2+i,3])
+      Itype <- as.numeric(TagFile[Index+2+i,4])
+      Iyear <- as.numeric(TagFile[Index+2+i,5])-TagYr1+1
+      Istep <- as.numeric(TagFile[Index+2+i,6])
+      TagRec[Isex,Igrp,Iarea,Itype,Iyear,Istep,] <- as.numeric(TagFile[Index+2+i,7:(7+GeneralSpecs$MaxLen)]);
     }
- #print(Index+Ipnt)
- # Totals
- NrelTotal <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
- NotReportedObs <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Iyear in 1:NyearTags)
-     for (Istep in 1:GeneralSpecs$Nstep)
-      {
-       NrelTotal[Isex,Igrp] <- NrelTotal[Isex,Igrp] + TagRel[Isex,Igrp,Iarea,Iyear,Istep,1]
-       for (Irep in 1:NrepSplit)
-        NotReportedObs[Isex,Igrp] <- NotReportedObs[Isex,Igrp] + TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]
+
+    Index <- MatchTable(TagFile,Char1="#",Char2="Recaptures",Char4="timestep");
+    RecapObs <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep))
+    NRtags <- as.numeric(TagFile[Index+1,1])
+    for (i in 1:NRtags) {
+      Isex <- as.numeric(TagFile[Index+2+i,1])
+      Igrp <- as.numeric(TagFile[Index+2+i,2])
+      Iarea <- as.numeric(TagFile[Index+2+i,3])
+      Itype <- as.numeric(TagFile[Index+2+i,4])
+      Iyear <- as.numeric(TagFile[Index+2+i,5])-TagYr1+1
+      RecapObs[Isex,Igrp,Iarea,Itype,Iyear,] <- as.numeric(TagFile[Index+2+i,6:(5+GeneralSpecs$Nstep)]);
+    }
+
+  # Totals
+  NrelTotal <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+  NotReportedObs <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+  for (Isex in 1:GeneralSpecs$Nsex)
+    for (Igrp in 1:NtagGroups)
+      for (Iarea in 1:GeneralSpecs$Narea)
+        for (Iyear in 1:NyearTags)
+          for (Istep in 1:GeneralSpecs$Nstep)
+          {
+            NrelTotal[Isex,Igrp] <- NrelTotal[Isex,Igrp] + TagRel[Isex,Igrp,Iarea,Iyear,Istep,1]
+            for (Irep in 1:NrepSplit)
+              NotReportedObs[Isex,Igrp] <- NotReportedObs[Isex,Igrp] + TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]
+          }
+
+  for (Isex in 1:GeneralSpecs$Nsex){
+    for (Igrp in 1:NtagGroups){
+      NotReportedObs[Isex,Igrp] <- (NrelTotal[Isex,Igrp]-NotReportedObs[Isex,Igrp])/NrelTotal[Isex,Igrp]}}
+
+  for (Isex in 1:GeneralSpecs$Nsex){
+    for (Igrp in 1:NtagGroups){
+      for (Iarea in 1:GeneralSpecs$Narea){
+        for (Iyear in 1:NyearTags){
+          for (Istep in 1:GeneralSpecs$Nstep){
+            for (Irep in 1:NrepSplit){
+              RecapObs[Isex,Igrp,Iarea,Irep,Iyear,Istep] = TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]/NrelTotal[Isex,Igrp]
+              }}}}}}
+
+  PropRepSplit<-array(0,dim=c(NyearTags,GeneralSpecs$Nstep,GeneralSpecs$Narea,NrepSplit));
+  Nobs <-  as.numeric(PropnFile[1,1])
+  for (i in 1:Nobs) {
+    Iyear <- as.numeric(PropnFile[i+2,1])-TagYr1+1
+    Istep <- as.numeric(PropnFile[i+2,2])
+    Iarea <- as.numeric(PropnFile[i+2,3])
+    PropRepSplit[Iyear,Istep,Iarea,]  <- as.numeric(PropnFile[i+2,4:(3+NrepSplit)]);
       }
- #print(NrelTotal)
- #print(NotReportedObs)
 
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   NotReportedObs[Isex,Igrp] <- (NrelTotal[Isex,Igrp]-NotReportedObs[Isex,Igrp])/NrelTotal[Isex,Igrp]
- #print(NotReportedObs)
- for (Isex in 1:GeneralSpecs$Nsex)
-  for (Igrp in 1:NtagGroups)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Iyear in 1:NyearTags)
-     for (Istep in 1:GeneralSpecs$Nstep)
-      for (Irep in 1:NrepSplit)
-       RecapObs[Isex,Igrp,Iarea,Irep,Iyear,Istep] = TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]/NrelTotal[Isex,Igrp]
-
- PropRepSplit<-array(0,dim=c(NyearTags,GeneralSpecs$Nstep,GeneralSpecs$Narea,NrepSplit));
- Index <- 1
- Ipnt <- 0
- for (Iyear in 1:NyearTags)
-  for (Istep in 1:GeneralSpecs$Nstep)
-   for (Iarea in 1:GeneralSpecs$Narea)
-    {
-     Ipnt <- Ipnt + 1
-     PropRepSplit[Iyear,Istep,Iarea,]  <- as.numeric(PropFFile[Index+Ipnt,4:(3+NrepSplit)]);
-    }
-
- ReturnObj <- NULL
- ReturnObj$InitialLoss <- InitialLoss
- ReturnObj$TagLossRate <- TagLossRate
- ReturnObj$NrepSplit <- NrepSplit
- ReturnObj$RepRate <- RepRate
- ReturnObj$FitTagSizes <- FitTagSizes
- ReturnObj$NtagLag <- NtagLag
- ReturnObj$NtagGroups <- NtagGroups
- ReturnObj$Year1Tag <- Year1Tag
- ReturnObj$Year2Tag <- Year2Tag
- ReturnObj$TagYr1 <- TagYr1
- ReturnObj$TagYr2 <- TagYr2
- ReturnObj$NyearTags <- NyearTags
- ReturnObj$TagRel <- TagRel
- ReturnObj$TagRec <- TagRec
- ReturnObj$RecapObs <- RecapObs
- ReturnObj$NrelTotal <-  NrelTotal
- ReturnObj$NotReportedObs <- NotReportedObs
- ReturnObj$PropRepSplit <- PropRepSplit
+  print("READ IN THE TAG FILE")
+  write("READ IN THE TAG FILE\n\n",EchoFile,append=T)
+  }
+ReturnObj <- NULL
+ReturnObj$IsTagData <- IsTagData
+ReturnObj$InitialLoss <- InitialLoss
+ReturnObj$TagLossRate <- TagLossRate
+ReturnObj$NrepSplit <- NrepSplit
+ReturnObj$RepRate <- RepRate
+ReturnObj$FitTagSizes <- FitTagSizes
+ReturnObj$NtagLag <- NtagLag
+ReturnObj$NtagGroups <- NtagGroups
+ReturnObj$Year1Tag <- Year1Tag
+ReturnObj$Year2Tag <- Year2
+ReturnObj$TagYr1 <- TagYr1
+ReturnObj$TagYr2 <- TagYr2
+ReturnObj$NyearTags <- NyearTags
+ReturnObj$TagRel <- TagRel
+ReturnObj$TagRec <- TagRec
+ReturnObj$RecapObs <- RecapObs
+ReturnObj$NrelTotal <-  NrelTotal
+ReturnObj$NotReportedObs <- NotReportedObs
+ReturnObj$PropRepSplit <- PropRepSplit
 #  print(str(ReturnObj))
- return(ReturnObj)
+return(ReturnObj)
 
 }
 
@@ -2420,8 +2417,8 @@ LoadData <- function() {
   RecruitFile <<- read.table(Starter$RecruitFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   GrowthFile <<- read.table(Starter$GrowthFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   MoveFile <<- read.table(Starter$MoveFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
-  #TagFile <- read.table(Starter$TagFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
-  #PropnFile <- read.table(Starter$PropFFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
+  TagFile <<- read.table(Starter$TagFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  PropnFile <<- read.table(Starter$PropFFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:100)
   ProjFile <<- read.table(Starter$ProjectionsFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
 
   EchoFile <<- "Output/Echo.out"
@@ -2438,27 +2435,33 @@ LoadData <- function() {
   GeneralSpecs$NQpars <<- Data$NQparPass
 
   # # Read in the tag file
-  #TagSpecs <- ReadTagFile(TagFile,PropnFile,GeneralSpecs,TheData)
-  #Data <- append(Data,TagSpecs)
+  TagSpecs <<- ReadTagFile(TagFile,PropnFile,GeneralSpecs,TheData)
+  Data <<- append(Data,TagSpecs)
 
   # Read in the Control file
   ControlSpecs <<- ReadControlFile(ControlFile,GeneralSpecs,TheData)
   Data <<- append(Data,ControlSpecs)
+
   # Read in the projections file
   ProjectSpecs <<- ReadProjFile(ProjFile,GeneralSpecs,Data$Phi1)
   Data <<- append(Data,ProjectSpecs)
+
   # Read in the Selectivity file
   SelexSpecs <<- ReadSelexFile(SelexFile,GeneralSpecs)
   Data <<- append(Data,SelexSpecs)
+
   # Read in the Retention file
   RetenSpecs <<-ReadRetenFile(RetenFile,GeneralSpecs)
   Data <<- append(Data,RetenSpecs)
+
   # Read in the Recruiment file
   RecruitSpecs <<- ReadRecruitFile(RecruitFile,GeneralSpecs)
   Data <<- append(Data,RecruitSpecs)
+
   # Read in the Growth file
   GrowthSpecs <<-ReadGrowthFile(GrowthFile,GeneralSpecs)
   Data <<- append(Data,GrowthSpecs)
+
   # Read in the Movement file
   MoveSpecs <<- ReadMoveFile(MoveFile,GeneralSpecs)
   Data <<- append(Data,MoveSpecs)

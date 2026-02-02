@@ -56,12 +56,12 @@ BuildInputFiles <- function(){
   library(openxlsx)
 
   ## Make function that adjusts sex definations loaded through the excel file.
-  adjsex <- function(x,nsex){
+  adjsex <- function(x,nsex,section='CPUE'){
     if(nsex==1) { xout <- rep(1, length(x)) }
     if(nsex==2) { xout <- ifelse(toupper(x)%in%c('B','C'),0,ifelse(toupper(x)=='F',1,ifelse(toupper(x)=='M',2,x)))  }
     invalid <- unique(setdiff(x, c('B','C','F','M')))
     if(any(!x[!is.na(x)] %in% c('B','C','F','M'))) {
-      warning("Unusual sex definition: ", paste(invalid, collapse=', '), '.\n',
+      warning("Unusual sex definition in ",section,":", paste(invalid, collapse=', '), '.\n',
               call. = FALSE)   }
     if(is.numeric(x)){ xout <- x }
     return(as.numeric(xout))
@@ -106,7 +106,7 @@ BuildInputFiles <- function(){
 
   #### Starter Filer ####
   ## Make Starter file
-  print("Building Starter FIle")
+  print("Building Starter File")
 
   tmp <- list()
   tmp <- c(tmp, "DATA.DAT                              # General specifications file \n")
@@ -116,8 +116,8 @@ BuildInputFiles <- function(){
   tmp <- c(tmp, "RECRUITSPEC.DAT                      # Specifications for recruitment \n")
   tmp <- c(tmp, "GROWTHSPEC.DAT                       # Specifications for growth \n")
   tmp <- c(tmp, "MOVESPEC.DAT                         # Specifications in movement \n")
-  tmp <- c(tmp, "TAGFILE.TXT                          # Specifications for tags \n")
-  tmp <- c(tmp, "PROPORTIONS.TXT                      # Proportions \n")
+  tmp <- c(tmp, "TAGSPEC.DAT                          # Specifications for tags \n")
+  tmp <- c(tmp, "TAGPROP.DAT                          # Proportions \n")
   tmp <- c(tmp, "PROJECTIONS.DAT                      # Projections file \n\n\n")
   tmp <- c(tmp, "1                                    # Stop after this phase \n")
 
@@ -172,7 +172,7 @@ for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
 ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
 Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd)) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
-Udat %<>% mutate(Sex=adjsex(Sex, nsex))
+Udat %<>% mutate(Sex=adjsex(Sex, nsex,section='CPUE'))
 
 cpuenumbers <- unique(Udat$CpueInd)
 
@@ -204,7 +204,8 @@ tmp <- c(tmp,'\n#Group  Fleet  Year  Step  Catch  CV\n')
 
 ## Get the length data
 len <- readWorkbook(wb,sheet='LengthFreq', startRow = 2) %>% filter(Season%in%startseason:endseason)
-len %<>% mutate(Sex=adjsex(Sex, nsex), Sex=ifelse(min(Sex)==0, Sex+1, Sex))
+len %<>% mutate(Sex=adjsex(Sex, nsex,section='Length Freq.'))
+if(min(len$Sex) == 0) { len %<>% mutate(Sex = Sex + 1) }
 tmp <- c(tmp,"\n# Length compostion\n", nrow(len), '\n#Fleet\tSex\tSEASON\ttstep\tInd\t',paste(lensPlus1, collapse = "\t"),'\n')
 for(i in 1:nrow(len)){ tmp <- c(tmp, paste(len[i,], collapse = "\t"),"\n")}
 
@@ -328,7 +329,7 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp, dat[i,1],"\t#\t", dat[i,2],"\t", dat[i,3],"\n")}
 
     wei <- readWorkbook(wb,sheet='Weights', startRow = 2)
-    wei %<>% mutate(sex=adjsex(sex, nsex)-1,)
+    wei %<>% mutate(sex=adjsex(sex, nsex,section='Weights')-1,)
     tmp <- c(tmp, "\n# Weights on the data (simple)\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='cpue'], "\t\t# Weight on CPUE data\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='numbers'], "\t\t# Weight on catch-numbers data\n")
@@ -406,7 +407,7 @@ print("Building Control File")
 #### Growth file ####
 
     print("Building Growth File")
-    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex))
+    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth'))
     umat <- unique(growth$matrix)
     nstm <- length(umat)
     Sex <- as.numeric(gsub('s','',do.call('rbind',strsplit(umat,'_'))[,2]))-1
@@ -519,6 +520,73 @@ print("Building Control File")
 
     write.table(tmp, paste(floc,'/MOVESPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
 
+
+#### TagRecapture file ####
+  tag <- readWorkbook(wb,sheet='TagRecapture', startRow = 2,colNames = FALSE)
+  LoadTdata <- tag[tag[,1]=='Load tag data',2]
+
+  if(LoadTdata==0){
+    tmp <- list()
+    tmp <- c(tmp, "# IsTagData\n",0,"\n")
+    write.table(tmp, paste(floc,'/TAGSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+    tmp <- c(tmp,nrow(prop),"\t# Number proportion observations\n", "# Year Tstep area type1 type2\n")
+    write.table(tmp, paste(floc,'/TAGPROP.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+  }
+
+  if(LoadTdata==1){
+    print("Building Tag Recapture File")
+
+    tmp <- list()
+    tmp <- c(tmp, "# IsTagData\n",tag[tag[,1]=='Load tag data',2],"\n")
+    tmp <- c(tmp, "# Initial tagloss\n",tag[tag[,1]=='Initial tag loss',2],"\n")
+    tmp <- c(tmp, "# Longterm tagloss\n",tag[tag[,1]=='Long-term tag loss',2],"\n")
+    Nreptype <- as.numeric(tag[tag[,1]=='Num of reporting types',2])
+    tmp <- c(tmp, "# Number of reporting types\n",tag[tag[,1]=='Num of reporting types',2],"\n")
+    tmp <- c(tmp, "# Reporting rates of recapture types\n",paste(tag[tag[,1]=='Reporting rates (x type)',2:(Nreptype+1)], collapse=" "),"\n")
+    tmp <- c(tmp, "# Use size (0=N, 1=Y)\n",paste(tag[tag[,1]=='Use recapture size (x type)',2:(Nreptype+1)],collapse=" "),"\n")
+    tmp <- c(tmp, "# Number of tsteps to ignore\n",tag[tag[,1]=='Timesteps to ignore',2],"\n")
+    tmp <- c(tmp, "# Release areas\n",tag[tag[,1]=='Num release areas',2],"\n")
+
+    pos1 <- which(tag[,1]=='Release by lbin')+1; pos2 <- which(tag[,1]=='Recaptures by lbin')
+    release <- data.frame(tag[(pos1+1):(pos2-1),])
+    colnames(release) <- tag[pos1,]
+    release <- release[,!is.na(release[1,])] %>% filter(!is.na(Total))
+    tmp <- c(tmp, "# First release year\n",min(as.numeric(release$Year)),"\n")
+
+    tmp <- c(tmp, "# Release by lbin\n",nrow(release),"\t# number release observations\n")
+    tmp <- c(tmp, "# Sex	Group	Area	Year	Tstep	Total ", paste0("lbin",lens, collapse=' '),"\n")
+    for(i in 1:nrow(release)){ tmp <- c(tmp,paste(release[i,],collapse = " "),"\n")}
+
+    pos1 <- which(tag[,1]=="Recaptures by lbin")+1; pos2 <- which(tag[,1]=="Proportions of effort between types")
+    recap <- data.frame(tag[(pos1+1):(pos2-1),])
+    #tail(recap)
+    colnames(recap) <- tag[pos1,]
+    recap <- recap[,!is.na(recap[1,])]
+    tmp <- c(tmp, "# Recaptures by lbin\n",nrow(recap),"\t# Number recapture observations\n")
+    tmp <- c(tmp, "# Sex RelArea RecArea Type Year Tstep Total ", paste0("lbin",lens, collapse=' '),"\n")
+    for(i in 1:nrow(recap)){ tmp <- c(tmp,paste(recap[i,],collapse = " "),"\n")}
+
+    recap2 <- recap %>% dplyr::select(Sex, RecArea, RelArea, RecType, Year, Tstep, Total) %>% mutate(Total=as.numeric(Total), Tstep=as.numeric(as.character(Tstep)), Tstep=paste0('ts', Tstep) ) %>% tidyr::pivot_wider(names_from = Tstep, values_from = Total,names_sort = TRUE)
+    recap2[is.na(recap2)] <- 0
+
+    tmp <- c(tmp, "# Recaptures by timestep\n",nrow(recap2),"\t# Number recapture observations\n")
+    tmp <- c(tmp, "#", paste(colnames(recap2), collapse=" "),"\n")
+    for(i in 1:nrow(recap2)){ tmp <- c(tmp,paste(recap2[i,],collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+    write.table(tmp, paste(floc,'/TAGSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+    tmp <- list()
+    pos1 <- which(tag[,1]=="Proportions of effort between types")+1
+    prop <- data.frame(tag[(pos1+1):nrow(tag),])
+    colnames(prop) <- tag[pos1,]
+    prop <- prop[,!is.na(prop[1,])]
+    tmp <- c(tmp,nrow(prop),"\t# Number proportion observations\n", "# Year Tstep area type1 type2\n")
+    for(i in 1:nrow(prop)){ tmp <- c(tmp,paste(prop[i,],collapse = " "),"\n")}
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+    write.table(tmp, paste(floc,'/TAGPROP.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+ }
     #### Recruitment file ####
     print("Building Recruitment File")
 
@@ -714,6 +782,10 @@ for(p in pars){
     tmp <- c(tmp, "\n# Specifications for Fleet legal assignment\n#Sex\tAge\tFleet\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
 
     gauge3 <- gauge[,1:which(colnames(gauge)=='IsConstantLegal')] %>% mutate(Sex=ifelse(Sex=='F',1, ifelse(Sex=='M',2,Sex)))
+
+    ## Expand gauge3 if there are common fleets/ages or timesteps
+    gauge3 <- gauge3 %>%  tidyr::separate_rows(Fleet, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(Age, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(TimeStep, sep = ",", convert = TRUE) %>% arrange(pos)
+
     # Count how many X values and then sort by this.
     gauge3$nX <- apply(as.matrix(gauge3), 1, function(x)  length(x[x=='X']))
     gauge3 %<>% arrange(desc(nX))
@@ -724,8 +796,8 @@ for(p in pars){
     Yrs <- startseason:endseason
     for(r in 1:nrow(gauge3)){
       tgau <- gauge3[r,]
-      if(tgau$StartSeason=='X') {SS <- startseason}else{SS <- tgau$StartSeason}
-      if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$endseason} # ES <-1950
+      if(tgau$StartSeason=='X') {SS <- startseason } else { SS <- tgau$StartSeason}
+      if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$EndSeason}
       if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
       if(tgau$Fleet=='X') {Ft <- fleets$fleet-1}else{Ft <- as.numeric(tgau$Fleet)-1}
       if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else{Ts <- as.numeric(tgau$TimeStep)-1}
@@ -741,20 +813,21 @@ for(p in pars){
     leg <- expand.grid(Sex=sexs, Age=(1:ages)-1,  Area=sort(unique(areas$AreaCode ))-1,Step=sort(unique(times$tstep))-1)
     id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
     code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
-    if(length(unique(gauge3$Fleet))==1 & unique(gauge3$Fleet)=='X') {
-      gauge3$UseArea <- 0
-      for(f in unique(fleets$newarea)){
-        tgauge <- gauge3[1,]
-        tgauge$Fleet <- fleets$fleet[fleets$newarea==f][1]
-        tgauge$UseArea <- 1
-        gauge3 <- rbind(gauge3, tgauge)
-      }
-      }
+    if(length(unique(gauge3$Fleet))==1) {
+      if(unique(gauge3$Fleet)=='X') {
+        gauge3$UseArea <- 0
+        for(f in unique(fleets$newarea)){
+          tgauge <- gauge3[1,]
+          tgauge$Fleet <- fleets$fleet[fleets$newarea==f][1]
+          tgauge$UseArea <- 1
+          gauge3 <- rbind(gauge3, tgauge)
+        }
+      }}
 gauge4 <- gauge3 %>% filter(UseArea==1) %>% mutate(Area=fleets$newarea[match(Fleet,fleets$fleet)])
 for(r in 1:nrow(gauge4)){
   tgau <- gauge4[r,]
   if(tgau$StartSeason=='X') {SS <- startseason}else{SS <- tgau$StartSeason}
-  if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$endseason} # ES <-1950
+  if(tgau$EndSeason=='X') {ES <- endseason} else {ES <- tgau$EndSeason} # ES <-1950
   if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
   if(tgau$Area=='X') {Ar <- sort(unique(fleets$newarea))-1} else {Ar <- as.numeric(tgau$Area)-1}
   if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else {Ts <- as.numeric(tgau$TimeStep)-1}

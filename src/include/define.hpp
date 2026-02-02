@@ -129,6 +129,7 @@ struct TheData{
   matrix<int> Lar_dataI;
   matrix<Type> Lar_dataR;
   array<Type> EnvData;
+  int IsTagData;
   Type InitialLoss;
   Type TagLossRate;
   int NrepSplit;

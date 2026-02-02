@@ -2456,12 +2456,16 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   Weighted_NumbersLike = LambdaNumbers*NumbersLike;
   Weighted_LengthLike = LambdaLength*LengthLike;
   Weighted_LarvalLike = LambdaLarval*LarvalLike;
+  Weighted_TagLike1 = LambdaTag1*sum(TagLike1);
+  Weighted_TagLike2 = LambdaTag2*sum(TagLike2);
 
   neglogL += CatchLike;
   neglogL += LambdaCpue*CpueLike;
   neglogL += LambdaNumbers*NumbersLike;
   neglogL += LambdaLength*LengthLike;
   neglogL += LambdaLarval*LarvalLike;
+  neglogL += LambdaTag1*sum(TagLike1);
+  neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalities
   neglogL += MainParPriorPen;
@@ -2551,6 +2555,12 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(Weighted_NumbersLike);
     REPORT(Weighted_LengthLike);
     REPORT(Weighted_LarvalLike);
+    REPORT(Weighted_TagLike1);
+    REPORT(Weighted_TagLike2);
+    REPORT(PredTagSize);
+    REPORT(RecapNum);
+    REPORT(TagLike1);
+    REPORT(TagLike2);
     REPORT(LegalBio);
     REPORT(LegalBioAll);
     REPORT(CatchYSA);

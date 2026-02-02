@@ -2057,6 +2057,13 @@ Type objective_function<Type>::operator() ()
   vector<Type> SigmaNumbers(NcatchDataSeries);                            // Sigmas
   vector<Type> LengthLikeComps(Nfleet);                                   // Length likelihood by fleet
   vector<Type> LarvalLikeComps(Narea);                                    // Length likelihood by fleet
+  matrix<Type> TagLike1(Nsex,NtagGroups);                                 // Tag size likelihood
+  matrix<Type> TagLike2(Nsex,NtagGroups);                                 // Tag numbers likelihood
+
+  array<Type> Ntag(Nsex,NtagGroups,Narea,NtagLag+1,Nage,MaxLen);          // Tag dynamics
+  array<Type> RecapNum(Nsex,NtagGroups,Narea,NrepSplit,NyearTags,Nstep);  // Recapture
+  matrix<Type> NotReported(Nsex,NtagGroups);
+  array<Type> PredTagSize(Nsex,NtagGroups,Narea,MaxLen);                  // Recaptured by length-class (weight by numbers recaptured)
 
   int IsVirgin;                                                           // Set to 1 for unfished state
   matrix<Type> Feqn2(Nfleet,Nstep); Feqn2.setZero();                      // Initial F (not used in projections)

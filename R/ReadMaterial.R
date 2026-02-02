@@ -249,8 +249,8 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
   # Tag loss rates
   Index <- MatchTable(TagFile,Char1="#",Char2="IsTagData"); IsTagData <- as.numeric(TagFile[Index+1,1]);
   if(IsTagData==0){
-    InitialLoss <- 0;TagLossRate <- 0;NrepSplit <- 1;RepRate <- 0;FitTagSizes <- 0;NtagLag <- 0;NtagGroups <- 1; Year1Tag <- Year1
-    TagYr1 <- Year1; TagYr2 <- Year1+2; NyearTags <- TagYr2-TagYr1+1;
+    InitialLoss <- 0;TagLossRate <- 0;NrepSplit <- 1;RepRate <- 0;FitTagSizes <- 0;NtagLag <- 0;NtagGroups <- 1; Year1Tag <- GeneralSpecs$Year1
+    TagYr1 <- GeneralSpecs$Year1; TagYr2 <- GeneralSpecs$Year1+2; NyearTags <- TagYr2-TagYr1+1;
     TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
     TagRec <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
     RecapObs <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep))
@@ -268,7 +268,7 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
     Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char3="areas"); NtagGroups <- as.numeric(TagFile[Index+1,1]);
     Index <- MatchTable(TagFile,Char1="#",Char2="First",Char3="release"); Year1Tag <- as.numeric(TagFile[Index+1,1])
 
-    TagYr1 <- Year1Tag; TagYr2 <- Year2; NyearTags <- TagYr2-TagYr1+1;
+    TagYr1 <- Year1Tag; TagYr2 <- GeneralSpecs$Year2; NyearTags <- TagYr2-TagYr1+1;
     TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
     Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char4="lbin");
     NRtags <- as.numeric(TagFile[Index+1,1])
@@ -355,7 +355,7 @@ ReturnObj$FitTagSizes <- FitTagSizes
 ReturnObj$NtagLag <- NtagLag
 ReturnObj$NtagGroups <- NtagGroups
 ReturnObj$Year1Tag <- Year1Tag
-ReturnObj$Year2Tag <- Year2
+ReturnObj$Year2Tag <- GeneralSpecs$Year2
 ReturnObj$TagYr1 <- TagYr1
 ReturnObj$TagYr2 <- TagYr2
 ReturnObj$NyearTags <- NyearTags

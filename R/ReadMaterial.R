@@ -266,9 +266,9 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
     Index <- MatchTable(TagFile,Char1="#",Char2="Use",Char3="size"); FitTagSizes <- as.numeric(TagFile[Index+1,1:NrepSplit]);
     Index <- MatchTable(TagFile,Char1="#",Char2="Number",Char4="tsteps"); NtagLag <- as.numeric(TagFile[Index+1,1]);
     Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char3="areas"); NtagGroups <- as.numeric(TagFile[Index+1,1]);
-    Index <- MatchTable(TagFile,Char1="#",Char2="First",Char3="release"); Year1Tag <- as.numeric(TagFile[Index+1,1])
+    Index <- MatchTable(TagFile,Char1="#",Char2="First",Char3="release"); Year1Tag <- as.numeric(TagFile[Index+1,1:NtagGroups])
 
-    TagYr1 <- Year1Tag; TagYr2 <- GeneralSpecs$Year2; NyearTags <- TagYr2-TagYr1+1;
+    TagYr1 <- min(Year1Tag); TagYr2 <- GeneralSpecs$Year2; NyearTags <- TagYr2-TagYr1+1;
     TagRel <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
     Index <- MatchTable(TagFile,Char1="#",Char2="Release",Char4="lbin");
     NRtags <- as.numeric(TagFile[Index+1,1])

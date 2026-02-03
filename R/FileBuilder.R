@@ -551,7 +551,8 @@ print("Building Control File")
     release <- data.frame(tag[(pos1+1):(pos2-1),])
     colnames(release) <- tag[pos1,]
     release <- release[,!is.na(release[1,])] %>% filter(!is.na(Total))
-    tmp <- c(tmp, "# First release year\n",min(as.numeric(release$Year)),"\n")
+    relyr <- release %>% group_by(RelArea) %>% summarise(Min=min(Year))
+    tmp <- c(tmp, "# First release year\n",paste(relyr$Min, collapse=' '),"\n")
 
     tmp <- c(tmp, "# Release by lbin\n",nrow(release),"\t# number release observations\n")
     tmp <- c(tmp, "# Sex	Group	Area	Year	Tstep	Total ", paste0("lbin",lens, collapse=' '),"\n")

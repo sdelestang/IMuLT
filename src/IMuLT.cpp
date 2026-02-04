@@ -1466,7 +1466,7 @@ template <class Type>
  int NrepSplit = thedata.NrepSplit;
  int Narea = dat.Narea;
 
- NeglogLikelihood = 0;
+ NeglogLikelihood = 0 ;
  NotReported(SexPass,GrpPass) = 0;
  CumReleases = 0;
  for (int Iyear=thedata.Year1Tag(GrpPass)-dat.First_yr;Iyear<dat.Nyear;Iyear++)
@@ -1475,7 +1475,7 @@ template <class Type>
     Jyear = Iyear+dat.First_yr-thedata.TagYr1;
     Kyear = dat.BurnIn+Iyear;
 
-    // Add the tags that have been out long enuough
+    // Add the tags that have been out long enough
     for (int Iarea=0;Iarea<Narea;Iarea++)
      for (int Iage=0;Iage<dat.Nage;Iage++)
       for (int Isize=0;Isize<dat.MaxLen;Isize++)
@@ -1492,7 +1492,7 @@ template <class Type>
       NtagRel = thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
       if (NtagRel > 0)
        {
-       // cout << "R "<< SexPass << " " << GrpPass << " " << Iyear << " " << Istep << " " << NtagRel << " " << Kyear << " " << Iarea << endl;
+        cout << "R "<< SexPass << " " << GrpPass << " " << Iyear << " " << Istep << " " << NtagRel << " " << Kyear << " " << Iarea << endl;
         // Need to add in Type I tag-loss
         for (int Isize=0;Isize<dat.MaxLen;Isize++)
          if (thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1) > 0)
@@ -1579,25 +1579,25 @@ template <class Type>
 
     // This is the likelihood for the length-comp of the recaptured by year, step, group, and type
     LikeSize1 = 0;
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
-      if (thedata.FitTagSizes(IrepSplit) == 1)
-       if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0)
-        {
-         ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
-         NtotalT = 0;
-         for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) NtotalT+=RecapTmp(Iarea,IrepSplit,Isize);
-         for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-          {
-           PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
-           PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
-           if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
-            {
-             ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
-             LikeSize1 -= ObsL*ObsSS*log(PredL/ObsL);
-            }
-	      }
-        }
+//     for (int Iarea=0;Iarea<Narea;Iarea++)
+//      for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+//       if (thedata.FitTagSizes(IrepSplit) == 1){
+//        if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0) {
+//          ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
+//          NtotalT = 0;
+//          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) NtotalT+=RecapTmp(Iarea,IrepSplit,Isize);
+//          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+//           {
+//            PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
+//            PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
+//            if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
+//             {
+//              ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
+//              LikeSize1 -= ObsL*ObsSS*log(PredL/ObsL);
+//             }
+// 	      }
+//         }
+//         }
     TagLike1(SexPass,GrpPass) += LikeSize1;
 
     // Remove mortality and compute returns
@@ -1697,40 +1697,40 @@ template <class Type>
    } // Year and step
 
  // Add animals at the end of the projection to NotReported
- for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-  for (int Iarea=0;Iarea<Narea;Iarea++)
-   for (int Iage=0;Iage<Nage;Iage++)
-    for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-     NotReported(SexPass,GrpPass) += Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize);
+ // for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+ //  for (int Iarea=0;Iarea<Narea;Iarea++)
+ //   for (int Iage=0;Iage<Nage;Iage++)
+ //    for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+ //     NotReported(SexPass,GrpPass) += Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize);
 
 
  // Total reported (diagnostic) and rescale recpatures
- TotalReported = 0;
- for (int Iarea=0;Iarea<Narea;Iarea++)
-  for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
-   for (int Istep=0;Istep<dat.Nstep;Istep++)
-    for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
-     {
-      TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
-      RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
-      }
-  NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
+ // TotalReported = 0;
+ // for (int Iarea=0;Iarea<Narea;Iarea++)
+ //  for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
+ //   for (int Istep=0;Istep<dat.Nstep;Istep++)
+ //    for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+ //     {
+ //      TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
+ //      RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
+ //      }
+ //  NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
 
   // Likelihood (numbers not repatured plus those captured)
   LikeTag2 = thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*
                  log(NotReported(SexPass,GrpPass)/thedata.NotReportedObs(SexPass,GrpPass));
-  for (int Iarea=0;Iarea<Narea;Iarea++)
-   for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
-    for (int Istep=0;Istep<dat.Nstep;Istep++)
-     for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
-      if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
-       {
-        LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log(RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)/thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep));
-        LikeTag2 += LikeCompT;
-       }
- TagLike2(SexPass,GrpPass) +=  LikeTag2;
+ //  for (int Iarea=0;Iarea<Narea;Iarea++)
+ //   for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
+ //    for (int Istep=0;Istep<dat.Nstep;Istep++)
+ //     for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+ //      if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
+ //       {
+ //        LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log(RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)/thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep));
+ //        LikeTag2 += LikeCompT;
+ //       }
+ // TagLike2(SexPass,GrpPass) +=  LikeTag2;
 
- return( NeglogLikelihood);
+ return(NeglogLikelihood);
 }
 
 // ========================================================================================================================

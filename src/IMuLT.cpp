@@ -2,7 +2,7 @@
 #include "include/RLhpp.hpp"
 
 
-// Big changes made by Simon.  Density dependent mortality, legal biomass, area-specific burn-in years
+// Big changes made by Simon .  Density dependent mortality, legal biomass, area-specific burn-in years
 
 // -------------------------------------------------------------------------------------------------------------------
 
@@ -1431,309 +1431,608 @@ template <class Type>
  return(NeglogLikelihood);
 }
 
-// ========================================================================================================================
-
 template <class Type>
- Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
-             matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
-             array<Type> &ActGrowth,matrix<Type> &ActMove,
-             matrix<Type> &M, array<Type> &Hrate, Type QRedsPar, Type MWhitesPar,
-             array<Type> &Ntag,array<Type> &RecapNum, matrix<Type> &NotReported,
-             matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize) {
+Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
+            matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
+            array<Type> &ActGrowth,matrix<Type> &ActMove,
+            matrix<Type> &M, array<Type> &Hrate, Type QRedsPar, Type MWhitesPar,
+            array<Type> &RecapNum, matrix<Type> &NotReported,
+            matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize) {
 
- int Jyear, Kyear;
- int SelPointer,RetPointer,LegalPointer,GrowthPointer,MovePointer,IsMoves,IdestArea;
- Type NtagRel,CumReleases;
- Type RetainTemp,NtotalT,ScaleRedQ,ScaleWhiteM;
- Type PartialF,TotalPartialF,FullF2,Deaths;
- Type ObsL,PredL,ObsSS,LikeSize1,LikeTag2,LikeCompT;                               // Likelihood computation
- Type TotalReported;
- vector<Type> Ntemp2(dat.MaxLen);                                                  // Temporary storage
- vector<Type> MoveVec(dat.MaxLen);
+  int Jyear, Kyear;
+  int SelPointer, RetPointer, LegalPointer, GrowthPointer, MovePointer, IsMoves, IdestArea;
+  Type NtagRel, CumReleases;
+  Type RetainTemp, NtotalT, ScaleRedQ, ScaleWhiteM;
+  Type PartialF, TotalPartialF, FullF2, Deaths;
+  Type ObsL, PredL, ObsSS, LikeSize1, LikeTag2, LikeCompT;
+  Type TotalReported;
+  vector<Type> Ntemp2(dat.MaxLen);
+  vector<Type> MoveVec(dat.MaxLen);
 
- array<Type> selexF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                      // Selectivity
- array<Type> retainF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                     // Retention
- array<Type> M_rate_Tag(dat.Narea,dat.Nage,dat.MaxLen);
- array<Type> Z_rate_Tag(dat.Narea,dat.Nage,dat.MaxLen);
- array<Type> RecapTmp(dat.Narea,thedata.NrepSplit,dat.MaxLen);
- array<Type> Ntemp_Tag(thedata.NtagLag+1,dat.Narea,dat.Nage,dat.MaxLen);            // Temporary storage
- array<Type> Nmove_Tag(thedata.NtagLag+1,dat.Narea,dat.Nage,dat.MaxLen);            // Extra temporarry storage
+  array<Type> selexF(dat.Nfleet, dat.Nsex, dat.Nage, dat.MaxLen);
+  array<Type> retainF(dat.Nfleet, dat.Nsex, dat.Nage, dat.MaxLen);
+  array<Type> M_rate_Tag(dat.Narea, dat.Nage, dat.MaxLen);
+  array<Type> Z_rate_Tag(dat.Narea, dat.Nage, dat.MaxLen);
+  array<Type> RecapTmp(dat.Narea, thedata.NrepSplit, dat.MaxLen);
+  array<Type> Ntemp_Tag(thedata.NtagLag+1, dat.Narea, dat.Nage, dat.MaxLen);
+  array<Type> Nmove_Tag(thedata.NtagLag+1, dat.Narea, dat.Nage, dat.MaxLen);
 
- Type NeglogLikelihood;
- int NtagLag = thedata.NtagLag;
- int Nage = dat.Nage;
- int Nfleet = dat.Nfleet;
- int NrepSplit = thedata.NrepSplit;
- int Narea = dat.Narea;
+  // LOCAL Ntag with reduced dimensions (no sex/group dimension needed)
+  array<Type> Ntag_local(dat.Narea, thedata.NtagLag+1, dat.Nage, dat.MaxLen);
+  Ntag_local.setZero();
 
- NeglogLikelihood = 0 ;
- NotReported(SexPass,GrpPass) = 0;
- CumReleases = 0;
- for (int Iyear=thedata.Year1Tag(GrpPass)-dat.First_yr;Iyear<dat.Nyear;Iyear++)
-  for (int Istep=0;Istep<dat.Nstep;Istep++)
-   {
-    Jyear = Iyear+dat.First_yr-thedata.TagYr1;
-    Kyear = dat.BurnIn+Iyear;
+  Type NeglogLikelihood = 0;
+  int NtagLag = thedata.NtagLag;
+  int Nage = dat.Nage;
+  int Nfleet = dat.Nfleet;
+  int NrepSplit = thedata.NrepSplit;
+  int Narea = dat.Narea;
 
-    // Add the tags that have been out long enough
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int Iage=0;Iage<dat.Nage;Iage++)
-      for (int Isize=0;Isize<dat.MaxLen;Isize++)
-       {
-        Ntag(SexPass,GrpPass,Iarea,0,Iage,Isize) += Ntag(SexPass,GrpPass,Iarea,1,Iage,Isize);
-        for (int ItagLag=NtagLag-1;ItagLag>0;ItagLag--)
-         Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize) = Ntag(SexPass,GrpPass,Iarea,ItagLag+1,Iage,Isize);
-        Ntag(SexPass,GrpPass,Iarea,NtagLag,Iage,Isize) = 0;
-       }
+  NotReported(SexPass, GrpPass) = 0;
+  CumReleases = 0;
 
-    // Add new tags
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     {
-      NtagRel = thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
-      if (NtagRel > 0)
-       {
-        cout << "R "<< SexPass << " " << GrpPass << " " << Iyear << " " << Istep << " " << NtagRel << " " << Kyear << " " << Iarea << endl;
-        // Need to add in Type I tag-loss
-        for (int Isize=0;Isize<dat.MaxLen;Isize++)
-         if (thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1) > 0)
-          {
-           // Now divide into age
-           NtotalT = 0;
-           for (int Iage=0;Iage<Nage;Iage++) NtotalT += N(Iarea,Kyear,Istep,SexPass,Iage,Isize);
-           for (int Iage=0;Iage<Nage;Iage++) Ntag(SexPass,GrpPass,Iarea,NtagLag,Iage,Isize)=
-            N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
-          }
-         // Store tags not reported because they lost their tags (or died) at tagging
-         NotReported(SexPass,GrpPass) += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0)*(1.0-thedata.InitialLoss);
-         CumReleases  += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
-       } // if
-     } // area
+  int Year1Tag_val = thedata.Year1Tag(GrpPass);
+  int start_year = Year1Tag_val - dat.First_yr;
 
-    // Set selectivity
-    for (int Ifleet=0; Ifleet<Nfleet;Ifleet++)
-     for (int Iage=0;Iage<Nage;Iage++)
-      {
-       if(dat.IsRed(SexPass,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar; } else {ScaleRedQ = 1.0; }
-       SelPointer = dat.SelPnt(SexPass,Iage,Ifleet,Iyear,Istep);
-       RetPointer = dat.RetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
-       LegalPointer = dat.LegalFleetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
-       for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+  for (int Iyear=start_year; Iyear<dat.Nyear; Iyear++)
+    for (int Istep=0; Istep<dat.Nstep; Istep++)
+    {
+      Jyear = Iyear+dat.First_yr-thedata.TagYr1;
+      Kyear = dat.BurnIn+Iyear;
+
+      // D1: Add the tags that have been out long enough
+      if (NtagLag > 0) {
+        for (int Iarea=0; Iarea<Narea; Iarea++)
+          for (int Iage=0; Iage<dat.Nage; Iage++)
+            for (int Isize=0; Isize<dat.MaxLen; Isize++)
+            {
+              Ntag_local(Iarea,0,Iage,Isize) += Ntag_local(Iarea,1,Iage,Isize);
+              for (int ItagLag=NtagLag-1; ItagLag>0; ItagLag--)
+                Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntag_local(Iarea,ItagLag+1,Iage,Isize);
+              Ntag_local(Iarea,NtagLag,Iage,Isize) = 0;
+            }
+      }
+
+      // D2: Add new tags
+      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+        for (int Iarea=0; Iarea<Narea; Iarea++)
         {
-         selexF(Ifleet,SexPass,Iage,Isize) = ActSelex(SelPointer,Isize) * ScaleRedQ;
-         retainF(Ifleet,SexPass,Iage,Isize) = ActReten(RetPointer,Isize)*ActLegal(LegalPointer,Isize);
+          NtagRel = thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
+          if (NtagRel > 0)
+          {
+            for (int Isize=0; Isize<dat.MaxLen; Isize++){
+              if (thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1) > 0)
+              {
+                NtotalT = 0;
+                for (int Iage=0; Iage<Nage; Iage++)
+                  NtotalT += N(Iarea,Kyear,Istep,SexPass,Iage,Isize);
+                for (int Iage=0; Iage<Nage; Iage++)
+                  Ntag_local(Iarea,NtagLag,Iage,Isize) = N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
+              }
+            }  // <-- for loop closes here
+            NotReported(SexPass,GrpPass) += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0)*(1.0-thedata.InitialLoss);
+            CumReleases += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
+          }
         }
       }
 
-    // Compute Z given F and M (note that M includes the log-term tag-loss rate)
-    RecapTmp.setZero();
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     {
-      for (int Iage=0;Iage<Nage;Iage++)
-       {
-        if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar; } else {ScaleWhiteM = 1.0; }
-        for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-         {
-          M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
-          Z_rate_Tag(Iarea,Iage,Isize) = M_rate_Tag(Iarea,Iage,Isize);
-          for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
-           if (dat.Area_fleet(Iarea,Ifleet)==1)
-            {
-             // RetAdjust
-             RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
-             Z_rate_Tag(Iarea,Iage,Isize) += Hrate(Kyear,Istep,Ifleet)*RetainTemp;
-            }
-          //Non-reported tags (only M and tag-loss for tags that are not fully mixed)
-          for (int ItagLag=1;ItagLag<=NtagLag;ItagLag++)
-           NotReported(SexPass,GrpPass) += Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
+      // D3: Set selectivity and compute Z/recaptures
+      for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
+        for (int Iage=0; Iage<Nage; Iage++)
+        {
+          if(dat.IsRed(SexPass,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+          SelPointer = dat.SelPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+          RetPointer = dat.RetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+          LegalPointer = dat.LegalFleetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+          {
+            selexF(Ifleet,SexPass,Iage,Isize) = ActSelex(SelPointer,Isize) * ScaleRedQ;
+            retainF(Ifleet,SexPass,Iage,Isize) = ActReten(RetPointer,Isize)*ActLegal(LegalPointer,Isize);
+          }
+        }
 
-          // Now handle the animals that could be reported
-          Deaths = Ntag(SexPass,GrpPass,Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
-          // Natural mortality and tagloss (not reported)
-          NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
-          for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
-           if (dat.Area_fleet(Iarea,Ifleet)==1)
-            {
-             // RetAdjust
-             RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
-             FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
-             TotalPartialF = 0;
-             for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+        RecapTmp.setZero();
+      for (int Iarea=0; Iarea<Narea; Iarea++)
+      {
+        for (int Iage=0; Iage<Nage; Iage++)
+        {
+          if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
+          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+          {
+            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
+            Z_rate_Tag(Iarea,Iage,Isize) = M_rate_Tag(Iarea,Iage,Isize);
+            for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
+              if (dat.Area_fleet(Iarea,Ifleet)==1)
               {
-               // Check this Jyear
-               PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
-               TotalPartialF += PartialF;
-               RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
+                RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                Z_rate_Tag(Iarea,Iage,Isize) += Hrate(Kyear,Istep,Ifleet)*RetainTemp;
               }
-             //Tagged animals that were discarded and died + tagged animals that were cuaght but not recaptured
-             NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
-            }  // fleet
-         }   // Isize
-       } // Iage
-     } // Iarea
 
-    // Total the tags (this will be used in the total recapture likelihood) + the "not recaptured" class
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
-      for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-       RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep) += RecapTmp(Iarea,IrepSplit,Isize);
+              for (int ItagLag=1; ItagLag<=NtagLag; ItagLag++)
+                NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
 
-    // This is the likelihood for the length-comp of the recaptured by year, step, group, and type
-    LikeSize1 = 0;
-//     for (int Iarea=0;Iarea<Narea;Iarea++)
-//      for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
-//       if (thedata.FitTagSizes(IrepSplit) == 1){
-//        if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0) {
-//          ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
-//          NtotalT = 0;
-//          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) NtotalT+=RecapTmp(Iarea,IrepSplit,Isize);
-//          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-//           {
-//            PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
-//            PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
-//            if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
-//             {
-//              ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
-//              LikeSize1 -= ObsL*ObsSS*log(PredL/ObsL);
-//             }
-// 	      }
-//         }
-//         }
-    TagLike1(SexPass,GrpPass) += LikeSize1;
+              Deaths = Ntag_local(Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
+              NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
 
-    // Remove mortality and compute returns
-    Ntemp_Tag.setZero();
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int Iage=0;Iage<Nage;Iage++)
-      for (int Isize=0;Isize<dat.MaxLen;Isize++)
-       for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-        if (ItagLag==0)
-         {
-         Ntemp_Tag(0,Iarea,Iage,Isize) = Ntag(SexPass,GrpPass,Iarea,0,Iage,Isize)*exp(-Z_rate_Tag(Iarea,Iage,Isize));
-         }
-        else
-        {
-         Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize)*exp(-M_rate_Tag(Iarea,Iage,Isize));
-        }
-
-    // Growth
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-      for (int Iage=0;Iage<Nage;Iage++)
-       {
- 	    GrowthPointer = dat.GrowthPnt(Iarea,SexPass,Iage,Iyear,Istep);
-        if (GrowthPointer >=0)
-         {
-          // Key issue (pointer to growth matrix)
-          Ntemp2.setZero();
-          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
- 	       {
- 	        for (int Jsize=0;Jsize<=Isize;Jsize++) Ntemp2(Isize) += Ntemp_Tag(ItagLag,Iarea,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
- 	       }
- 	       for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntemp2(Isize);
- 	     }
-       } // Iarea, ItagLag,Iage
-
-    // Movement
-    Nmove_Tag.setZero();
-    IsMoves = 0;
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int Iage=0;Iage<Nage;Iage++)
-      {
-       MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
-       if (MovePointer > 0)
-        {
-         IsMoves = 1;
-         IdestArea = dat.MoveSpec(MovePointer,2);
-         for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
-	      for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-           {
-            Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-            Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-           }
-        } // If there was a move
-      } // All areas and ages
-
-   // Only update if needed
-    if (IsMoves==1)
-     {
-      for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-       for (int Iarea=0;Iarea<Narea;Iarea++)
-        for (int Iage=0;Iage<Nage;Iage++)
-         for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-          Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
-     }
-
-    // Copy back and update ages
-    for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
-     for (int Iarea=0;Iarea<Narea;Iarea++)
-      {
-       if (Istep<dat.Nstep-1)
-        {
-         for (int Iage=0;Iage<Nage;Iage++)
-          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-           Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-        }
-       else
-        {
-         // special case
-         if (Nage-1 > 0)
-          {
-           for (int Iage=0;Iage<Nage-1;Iage++)
-            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-             Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage+1,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-           for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-            Ntag(SexPass,GrpPass,Iarea,ItagLag,Nage-1,Isize) = Ntemp_Tag(ItagLag,Iarea,Nage-1,Isize) + Ntemp_Tag(ItagLag,Iarea,Nage-2,Isize);
-           for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) Ntag(SexPass,GrpPass,Iarea,ItagLag,0,Isize) = 0;
-          }
-         else
-          {
-           for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
-            Ntag(SexPass,GrpPass,Iarea,ItagLag,0,Isize)  = Ntemp_Tag(ItagLag,Iarea,0,Isize);
+              for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
+                if (dat.Area_fleet(Iarea,Ifleet)==1)
+                {
+                  RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                  FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
+                  TotalPartialF = 0;
+                  for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+                  {
+                    PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
+                    TotalPartialF += PartialF;
+                    RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
+                  }
+                  NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
+                }
           }
         }
-      } // grp, lag, area
+      }
 
-   } // Year and step
+      // Total the tags
+      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+        for (int Iarea=0; Iarea<Narea; Iarea++)
+          for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+            for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+              RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep) += RecapTmp(Iarea,IrepSplit,Isize);
+      }
 
- // Add animals at the end of the projection to NotReported
- // for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
- //  for (int Iarea=0;Iarea<Narea;Iarea++)
- //   for (int Iage=0;Iage<Nage;Iage++)
- //    for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
- //     NotReported(SexPass,GrpPass) += Ntag(SexPass,GrpPass,Iarea,ItagLag,Iage,Isize);
+      // Likelihood for length-comp of recaptured
+      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+        LikeSize1 = 0;
+        for (int Iarea=0; Iarea<Narea; Iarea++)
+          for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+            if (thedata.FitTagSizes(IrepSplit) == 1) {
+              if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0) {
+                ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
+                NtotalT = 0;
+                for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                  NtotalT += RecapTmp(Iarea,IrepSplit,Isize);
 
+                // PROTECTION: Only compute likelihood if we have predicted recaptures
+                if (NtotalT > 1e-10) {
+                  for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                  {
+                    PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
+                    PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
+                    if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
+                    {
+                      ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
+                      // Add small constant to avoid log(0)
+                      LikeSize1 -= ObsL*ObsSS*log((PredL+1e-10)/(ObsL+1e-10));
+                    }
+                  }
+                }
+              }
+            }
+            TagLike1(SexPass,GrpPass) += LikeSize1;
+      }
+      // D4a: Remove mortality
+      Ntemp_Tag.setZero();
+      for (int Iarea=0; Iarea<Narea; Iarea++)
+        for (int Iage=0; Iage<Nage; Iage++)
+          for (int Isize=0; Isize<dat.MaxLen; Isize++)
+            for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+              if (ItagLag==0)
+                Ntemp_Tag(0,Iarea,Iage,Isize) = Ntag_local(Iarea,0,Iage,Isize)*exp(-Z_rate_Tag(Iarea,Iage,Isize));
+              else
+                Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntag_local(Iarea,ItagLag,Iage,Isize)*exp(-M_rate_Tag(Iarea,Iage,Isize));
 
- // Total reported (diagnostic) and rescale recpatures
- // TotalReported = 0;
- // for (int Iarea=0;Iarea<Narea;Iarea++)
- //  for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
- //   for (int Istep=0;Istep<dat.Nstep;Istep++)
- //    for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
- //     {
- //      TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
- //      RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
- //      }
- //  NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
+              // D4b: Growth
+              for (int Iarea=0; Iarea<Narea; Iarea++)
+                for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+                  for (int Iage=0; Iage<Nage; Iage++)
+                  {
+                    GrowthPointer = dat.GrowthPnt(Iarea,SexPass,Iage,Iyear,Istep);
+                    if (GrowthPointer >=0)
+                    {
+                      Ntemp2.setZero();
+                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                      {
+                        for (int Jsize=0; Jsize<=Isize; Jsize++)
+                          Ntemp2(Isize) += Ntemp_Tag(ItagLag,Iarea,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
+                      }
+                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                        Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntemp2(Isize);
+                    }
+                  }
 
-  // Likelihood (numbers not repatured plus those captured)
+                  // D4c: Movement
+                  Nmove_Tag.setZero();
+              IsMoves = 0;
+              for (int Iarea=0; Iarea<Narea; Iarea++)
+                for (int Iage=0; Iage<Nage; Iage++)
+                {
+                  MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
+                  if (MovePointer > 0)
+                  {
+                    IsMoves = 1;
+                    IdestArea = dat.MoveSpec(MovePointer,2);
+                    for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                      MoveVec(Isize) = ActMove(MovePointer,Isize);
+                    for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                      {
+                        Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                        Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                      }
+                  }
+                }
+
+                if (IsMoves==1)
+                {
+                  for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+                    for (int Iarea=0; Iarea<Narea; Iarea++)
+                      for (int Iage=0; Iage<Nage; Iage++)
+                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                          Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
+                }
+
+                // D4d: Copy back and update ages
+                for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++) {
+                  for (int Iarea=0; Iarea<Narea; Iarea++) {
+                    if (Istep<dat.Nstep-1) {
+                      for (int Iage=0; Iage<Nage; Iage++) {
+                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++) {
+                          Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                        }
+                      }
+                    }
+                    else
+                    {
+                      if (Nage-1 > 0)
+                      {
+                        for (int Iage=0; Iage<Nage-1; Iage++)
+                          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                            Ntag_local(Iarea,ItagLag,Iage+1,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                          Ntag_local(Iarea,ItagLag,Nage-1,Isize) = Ntemp_Tag(ItagLag,Iarea,Nage-1,Isize) + Ntemp_Tag(ItagLag,Iarea,Nage-2,Isize);
+                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                          Ntag_local(Iarea,ItagLag,0,Isize) = 0;
+                      }
+                      else
+                      {
+                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                          Ntag_local(Iarea,ItagLag,0,Isize) = Ntemp_Tag(ItagLag,Iarea,0,Isize);
+                      }
+                    }
+                  }
+                }
+    }
+
+    // E1: Add animals at end of projection to NotReported
+    for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+      for (int Iarea=0; Iarea<Narea; Iarea++)
+        for (int Iage=0; Iage<Nage; Iage++)
+          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+            NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize);
+
+  // Total reported and rescale recaptures
+  TotalReported = 0;
+  for (int Iarea=0; Iarea<Narea; Iarea++)
+    for (int Iyear=0; Iyear<thedata.NyearTags; Iyear++)
+      for (int Istep=0; Istep<dat.Nstep; Istep++)
+        for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+        {
+          TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
+          RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
+        }
+        NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
+
+  // DIAGNOSTIC: Check if model predicted ANY recaptures
+  //FILE* fp2 = fopen("tagdym_recapture_summary.txt", "w");
+  // fprintf(fp2, "=== Recapture Summary for SexPass=%d, GrpPass=%d ===\n\n", SexPass, GrpPass);
+  // fclose(fp2);
+
+  // Likelihood
   LikeTag2 = thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*
-                 log(NotReported(SexPass,GrpPass)/thedata.NotReportedObs(SexPass,GrpPass));
- //  for (int Iarea=0;Iarea<Narea;Iarea++)
- //   for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
- //    for (int Istep=0;Istep<dat.Nstep;Istep++)
- //     for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
- //      if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
- //       {
- //        LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log(RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)/thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep));
- //        LikeTag2 += LikeCompT;
- //       }
- // TagLike2(SexPass,GrpPass) +=  LikeTag2;
+    log((NotReported(SexPass,GrpPass)+1e-10)/(thedata.NotReportedObs(SexPass,GrpPass)+1e-10));
+  for (int Iarea=0; Iarea<Narea; Iarea++)
+    for (int Iyear=0; Iyear<thedata.NyearTags; Iyear++)
+      for (int Istep=0; Istep<dat.Nstep; Istep++)
+        for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+          if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
+          {
+            // Add small constant to avoid log(0)
+            LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log((RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10)/(thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10));
+            LikeTag2 += LikeCompT;
+          }
+          TagLike2(SexPass,GrpPass) += LikeTag2;
 
- return(NeglogLikelihood);
+          return(NeglogLikelihood);
 }
 
-// ========================================================================================================================
+/*
+template <class Type>
+Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
+            matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
+            array<Type> &ActGrowth,matrix<Type> &ActMove,
+            matrix<Type> &M, array<Type> &Hrate, Type QRedsPar, Type MWhitesPar,
+            array<Type> &RecapNum, matrix<Type> &NotReported,
+            matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize) {
+
+  int Jyear, Kyear;
+  int SelPointer,RetPointer,LegalPointer,GrowthPointer,MovePointer,IsMoves,IdestArea;
+  Type NtagRel,CumReleases;
+  Type RetainTemp,NtotalT,ScaleRedQ,ScaleWhiteM;
+  Type PartialF,TotalPartialF,FullF2,Deaths;
+  Type ObsL,PredL,ObsSS,LikeSize1,LikeTag2,LikeCompT;
+  Type TotalReported;
+  vector<Type> Ntemp2(dat.MaxLen);
+  vector<Type> MoveVec(dat.MaxLen);
+
+  array<Type> selexF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);
+  array<Type> retainF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);
+  array<Type> M_rate_Tag(dat.Narea,dat.Nage,dat.MaxLen);
+  array<Type> Z_rate_Tag(dat.Narea,dat.Nage,dat.MaxLen);
+  array<Type> RecapTmp(dat.Narea,thedata.NrepSplit,dat.MaxLen);
+  array<Type> Ntemp_Tag(thedata.NtagLag+1,dat.Narea,dat.Nage,dat.MaxLen);
+  array<Type> Nmove_Tag(thedata.NtagLag+1,dat.Narea,dat.Nage,dat.MaxLen);
+
+  // LOCAL Ntag - only needs 4 dimensions instead of 6!
+  array<Type> Ntag_local(dat.Narea, thedata.NtagLag+1, dat.Nage, dat.MaxLen);
+  Ntag_local.setZero();
+
+  Type NeglogLikelihood;
+  int NtagLag = thedata.NtagLag;
+  int Nage = dat.Nage;
+  int Nfleet = dat.Nfleet;
+  int NrepSplit = thedata.NrepSplit;
+  int Narea = dat.Narea;
+
+  NeglogLikelihood = 0;
+  NotReported(SexPass,GrpPass) = 0;
+  CumReleases = 0;
+
+  for (int Iyear=thedata.Year1Tag(GrpPass)-dat.First_yr;Iyear<dat.Nyear;Iyear++)
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
+    {
+      Jyear = Iyear+dat.First_yr-thedata.TagYr1;
+      Kyear = dat.BurnIn+Iyear;
+
+      // Add the tags that have been out long enough
+      for (int Iarea=0;Iarea<Narea;Iarea++)
+        for (int Iage=0;Iage<dat.Nage;Iage++)
+          for (int Isize=0;Isize<dat.MaxLen;Isize++)
+          {
+            Ntag_local(Iarea,0,Iage,Isize) += Ntag_local(Iarea,1,Iage,Isize);
+            for (int ItagLag=NtagLag-1;ItagLag>0;ItagLag--)
+              Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntag_local(Iarea,ItagLag+1,Iage,Isize);
+            Ntag_local(Iarea,NtagLag,Iage,Isize) = 0;
+          }
+
+          // Add new tags
+          for (int Iarea=0;Iarea<Narea;Iarea++)
+          {
+            NtagRel = thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
+            if (NtagRel > 0)
+            {
+              for (int Isize=0;Isize<dat.MaxLen;Isize++)
+                if (thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1) > 0)
+                {
+                  NtotalT = 0;
+                  for (int Iage=0;Iage<Nage;Iage++) NtotalT += N(Iarea,Kyear,Istep,SexPass,Iage,Isize);
+                  for (int Iage=0;Iage<Nage;Iage++)
+                    Ntag_local(Iarea,NtagLag,Iage,Isize) = N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
+                }
+                NotReported(SexPass,GrpPass) += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0)*(1.0-thedata.InitialLoss);
+                CumReleases  += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
+            }
+          }
+
+          // Set selectivity
+          for (int Ifleet=0; Ifleet<Nfleet;Ifleet++)
+            for (int Iage=0;Iage<Nage;Iage++)
+            {
+              if(dat.IsRed(SexPass,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar; } else {ScaleRedQ = 1.0; }
+              SelPointer = dat.SelPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+              RetPointer = dat.RetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+              LegalPointer = dat.LegalFleetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
+              for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+              {
+                selexF(Ifleet,SexPass,Iage,Isize) = ActSelex(SelPointer,Isize) * ScaleRedQ;
+                retainF(Ifleet,SexPass,Iage,Isize) = ActReten(RetPointer,Isize)*ActLegal(LegalPointer,Isize);
+              }
+            }
+
+            // Compute Z given F and M
+            RecapTmp.setZero();
+      for (int Iarea=0;Iarea<Narea;Iarea++)
+      {
+        for (int Iage=0;Iage<Nage;Iage++)
+        {
+          if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar; } else {ScaleWhiteM = 1.0; }
+          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+          {
+            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
+            Z_rate_Tag(Iarea,Iage,Isize) = M_rate_Tag(Iarea,Iage,Isize);
+            for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
+              if (dat.Area_fleet(Iarea,Ifleet)==1)
+              {
+                RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                Z_rate_Tag(Iarea,Iage,Isize) += Hrate(Kyear,Istep,Ifleet)*RetainTemp;
+              }
+
+              for (int ItagLag=1;ItagLag<=NtagLag;ItagLag++)
+                NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
+
+              Deaths = Ntag_local(Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
+              NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
+
+              for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
+                if (dat.Area_fleet(Iarea,Ifleet)==1)
+                {
+                  RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                  FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
+                  TotalPartialF = 0;
+                  for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+                  {
+                    PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
+                    TotalPartialF += PartialF;
+                    RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
+                  }
+                  NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
+                }
+          }
+        }
+      }
+
+      // Total the tags
+      for (int Iarea=0;Iarea<Narea;Iarea++)
+        for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+            RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep) += RecapTmp(Iarea,IrepSplit,Isize);
+
+      // Likelihood for length-comp of recaptured
+      LikeSize1 = 0;
+      for (int Iarea=0;Iarea<Narea;Iarea++)
+        for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+          if (thedata.FitTagSizes(IrepSplit) == 1){
+            if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0) {
+              ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
+              NtotalT = 0;
+              for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) NtotalT+=RecapTmp(Iarea,IrepSplit,Isize);
+              for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+              {
+                PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
+                PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
+                if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
+                {
+                  ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
+                  LikeSize1 -= ObsL*ObsSS*log(PredL/ObsL);
+                }
+              }
+            }
+          }
+          TagLike1(SexPass,GrpPass) += LikeSize1;
+
+          // Remove mortality
+          Ntemp_Tag.setZero();
+          for (int Iarea=0;Iarea<Narea;Iarea++)
+            for (int Iage=0;Iage<Nage;Iage++)
+              for (int Isize=0;Isize<dat.MaxLen;Isize++)
+                for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+                  if (ItagLag==0)
+                    Ntemp_Tag(0,Iarea,Iage,Isize) = Ntag_local(Iarea,0,Iage,Isize)*exp(-Z_rate_Tag(Iarea,Iage,Isize));
+                  else
+                    Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntag_local(Iarea,ItagLag,Iage,Isize)*exp(-M_rate_Tag(Iarea,Iage,Isize));
+
+                  // Growth
+                  for (int Iarea=0;Iarea<Narea;Iarea++)
+                    for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+                      for (int Iage=0;Iage<Nage;Iage++)
+                      {
+                        GrowthPointer = dat.GrowthPnt(Iarea,SexPass,Iage,Iyear,Istep);
+                        if (GrowthPointer >=0)
+                        {
+                          Ntemp2.setZero();
+                          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                          {
+                            for (int Jsize=0;Jsize<=Isize;Jsize++) Ntemp2(Isize) += Ntemp_Tag(ItagLag,Iarea,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
+                          }
+                          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntemp2(Isize);
+                        }
+                      }
+
+                      // Movement
+                      Nmove_Tag.setZero();
+                  IsMoves = 0;
+                  for (int Iarea=0;Iarea<Narea;Iarea++)
+                    for (int Iage=0;Iage<Nage;Iage++)
+                    {
+                      MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
+                      if (MovePointer > 0)
+                      {
+                        IsMoves = 1;
+                        IdestArea = dat.MoveSpec(MovePointer,2);
+                        for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
+                        for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+                          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                          {
+                            Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                            Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                          }
+                      }
+                    }
+
+                    if (IsMoves==1)
+                    {
+                      for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+                        for (int Iarea=0;Iarea<Narea;Iarea++)
+                          for (int Iage=0;Iage<Nage;Iage++)
+                            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                              Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
+                    }
+
+                    // Copy back and update ages
+                    for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++){
+                      for (int Iarea=0;Iarea<Narea;Iarea++) {
+                        if (Istep<dat.Nstep-1) {
+                          for (int Iage=0;Iage<Nage;Iage++){
+                            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++){
+                              Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);}}
+                        }
+                        else
+                        {
+                          if (Nage-1 > 0)
+                          {
+                            for (int Iage=0;Iage<Nage-1;Iage++)
+                              for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                                Ntag_local(Iarea,ItagLag,Iage+1,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                              Ntag_local(Iarea,ItagLag,Nage-1,Isize) = Ntemp_Tag(ItagLag,Iarea,Nage-1,Isize) + Ntemp_Tag(ItagLag,Iarea,Nage-2,Isize);
+                            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++) Ntag_local(Iarea,ItagLag,0,Isize) = 0;
+                          }
+                          else
+                          {
+                            for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+                              Ntag_local(Iarea,ItagLag,0,Isize)  = Ntemp_Tag(ItagLag,Iarea,0,Isize);
+                          }
+                        }
+                      }
+                    }
+
+    }
+
+    // Add animals at end of projection to NotReported
+    for (int ItagLag=0;ItagLag<=NtagLag;ItagLag++)
+      for (int Iarea=0;Iarea<Narea;Iarea++)
+        for (int Iage=0;Iage<Nage;Iage++)
+          for (int Isize=0;Isize<dat.Nlen(SexPass);Isize++)
+            NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize);
+
+  // Total reported and rescale recaptures
+  TotalReported = 0;
+  for (int Iarea=0;Iarea<Narea;Iarea++)
+    for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
+      for (int Istep=0;Istep<dat.Nstep;Istep++)
+        for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+        {
+          TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
+          RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
+        }
+        NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
+
+  // Likelihood
+  LikeTag2 = thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*
+    log(NotReported(SexPass,GrpPass)/thedata.NotReportedObs(SexPass,GrpPass));
+  for (int Iarea=0;Iarea<Narea;Iarea++)
+    for (int Iyear=0;Iyear<thedata.NyearTags;Iyear++)
+      for (int Istep=0;Istep<dat.Nstep;Istep++)
+        for (int IrepSplit=0;IrepSplit<NrepSplit;IrepSplit++)
+          if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
+          {
+            LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log(RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)/thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep));
+            LikeTag2 += LikeCompT;
+          }
+          TagLike2(SexPass,GrpPass) +=  LikeTag2;
+
+          return(NeglogLikelihood);
+}
+*/
 
 template<class Type>
 Type objective_function<Type>::operator() ()
@@ -2060,7 +2359,7 @@ Type objective_function<Type>::operator() ()
   matrix<Type> TagLike1(Nsex,NtagGroups);                                 // Tag size likelihood
   matrix<Type> TagLike2(Nsex,NtagGroups);                                 // Tag numbers likelihood
 
-  array<Type> Ntag(Nsex,NtagGroups,Narea,NtagLag+1,Nage,MaxLen);          // Tag dynamics
+  //array<Type> Ntag(Nsex,NtagGroups,Narea,NtagLag+1,Nage,MaxLen);
   array<Type> RecapNum(Nsex,NtagGroups,Narea,NrepSplit,NyearTags,Nstep);  // Recapture
   matrix<Type> NotReported(Nsex,NtagGroups);
   array<Type> PredTagSize(Nsex,NtagGroups,Narea,MaxLen);                  // Recaptured by length-class (weight by numbers recaptured)
@@ -2266,12 +2565,12 @@ for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
 
 //  // Tagging data
 if(thedata.IsTagData==1){
-    Ntag.setZero(); RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
-    TagLike1.setZero();TagLike2.setZero();
-    for (int SexPass=0;SexPass<Nsex;SexPass++)
-     for (int GrpPass=0;GrpPass<NtagGroups;GrpPass++)
-      XX = TagDym(dataset,thedata, SexPass,GrpPass,N,ActSelex, ActReten, ActLegal,ActGrowth, ActMove, M, Hrate, QRedsPar,MWhitesPar,Ntag,RecapNum,NotReported,TagLike1,TagLike2,PredTagSize);
-  }
+  RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();  TagLike1.setZero();  TagLike2.setZero();
+
+  for (int SexPass=0; SexPass<Nsex; SexPass++)
+    for (int GrpPass=0; GrpPass<NtagGroups; GrpPass++)
+      XX = TagDym(dataset,thedata, SexPass, GrpPass, N, ActSelex, ActReten, ActLegal, ActGrowth, ActMove, M, Hrate, QRedsPar, MWhitesPar, RecapNum, NotReported, TagLike1, TagLike2, PredTagSize);
+}
 
 // Legal Biomass by Year, Area, time step at the end of a time step
 int Ipoint;int Ipoint76;

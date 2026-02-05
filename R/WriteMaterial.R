@@ -189,8 +189,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Numbers likelihood",Report$NumbersLike, " (Weighted ", Report$Weighted_NumbersLike, ")"),OutputFile,append=T)
   write(paste("Length likelihood",Report$LengthLike, " (Weighted ", Report$Weighted_LengthLike, ")"),OutputFile,append=T)
   write(paste("Larval likelihood",Report$LarvalLike, " (Weighted ", Report$Weighted_LarvalLike, ")"),OutputFile,append=T)
- # write(paste("Tag1 Likelihood",sum(Report$TagLike1)," (Weighted ", Report$Weighted_TagLike1,")"),OutputFile,append=T)
- # write(paste("Tag2 Likelihood",sum(Report$TagLike2)," (Weighted ", Report$Weighted_TagLike2,")"),OutputFile,append=T)
+  write(paste("Tag1 Likelihood",sum(Report$TagLike1)," (Weighted ", Report$Weighted_TagLike1,")"),OutputFile,append=T)
+  write(paste("Tag2 Likelihood",sum(Report$TagLike2)," (Weighted ", Report$Weighted_TagLike2,")"),OutputFile,append=T)
   write(paste("Initial N penalty",Report$Initial_pen),OutputFile,append=T)
   write(paste("Recruitment penalty",Report$Rec_Penal),OutputFile,append=T)
   write(paste("Recruitment smooth penalty",Report$Rec_Penal_Smooth),OutputFile,append=T)
@@ -202,8 +202,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Larval likeliood",Report$LarvalLikeComps),OutputFile,append=T)
 
   write("\n# Likelihood by group",OutputFile,append=T)
- # write(paste("Tag Likelihood 1",Report$TagLike1),OutputFile,append=T)
- # write(paste("Tag Likelihood 2",Report$TagLike2),OutputFile,append=T)
+  write(paste("Tag Likelihood 1",Report$TagLike1),OutputFile,append=T)
+  write(paste("Tag Likelihood 2",Report$TagLike2),OutputFile,append=T)
 
 
   #print("AEP IS STILL WORKING ON THIS")
@@ -557,51 +557,51 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     write(GROut,ncol=length(GROut), OutputFile,append=T) }
 
   #### =====================================================================================
-#   write("\n#Tagging data - Tag numbers by ",OutputFile,append=T)
-#   write("#sex Relgrp area year step repSplit Obs Est",OutputFile,append=T)
-#   for (Isex in 1:GeneralSpecs$Nsex)
-#    for (Igrp in 1:TagSpecs$NtagGroups)
-#     for (Iarea in 1:GeneralSpecs$Narea)
-#      for (Iyear in 1:TagSpecs$NyearTags)
-#       for (Istep in 1:GeneralSpecs$Nstep)
-#        for (IrepSplit in 1:TagSpecs$NrepSplit)
-#         if (TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep] > 0)
-#          {
-#           VAL1<- TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
-#           VAL2 <- Report$RecapNum[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
-#           Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$Year1Tag[1]-1,Istep,IrepSplit,VAL1,VAL2)
-#           write(Summ,OutputFile,append=T)
-#          }
-#
-#   write("\n#Tagging length data - Tag numbers by ",OutputFile,append=T)
-#   write("#sex Relgrp area repSplit size ObsTot ObsProp EstProp",OutputFile,append=T)
-#   for (Isex in 1:GeneralSpecs$Nsex)
-#    for (Igrp in 1:TagSpecs$NtagGroups)
-#     for (Iarea in 1:GeneralSpecs$Narea)
-#      for (IrepSplit in 1:TagSpecs$NrepSplit)
-#       if (TagSpecs$FitTagSizes[IrepSplit] == 1)
-#        {
-#         ObsSS = 0
-#         for (Iyear in 1:TagSpecs$NyearTags)
-#          for (Istep in 1:GeneralSpecs$Nstep)
-#           ObsSS = ObsSS + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1]
-#         if (ObsSS > 0)
-#          {
-#           Vec <- rep(0,GeneralSpecs$Nlen[Isex])
-#           for (Isize in 1:GeneralSpecs$Nlen[Isex])
-#            {
-#             ObsEE <- 0
-#             for (Iyear in 1:TagSpecs$NyearTags)
-# 	     for (Istep in 1:GeneralSpecs$Nstep)
-# 	      ObsEE = ObsEE + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1+Isize]
-# 	     Vec[Isize] <- ObsEE
-# 	     PredEE <- Report$PredTagSize[Isex,Igrp,Iarea,Isize]
-#              Summ <- paste(Isex,Igrp,Iarea,IrepSplit,Isize,ObsSS,Vec[Isize],PredEE)
-#              write(Summ,OutputFile,append=T)
-#             }
-#
-#          }
-#        }
+  write("\n#Tagging data - Tag numbers by ",OutputFile,append=T)
+  write("#sex RelArea RecArea year tstep repSplit Obs Est",OutputFile,append=T)
+  for (Isex in 1:GeneralSpecs$Nsex)
+   for (Igrp in 1:TagSpecs$NtagGroups)
+    for (Iarea in 1:GeneralSpecs$Narea)
+     for (Iyear in 1:TagSpecs$NyearTags)
+      for (Istep in 1:GeneralSpecs$Nstep)
+       for (IrepSplit in 1:TagSpecs$NrepSplit)
+        if (TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep] > 0)
+         {
+          VAL1<- TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
+          VAL2 <- Report$RecapNum[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
+          Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$Year1Tag[1]-1,Istep,IrepSplit,VAL1,VAL2)
+          write(Summ,OutputFile,append=T)
+         }
+
+  write("\n#Tagging length data - Tag numbers by ",OutputFile,append=T)
+  write("#Sex RelArea RecArea RepSplit Size ObsTot ObsProp EstProp",OutputFile,append=T)
+  for (Isex in 1:GeneralSpecs$Nsex)
+   for (Igrp in 1:TagSpecs$NtagGroups)
+    for (Iarea in 1:GeneralSpecs$Narea)
+     for (IrepSplit in 1:TagSpecs$NrepSplit)
+      if (TagSpecs$FitTagSizes[IrepSplit] == 1)
+       {
+        ObsSS = 0
+        for (Iyear in 1:TagSpecs$NyearTags)
+         for (Istep in 1:GeneralSpecs$Nstep)
+          ObsSS = ObsSS + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1]
+        if (ObsSS > 0)
+         {
+          Vec <- rep(0,GeneralSpecs$Nlen[Isex])
+          for (Isize in 1:GeneralSpecs$Nlen[Isex])
+           {
+            ObsEE <- 0
+            for (Iyear in 1:TagSpecs$NyearTags)
+	     for (Istep in 1:GeneralSpecs$Nstep)
+	      ObsEE = ObsEE + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1+Isize]
+	     Vec[Isize] <- ObsEE
+	     PredEE <- Report$PredTagSize[Isex,Igrp,Iarea,Isize]
+             Summ <- paste(Isex,Igrp,Iarea,IrepSplit,Isize,ObsSS,Vec[Isize],PredEE)
+             write(Summ,OutputFile,append=T)
+            }
+
+         }
+       }
 
 
 

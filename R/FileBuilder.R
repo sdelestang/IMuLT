@@ -551,6 +551,7 @@ print("Building Control File")
     release <- data.frame(tag[(pos1+1):(pos2-1),])
     colnames(release) <- tag[pos1,]
     release <- release[,!is.na(release[1,])] %>% filter(!is.na(Total))
+    release %<>% mutate(Sex=adjsex(Sex, nsex,section='Tag_release'))
     relyr <- release %>% group_by(RelArea) %>% summarise(Min=min(Year))
     tmp <- c(tmp, "# First release year\n",paste(relyr$Min, collapse=' '),"\n")
 
@@ -563,6 +564,7 @@ print("Building Control File")
     #tail(recap)
     colnames(recap) <- tag[pos1,]
     recap <- recap[,!is.na(recap[1,])]
+    recap %<>% mutate(Sex=adjsex(Sex, nsex,section='Tag_recapture'))
     tmp <- c(tmp, "# Recaptures by lbin\n",nrow(recap),"\t# Number recapture observations\n")
     tmp <- c(tmp, "# Sex RelArea RecArea Type Year Tstep Total ", paste0("lbin",lens, collapse=' '),"\n")
     for(i in 1:nrow(recap)){ tmp <- c(tmp,paste(recap[i,],collapse = " "),"\n")}

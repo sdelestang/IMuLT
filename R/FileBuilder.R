@@ -804,7 +804,7 @@ for(p in pars){
       if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
       if(tgau$Fleet=='X') {Ft <- fleets$fleet-1}else{Ft <- as.numeric(tgau$Fleet)-1}
       if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else{Ts <- as.numeric(tgau$TimeStep)-1}
-      if(tgau$Age=='X') {Ag <-  sort(unique(ages))-1}else{Ag <- as.numeric(tgau$Age)-1}
+      if(tgau$Age=='X') {Ag <-  sort(unique(1:ages))-1}else{Ag <- as.numeric(tgau$Age)-1}
       code[leg$Sex%in%Sx & leg$Age%in%Ag & leg$Fleet%in%Ft & leg$Step%in%Ts, SS<=Yrs & ES>=Yrs] <- tgau$pos-1
       }
 
@@ -834,7 +834,7 @@ for(r in 1:nrow(gauge4)){
   if(tgau$Sex=='X') {Sx <- sexs}else{Sx <- as.numeric(tgau$Sex)-1}
   if(tgau$Area=='X') {Ar <- sort(unique(fleets$newarea))-1} else {Ar <- as.numeric(tgau$Area)-1}
   if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else {Ts <- as.numeric(tgau$TimeStep)-1}
-  if(tgau$Age=='X') {Ag <-  sort(unique(ages))-1} else {Ag <- as.numeric(tgau$Age)-1}
+  if(tgau$Age=='X') {Ag <-  sort(unique(1:ages))-1} else {Ag <- as.numeric(tgau$Age)-1}
   code[leg$Sex%in%Sx & leg$Age%in%Ag & leg$Area%in%Ar & leg$Step%in%Ts, SS<=Yrs & ES>=Yrs] <- tgau$pos-1
 }
 

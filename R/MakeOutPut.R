@@ -508,8 +508,6 @@ MakeOutPut <- function(is95=TRUE){
         caption <- paste("Retention curves for fleet", ft,",sex", sx,"and age",ag,".")
         addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
 
-
-
   } else {
     tfleet1 <- ret[ret$sex==sx & ret$fleet==ft,]
     tfleet1 <- tfleet1[!duplicated(apply(as.matrix(tfleet1[,6:ncol(tfleet1)]),1,paste0,collapse=' ')), ]

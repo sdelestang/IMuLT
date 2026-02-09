@@ -1728,7 +1728,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
   // fclose(fp2);
 
   // Likelihood
-  LikeTag2 = thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*
+  LikeTag2 = -thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*
     log((NotReported(SexPass,GrpPass)+1e-10)/(thedata.NotReportedObs(SexPass,GrpPass)+1e-10));
   for (int Iarea=0; Iarea<Narea; Iarea++)
     for (int Iyear=0; Iyear<thedata.NyearTags; Iyear++)
@@ -2470,7 +2470,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   Weighted_LengthLike = LambdaLength*LengthLike;
   Weighted_LarvalLike = LambdaLarval*LarvalLike;
   Weighted_TagLike1 = LambdaTag1*sum(TagLike1);
-  Weighted_TagLike2 = LambdaTag2*-1*sum(TagLike2);
+  Weighted_TagLike2 = LambdaTag2*sum(TagLike2);
 
   neglogL += CatchLike;
   neglogL += LambdaCpue*CpueLike;
@@ -2478,7 +2478,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   neglogL += LambdaLength*LengthLike;
   neglogL += LambdaLarval*LarvalLike;
   neglogL += LambdaTag1*sum(TagLike1);
-  neglogL += LambdaTag2*-1*sum(TagLike2);
+  neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalities
   neglogL += MainParPriorPen;

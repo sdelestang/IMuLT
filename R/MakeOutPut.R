@@ -1114,38 +1114,56 @@ MakeOutPut <- function(is95=TRUE){
   #### Fit to Tagging data ####
   print("Making fit to Tagging data")
   tag <- findNclean(c('#Tagging','data'), dat, 2, convert = 2)
-  tag %<>% mutate(logObs=log(Obs+1e-5),logEst=log(Est+1e-5)) %>% mutate(RLArea=paste0('Area',RelArea), RCArea=as.character(RecArea))
-  mx <- ceiling(max(c(tag$logObs, tag$logEst)))
-  mn <- floor(min(c(tag$logObs, tag$logEst)))
-  filename <- filenametopath(rundir,paste0("Tag_recapt_by_release.png"))
-  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=c(1,1))
-  suppressWarnings(print(ggplot(tag, aes(x=logObs, y=logEst, color=RCArea))+
-                           geom_point(alpha = 0.5)+
-                           facet_wrap(~RLArea)+
-                           xlim(mn,mx) +
-                           ylim(mn,mx) +
-                           theme(panel.background = element_rect(fill = "white",colour = NA),
-                                 panel.border = element_rect(fill = NA, colour = "grey20"))+
-                           xlab("log(Observed)")+ylab("log(Estimated)")))
-  caption <- "Observed and estimated tag recaptures (numbers) for each release area."
-  addplot(filen=filename,rundir=rundir,category="Tag-Recapture",caption=caption)
+  tag %<>% mutate(RLArea = paste0('Area', RelArea),
+                  RCArea = as.character(RecArea),
+                  pearson = (Obs - Est) / sqrt(Est + 1e-5),
+                  yt = year + tstep / (max(tstep) + 1))
 
-  tag %<>% mutate(resid=Obs-Est, yt = year+tstep/(max(tstep)+1))
-  for(a in as.numeric(sort(unique(tag$RelArea)))){
-    filename <- filenametopath(rundir,paste0("Tag_recapt_by_release",a,".png"))
-    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
-    parset(plots=c(1,1))
-    suppressWarnings(print(ggplot(tag[tag$RelArea==a,], aes(x=yt, y=resid))+
-                             geom_point()+
-                             facet_wrap(~RCArea)+
-                             theme(panel.background = element_rect(fill = "white",colour = NA),
-                                   panel.border = element_rect(fill = NA, colour = "grey20"))+
-                             xlab("Year")+ylab("Residual (O-E)")+ggtitle(paste('Release Area',a))))
-    caption <- paste("Residual tag recaptures (Obs-Est) for release area",a,".")
-    addplot(filen=filename,rundir=rundir,category="Tag-Recapture",caption=caption)
+  # Plot 1: Aggregated obs vs est by release area x recapture area
+  tag_agg <- tag %>%
+    group_by(RLArea, RCArea) %>%
+    summarise(TotalObs = sum(Obs, na.rm = TRUE),
+              TotalEst = sum(Est, na.rm = TRUE),
+              .groups = "drop")
+
+  mx <- ceiling(max(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
+  mn <- floor(min(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
+
+  filename <- filenametopath(rundir, paste0("Tag_recapt_by_release.png"))
+  plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
+  parset(plots = c(1, 1))
+  suppressWarnings(print(
+    ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
+      geom_point(size = 3) +
+      facet_wrap(~RLArea) +
+      coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
+      theme(panel.background = element_rect(fill = "white", colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20")) +
+      xlab("log(Total Observed)") + ylab("log(Total Estimated)")
+  ))
+  caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
+  addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+  # Plot 2: Pearson residuals by release area, faceted by recapture area
+  for (a in as.numeric(sort(unique(tag$RelArea)))) {
+    tmp <- tag[tag$RelArea == a, ]
+    filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
+    plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(
+      ggplot(tmp, aes(x = yt, y = pearson)) +
+        geom_hline(yintercept = 0, linetype = "dashed", colour = "red") +
+        geom_point(alpha = 0.5) +
+        facet_wrap(~RCArea, scales = "free_y") +
+        theme(panel.background = element_rect(fill = "white", colour = NA),
+              panel.border = element_rect(fill = NA, colour = "grey20")) +
+        xlab("Year") + ylab("Pearson Residual  (O-E)/sqrt(E)") +
+        ggtitle(paste('Release Area', a))
+    ))
+    caption <- paste("Pearson residuals of tag recaptures for release area", a, ".")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
   }
-
   tag <- findNclean(c('#Tagging','length'), dat, 2, convert = 2)
   tag %<>% pivot_longer(
     cols = c(ObsProp, EstProp),

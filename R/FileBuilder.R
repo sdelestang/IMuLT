@@ -342,11 +342,19 @@ print("Building Control File")
 
     wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
     wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
+    ## Add an example for every LF by sex and fleet
+    lenw <- len %>% group_by(Fleet,Sex) %>% summarise(num=sum(Samp),.groups = "drop_last") %>% mutate(type2=3, fleet=Fleet, tstep=-1, sex=Sex-1, value=1, codeout='#')
+    lenw$fleettype <- fleets$group[match(lenw$Fleet, fleets$fleet)]
+    lenw %<>% mutate(id2=paste(fleettype , Fleet, 'ifreq')) %>% ungroup() %>% dplyr::select(type2,fleet,tstep,sex,value,codeout,id2)
     ## Look for Length tuning file
     if(max("Length_freq_tunings.csv" %in%list.files(path = paste0(floc,'/Output')))==1){
-      lfwei <- read.csv(paste0(floc,'/Output/Length_freq_tunings.csv')) %>% mutate(type2=3,tstep= -1,codeout='#',id2='Length-Freq from tuning file',value=scale, fleet=fleet-1,sex=sex-1) %>% dplyr::select(type2,fleet,tstep,sex, value,codeout,id2)
-      wei <- rbind(wei,lfwei)
+      lenw <- read.csv(paste0(floc,'/Output/Length_freq_tunings.csv')) %>% mutate(type2=3,tstep= -1,codeout='#',id2='Length-Freq from tuning file',value=scale, fleet=fleet-1,sex=sex-1) %>% dplyr::select(type2,fleet,tstep,sex, value,codeout,id2)
     }
+    if(exists('lenw')) {
+      wei %<>% filter(type2!=3)
+      wei <- rbind(wei,lenw)
+        }
+
     tmp <- c(tmp, "\n# Weights by fleet (Type: 1=cpue,2=numbers,3=length;4=larvae;) - Can tweak by Fleet and index.  See values to -1 for them to encompass all options.  e.g. time-step set to -1 covers all timesteps. our fleets\n# Type\tFleet\tTime-step\tsex\n")
     tmp <- c(tmp, nrow(wei), "\t# set to number of individual weights defined below - 0 would define no individual weights\n")
     if(nrow(wei)>0) for(i in 1:nrow(wei)){ tmp <- c(tmp,paste(paste(wei[i,],collapse = "\t")),"\n")}

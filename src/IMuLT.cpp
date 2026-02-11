@@ -1738,7 +1738,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           {
             // Add small constant to avoid log(0)
             LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log((RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10)/(thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10));
-            LikeTag2 += LikeCompT;
+            LikeTag2 -= LikeCompT;
           }
           TagLike2(SexPass,GrpPass) += LikeTag2;
 

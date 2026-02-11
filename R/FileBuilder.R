@@ -342,8 +342,8 @@ print("Building Control File")
 
     wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
     wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
-    ## Add an example for every LF by sex and fleet
-    lenw <- len %>% group_by(Fleet,Sex) %>% summarise(num=sum(Samp),.groups = "drop_last") %>% mutate(type2=3, fleet=Fleet, tstep=-1, sex=Sex-1, value=1, codeout='#')
+    ## Add a line for every LF by sex and fleet for francis weightings later
+    lenw <- len %>% group_by(Fleet,Sex) %>% summarise(num=sum(Samp),.groups = "drop_last") %>% mutate(type2=3, fleet=Fleet-1, tstep=-1, sex=Sex-1, value=1, codeout='#')
     lenw$fleettype <- fleets$group[match(lenw$Fleet, fleets$fleet)]
     lenw %<>% mutate(id2=paste(fleettype , Fleet, 'ifreq')) %>% ungroup() %>% dplyr::select(type2,fleet,tstep,sex,value,codeout,id2)
     ## Look for Length tuning file

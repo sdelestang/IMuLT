@@ -415,44 +415,46 @@ print("Building Control File")
 #### Growth file ####
 
     print("Building Growth File")
-    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth'))
+    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
     umat <- unique(growth$matrix)
     nstm <- length(umat)
-    Sex <- as.numeric(gsub('s','',do.call('rbind',strsplit(umat,'_'))[,2]))-1
-    Tstep <- as.numeric(gsub('ts','',do.call('rbind',strsplit(umat,'_'))[,4]))
-    growth$pointer <- NA
-    compound <- rep(1,length(umat))
-    Area <- rep(NA,length(umat))
-    for(p in 1:length(umat)){
-      growth$pointer[growth$matrix==umat[p]] <- p-1
-      compound[p] <- growth$grow[growth$matrix==umat[p]][1]
-      Area[p] <- paste(growth$area[growth$matrix==umat[p]],collapse=' ') }
+    growth2 <- growth %>% mutate(area=as.numeric(area)-min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix, Years) %>%
+      summarise(areas = paste(area, collapse = ","), .groups = "drop")
+    Sex <- growth2$sex-1
+    Tstep <- as.numeric(growth2$tstep)
+    Pointer <- 0:(nrow(growth2)-1)
+    compound <- as.numeric(growth2$grow)
+    Area <- growth2$areas
+    Years <- growth2$Years
 
-    gspec <- data.frame(Pattern=0:(nstm-1), Type=1, Sex=Sex,Extra=0,Pointer=unique(growth$pointer),Mpower=1,hash='#',tsteps=Tstep, growthareas=Area, Compound=compound)
+    gspec <- data.frame(Pattern=0:(nstm-1), Type=1, Sex=Sex, Extra=0,Pointer=Pointer,Mpower=1,hash='#',tsteps=Tstep, growthareas=Area, Years=Years, Compound=compound)
 
     dat <- expand.grid(sex=sexs, age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
     dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
-    for(r in 1:nrow(dat)){
-      tmparea  <- dat$area[r]+1
-      tmpsex   <-  dat$sex[r]+1
-      tmptstep   <-  dat$step[r]+1
-      for(c in 1:ncol(dat2)){
-        sea <- (startseason:endseason)[c]
-        if(nrow(growth[growth$season==sea & growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep,])>0) {
-          point <- growth$pointer[growth$season==sea & growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep]
-          if(length(point)==0) point <- -1
-          dat2[r,c]  <- point   } else {
-            point <- growth$pointer[growth$sex==tmpsex & growth$area==tmparea & growth$tstep==tmptstep]
-            if(length(point)==0) point <- -1
-            dat2[r,c]  <- point   }
-      }}
+    seasons <- startseason:endseason
+    for(r in 1:nrow(growth)){
+      dat2[dat$sex==growth$sex[r]-1  & dat$area==as.numeric(growth$area[r])-1 & dat$step==as.numeric(growth$tstep[r])-1, seasons%in%growth$startseason[r]:growth$endseason[r]] <-  which(growth$matrix[r]==umat)-1     }
 
     dat <- cbind(dat,dat2)
     dat %<>% arrange(sex,age,area,step)
+    ## Check for complete data - does every sex age area moult at least once every year?
+    tdat <- dat %>% tidyr::pivot_longer(cols = -c(sex, age, area, step), names_to = "year", values_to = "value") %>%
+      mutate(year = as.integer(year)) %>% group_by(sex, age, area, year) %>%
+      summarise(has_valid = any(value != -1), .groups = "drop") %>% filter(!has_valid) %>% as.data.frame()
+    if (nrow(tdat) > 0) {
+      missing_str <- paste(
+        apply(tdat[, c("sex", "age", "area", "year")], 1, function(x)
+          paste0("sex=", x["sex"], " age=", x["age"], " area=", x["area"], " year=", x["year"])
+        ),
+        collapse = "\n"
+      )
+      warning("The following sex/age/area/year combinations have no growth assigned:\n", missing_str)
+    }
+
     tmp <- list()
     tmp <- c(tmp, "# Growth specification\n\n# Number of growth Patterns (Mpower is legacy and needed for power function on growth)\n",nrow(gspec),"\n")
     tmp <- c(tmp, "# ", paste(colnames(gspec),collapse='\t'),"\n")
-    for(i in 1:nrow(gspec)){ tmp <- c(tmp,'\t',paste(gspec[i,1:6],collapse = "\t"),'\t# ',paste(gspec[i,7:9],collapse = "\t"),"\n")}
+    for(i in 1:nrow(gspec)){ tmp <- c(tmp,'\t',paste(gspec[i,],collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n# Specifications for growth\t\n# Sex\tAge\tArea\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
@@ -463,9 +465,19 @@ print("Building Control File")
     tmp <- c(tmp, "# Prespecified size-transition\n")
     STM <- growth <- readWorkbook(wb,sheet='SizeTransMatricesNew', startRow = 2, colNames = F)
     STM[is.na(STM)] <- ''
-    for(i in 1:nrow(STM)){
-      if(grepl('#',STM[i,1],fixed = T)) { tmp <- c(tmp,"\n") } else { STM[i,] <- round(as.numeric(STM[i,]),7) }
-      tmp <- c(tmp,paste(STM[i,],collapse = "\t"),"\n") }
+
+    lines <- unlist(STM$X1)  # labels are in X1
+    label_idx <- which(grepl("^# ", lines))
+    stm_list <- vector("list", length(umat))
+    names(stm_list) <- umat
+    nlbin <- length(lens)
+    for (r in 1:4) {
+      label_idx <- which(grepl(paste0("^# ", umat[r]), lines))
+      start <- label_idx + 1
+      mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]
+      tmp <- c(tmp,paste("\n# Matrix #",umat[r],"\n"))
+      for(rr in 1:nrow(mat_rows)){  tmp <- c(tmp,paste(round(as.numeric(mat_rows[rr,]),10),collapse = " "),"\n")
+    }}
 
     tmp <- c(tmp, "\n# Growth parameters\n#LB\tUP\tEstimate\tPhase\n")
 

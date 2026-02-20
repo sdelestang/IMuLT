@@ -1086,7 +1086,8 @@ MakeOutPut <- function(is95=TRUE){
   #### Fit to Tagging data ####
   print("Making fit to Tagging data")
   tag <- findNclean(c('#Tagging','data'), dat, 2, convert = 2)
-  tag %<>% mutate(RLArea = paste0('Area', RelArea),
+  if(!is.na(tag[1])){
+  tag %<>% dplyr::mutate(RLArea = paste0('Area', RelArea),
                   RCArea = as.character(RecArea),
                   pearson = (Obs - Est) / sqrt(Est + 1e-5),
                   yt = year + tstep / (max(tstep) + 1))
@@ -1159,7 +1160,7 @@ MakeOutPut <- function(is95=TRUE){
       addplot(filen=filename,rundir=rundir,category="Tag-Recapture",caption=caption)
     }
   }
-
+}
   ## Model Outputs
   ### Relative Legal Biomass by area
   print("Making Legal Biomass")

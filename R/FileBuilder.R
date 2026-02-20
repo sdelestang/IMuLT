@@ -270,23 +270,23 @@ print("Building Control File")
     if(length(female.wat)==0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n") }
     if(length(female.wat)>0 & length(male.wat)==0){ tmp <- c(tmp, paste(female.wat,collapse = "\t"),"\n") }
 
-    tmp <- c(tmp, "\n# Maturity at length by area \n")
-    matdat <- readWorkbook(wb,sheet='maturity', startRow = 2)
-
-    code <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
-    for(i in 1:nrow(code)){ code[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='mature'][i])/matdat$b[matdat$cat=='mature'][i])),3)}
-    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
-
-    tmp <- c(tmp, "\n# Maturity age by area \n")
-    mages <- matdat$age[!is.na(matdat$age)]
-    tmp <- c(tmp, paste(mages, collapse = "\t"),"\n")
-
-    tmp <- c(tmp, "\n# Egg production (by area)\n")
-    fecundity <- matdat$a[matdat$cat=='fecundity']*lens^matdat$b[matdat$cat=='fecundity']
-    code2 <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
-    for(i in 1:nrow(code)){ code2[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='dspawn'][i])/matdat$b[matdat$cat=='dspawn'][i])),3)}
-    for(i in 1:nrow(code)){ code[i,] <- round(  (code[i,]+code2[i,])*fecundity,1)}
-    for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+    # tmp <- c(tmp, "\n# Maturity at length by area \n")
+    # matdat <- readWorkbook(wb,sheet='maturity', startRow = 2)
+    #
+    # code <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
+    # for(i in 1:nrow(code)){ code[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='mature'][i])/matdat$b[matdat$cat=='mature'][i])),3)}
+    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
+    #
+    # tmp <- c(tmp, "\n# Maturity age by area \n")
+    # mages <- matdat$age[!is.na(matdat$age)]
+    # tmp <- c(tmp, paste(mages, collapse = "\t"),"\n")
+    #
+    # tmp <- c(tmp, "\n# Egg production (by area)\n")
+    # fecundity <- matdat$a[matdat$cat=='fecundity']*lens^matdat$b[matdat$cat=='fecundity']
+    # code2 <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
+    # for(i in 1:nrow(code)){ code2[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='dspawn'][i])/matdat$b[matdat$cat=='dspawn'][i])),3)}
+    # for(i in 1:nrow(code)){ code[i,] <- round(  (code[i,]+code2[i,])*fecundity,1)}
+    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",0,'\n')
 
@@ -418,8 +418,7 @@ print("Building Control File")
     growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
     umat <- unique(growth$matrix)
     nstm <- length(umat)
-    growth2 <- growth %>% mutate(area=as.numeric(area)-min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix, Years) %>%
-      summarise(areas = paste(area, collapse = ","), .groups = "drop")
+    growth2 <- growth %>% mutate(area=as.numeric(area)-min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix, Years) %>% summarise(areas = paste(area, collapse = ","), .groups = "drop")
     Sex <- growth2$sex-1
     Tstep <- as.numeric(growth2$tstep)
     Pointer <- 0:(nrow(growth2)-1)
@@ -471,7 +470,7 @@ print("Building Control File")
     stm_list <- vector("list", length(umat))
     names(stm_list) <- umat
     nlbin <- length(lens)
-    for (r in 1:4) {
+    for (r in 1:nstm) {
       label_idx <- which(grepl(paste0("^# ", umat[r]), lines))
       start <- label_idx + 1
       mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]

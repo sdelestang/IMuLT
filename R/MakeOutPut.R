@@ -726,7 +726,8 @@ MakeOutPut <- function(is95=TRUE){
   ### Puerulus Data
   print("Making Recruitment")
   rec <- findNclean(c('Larval','data'), dat, 1)
-  if(!is.na(rec[1,1]))  {
+
+  if(!is.null(dim(rec)))  {
     recsd <- sdr[grepl('Larval', sdr$name),]
     if(length(recsd$SE[!is.na(recsd$SE)])>0) { rec <- cbind(rec,recsd) } else {rec %<>% mutate(upr=Predicted, lwr=Predicted)}
     mxyr <- max(rec$Year)

@@ -79,11 +79,12 @@ ReadStarterFile <- function(StarterFile)
   ReturnObj$SelexFileName <- StarterFile[3,1]
   ReturnObj$RetainFileName <- StarterFile[4,1]
   ReturnObj$RecruitFileName <- StarterFile[5,1]
-  ReturnObj$GrowthFileName <- StarterFile[6,1]
-  ReturnObj$MoveFileName <- StarterFile[7,1]
-  ReturnObj$TagFileName <- StarterFile[8,1]
-  ReturnObj$PropFFileName <- StarterFile[9,1]
-  ReturnObj$ProjectionsFileName <- StarterFile[10,1]
+  ReturnObj$ReproFileName <- StarterFile[6,1]
+  ReturnObj$GrowthFileName <- StarterFile[7,1]
+  ReturnObj$MoveFileName <- StarterFile[8,1]
+  ReturnObj$TagFileName <- StarterFile[9,1]
+  ReturnObj$PropFFileName <- StarterFile[10,1]
+  ReturnObj$ProjectionsFileName <- StarterFile[11,1]
   Index <- MatchTable(StarterFile,Char2="#",Char3="Stop",Char4="after")
   ReturnObj$MaxPhase <- as.numeric(StarterFile[Index,1])
   return(ReturnObj)
@@ -666,32 +667,32 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   write("Weight-length regressions",EchoFile,append=T)
   write(t(WeightLen),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="at")+1;
-  Maturity <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
-  for (Iarea in 1:GeneralSpecs$Narea)
-  {
-    for (Jlen in 1:GeneralSpecs$Nlen[1]) Maturity[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
-    if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading maturity-at-length; too many inputs: Stopping"); AAA }
-    Index <- Index + 1
-  }
-  write("Maturity at length",EchoFile,append=T)
-  write(t(Maturity),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
+  # Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="at")+1;
+  # Maturity <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
+  # for (Iarea in 1:GeneralSpecs$Narea)
+  # {
+  #   for (Jlen in 1:GeneralSpecs$Nlen[1]) Maturity[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
+  #   if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading maturity-at-length; too many inputs: Stopping"); AAA }
+  #   Index <- Index + 1
+  # }
+  # write("Maturity at length",EchoFile,append=T)
+  # write(t(Maturity),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="age")+1;
-  MatAge <- as.numeric(ControlFile[Index,1:GeneralSpecs$Narea])
-  write("Maturity at age",EchoFile,append=T)
-  write(MatAge,EchoFile,append=T,ncol=GeneralSpecs$Narea)
+  # Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="age")+1;
+  # MatAge <- as.numeric(ControlFile[Index,1:GeneralSpecs$Narea])
+  # write("Maturity at age",EchoFile,append=T)
+  # write(MatAge,EchoFile,append=T,ncol=GeneralSpecs$Narea)
 
-  Index <- MatchTable(ControlFile,Char1="#",Char2="Egg",Char3="production")+1;
-  MatFem <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
-  for (Iarea in 1:GeneralSpecs$Narea)
-  {
-    for (Jlen in 1:GeneralSpecs$Nlen[1]) MatFem[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
-    if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading eggs-at-length; too many inputs: Stopping"); AAA }
-    Index <- Index + 1
-  }
-  write("Egg Production",EchoFile,append=T)
-  write(t(MatFem),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
+  # Index <- MatchTable(ControlFile,Char1="#",Char2="Egg",Char3="production")+1;
+  # MatFem <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
+  # for (Iarea in 1:GeneralSpecs$Narea)
+  # {
+  #   for (Jlen in 1:GeneralSpecs$Nlen[1]) MatFem[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
+  #   if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading eggs-at-length; too many inputs: Stopping"); AAA }
+  #   Index <- Index + 1
+  # }
+  # write("Egg Production",EchoFile,append=T)
+  # write(t(MatFem),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
   Index <- MatchTable(ControlFile,Char1="#",Char2="Egg",Char3="time")+1;
   MatTimeStep <- as.numeric(ControlFile[Index,1])
@@ -865,8 +866,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$NefficPar <- NefficPar
   ReturnObj$Phi1 <- Phi
   ReturnObj$WeightLen <- WeightLen
-  ReturnObj$MatFem <- MatFem
-  ReturnObj$MatAge <- MatAge
+  #ReturnObj$MatFem <- MatFem
+  #ReturnObj$MatAge <- MatAge
   ReturnObj$MatTimeStep <- MatTimeStep
   ReturnObj$BioTimeStep <- BioTimeStep
   ReturnObj$RecYr1 <- RecYr1
@@ -892,6 +893,118 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$VarTypes <- VarTypes
   return(ReturnObj)
 
+}
+
+#' Parse Reproduction Specifications from REPROD.DAT
+#'
+#' Internal function to read and parse reproductive biology parameters from
+#' REPROD.DAT, including maturity, multiple spawning, and fecundity specifications.
+#' Combines these components to construct an egg production array across age,
+#' area, year, and length.
+#'
+#' @param ReprodFile Data frame from read.table() of REPROD.DAT
+#' @param GeneralSpecs List from ReadGeneralFile() containing model dimensions
+#' @param DataSpecs List from ReadDataFile() containing data specifications
+#'
+#' @return List containing reproduction specifications:
+#' \itemize{
+#'   \item MatFem - Array of egg production (age × area × year × length bin)
+#'     combining maturity, multiple spawning, and fecundity
+#'   \item MatAge - Numeric vector of maturity-at-age values by area
+#' }
+#'
+#' @details
+#' Three reproductive components are read and combined into the egg production array:
+#'
+#' \strong{Maturity}: Modelled as a logistic function of length with parameters
+#' \code{Par_a} (L50) and \code{Par_b} (slope). A pattern index of -1 sets
+#' maturity to 1 for all lengths.
+#'
+#' \strong{Multiple spawning}: Modelled as a scaled logistic function with parameters
+#' \code{Par_a} (inflection point), \code{Par_b} (slope), and \code{Par_c} (scalar).
+#' Captures variation in spawning frequency across lengths.
+#'
+#' \strong{Fecundity}: Modelled as a power function of length (\code{Par_a * L ^ Par_b}).
+#' A pattern index of -1 sets fecundity to 1 for all lengths.
+#'
+#' For each component, the input file defines parameter sets and a specification
+#' matrix that maps each age × area × year combination to a parameter set index
+#' (0-indexed). The final \code{MatFem} array is the product of all three components
+#' evaluated at mid-length bin values, and is written to Echo.out.
+#'
+#' @keywords internal
+ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
+{
+  write("READING IN THE REPRODUCTION FILE",EchoFile,append=T)
+
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Age",Char4="maturity")+1;
+  MatAge <- as.integer(ReprodFile[Index,1:GeneralSpecs$Narea])
+  write("Maturity at age",EchoFile,append=T)
+  write(MatAge,EchoFile,append=T,ncol=GeneralSpecs$Narea)
+
+  ## Get Maturity
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Number",Char4="maturity")+1;
+  Nrows <- as.numeric(ReprodFile[Index,1])
+  Names <- ReprodFile[(Index+1),2:4]
+  Matpars <- (ReprodFile[(Index+2):(Index+1+Nrows),1:3])
+  Matpars[, 1:3] <- lapply(Matpars[, 1:3], as.numeric)
+  colnames(Matpars) <- Names
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Specifications",Char4="maturity")+1;
+  Names <- ReprodFile[Index,2:(GeneralSpecs$Nyear+3)];
+  NageArea <- GeneralSpecs$Nage*GeneralSpecs$Narea
+  MatSpec <-  ReprodFile[(Index+1):(Index+NageArea),1:(GeneralSpecs$Nyear+2)];
+
+  ## Get MultipleSpawn
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Number",Char4="multiple")+1;
+  Nrows <- as.numeric(ReprodFile[Index,1])
+  Names <- ReprodFile[(Index+1),2:5]
+  Mulpars <- (ReprodFile[(Index+2):(Index+1+Nrows),1:4])
+  Mulpars[, 1:4] <- lapply(Mulpars[, 1:4], as.numeric)
+  colnames(Mulpars) <- Names
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Specifications",Char4="multiple")+1;
+  MulSpec <-  ReprodFile[(Index+1):(Index+NageArea),1:(GeneralSpecs$Nyear+2)];
+
+  ## Get Fecundity
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Number",Char4="fecundity")+1;
+  Nrows <- as.numeric(ReprodFile[Index,1])
+  Names <- ReprodFile[(Index+1),2:4]
+  Fecpars <- (ReprodFile[(Index+2):(Index+1+Nrows),1:3])
+  Fecpars[, 1:3] <- lapply(Fecpars[, 1:3], as.numeric)
+  colnames(Fecpars) <- Names
+  Index <- MatchTable(ReprodFile,Char1="#",Char2="Specifications",Char4="fecundity")+1;
+  FecSpec <-  ReprodFile[(Index+1):(Index+NageArea),1:(GeneralSpecs$Nyear+2)];
+
+  ## Make MatFem object
+  MatFem <- array(1,dim=c(GeneralSpecs$Nage,GeneralSpecs$Narea,GeneralSpecs$Nyear,GeneralSpecs$MaxLen))
+  Mlbin <- GeneralSpecs$MidLenBin[1,][1:GeneralSpecs$MaxLen]
+  for (Iage in 0:(GeneralSpecs$Nage-1)){
+    for (Iarea in 0:(GeneralSpecs$Narea-1)){
+      for (Iyear in 0:(GeneralSpecs$Nyear-1)){
+        MatPoint <- as.numeric(MatSpec[MatSpec[,1]==Iage & MatSpec[,2]==Iarea, Iyear+3])
+        Maturity <- rep(1,GeneralSpecs$Nlen[1])
+        if(MatPoint>=0) Maturity <- 1/(1+exp((Mlbin-Matpars$Par_a[MatPoint+1])/Matpars$Par_b[MatPoint+1]))
+        MulPoint <- as.numeric(MulSpec[MulSpec[,1]==Iage & MulSpec[,2]==Iarea, Iyear+3])
+        Multiple <- rep(1,GeneralSpecs$Nlen[1])
+        if(MatPoint>=0) Multiple <- Mulpars$Par_c[MulPoint+1]/(1+exp((Mlbin-Mulpars$Par_a[MulPoint+1])/Mulpars$Par_b[MulPoint+1]))
+        FecPoint <- as.numeric(FecSpec[FecSpec[,1]==Iage & FecSpec[,2]==Iarea, Iyear+3])
+        Fecundity <- rep(1,GeneralSpecs$Nlen[1])
+        if(FecPoint>=0) Fecundity <- Fecpars$Par_a[FecPoint+1]*Mlbin^Fecpars$Par_b[FecPoint+1]
+        MatFem[Iage+1,Iarea+1,Iyear+1,] <- Maturity * Multiple * Fecundity
+      }}}
+
+  write("Egg Production\nAge Area Year Lbins\n",EchoFile,append=T)
+  for (Iage in 1:(GeneralSpecs$Nage)){
+    for (Iarea in 1:(GeneralSpecs$Narea)){
+      MatFemEcho <- data.frame(age=rep(Iage,GeneralSpecs$Nyear),area=rep(Iarea,GeneralSpecs$Nyear),year=GeneralSpecs$Year1:GeneralSpecs$Year2)
+      write(t(cbind(MatFemEcho,MatFem[Iage,Iarea,,])),EchoFile,append=T,ncol=GeneralSpecs$MaxLen+3)
+    }}
+
+  print("READ IN THE REPRODUCTION FILE")
+  write("READ IN THE REPRODUCTION FILE\n\n",EchoFile,append=T)
+  ReturnObj <- NULL
+  ReturnObj$MatFem <- MatFem
+  ReturnObj$MatAge <- MatAge
+  return(ReturnObj)
 }
 
 
@@ -2415,6 +2528,7 @@ LoadData <- function() {
   SelexFile <<- read.table(Starter$SelexFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   RetenFile <<- read.table(Starter$RetainFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   RecruitFile <<- read.table(Starter$RecruitFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  ReprodFile <<- read.table(Starter$ReproFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   GrowthFile <<- read.table(Starter$GrowthFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   MoveFile <<- read.table(Starter$MoveFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
   TagFile <<- read.table(Starter$TagFileName,comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
@@ -2442,7 +2556,11 @@ LoadData <- function() {
   ControlSpecs <<- ReadControlFile(ControlFile,GeneralSpecs,TheData)
   Data <<- append(Data,ControlSpecs)
 
-  # Read in the projections file
+  # Read in the Reproduction file
+  ReproSpecs <<- ReadReprodFile(ReprodFile,GeneralSpecs,TheData)
+  Data <<- append(Data,ReproSpecs)
+
+    # Read in the projections file
   ProjectSpecs <<- ReadProjFile(ProjFile,GeneralSpecs,Data$Phi1)
   Data <<- append(Data,ProjectSpecs)
 

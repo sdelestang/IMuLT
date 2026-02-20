@@ -114,6 +114,7 @@ BuildInputFiles <- function(){
   tmp <- c(tmp, "SELEXSPEC.DAT                        # Specifications for selectivity \n")
   tmp <- c(tmp, "RETAINSPEC.DAT                       # Specifications for retention \n")
   tmp <- c(tmp, "RECRUITSPEC.DAT                      # Specifications for recruitment \n")
+  tmp <- c(tmp, "REPOSPEC.DAT                         # Specifications for maturity \n")
   tmp <- c(tmp, "GROWTHSPEC.DAT                       # Specifications for growth \n")
   tmp <- c(tmp, "MOVESPEC.DAT                         # Specifications in movement \n")
   tmp <- c(tmp, "TAGSPEC.DAT                          # Specifications for tags \n")
@@ -413,7 +414,6 @@ print("Building Control File")
     write.table(tmp, paste(floc,'/CONTROL.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
 
 #### Growth file ####
-
     print("Building Growth File")
     growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
     umat <- unique(growth$matrix)
@@ -485,7 +485,131 @@ print("Building Control File")
 
     write.table(tmp, paste(floc,'/GROWTHSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
 
-#### Movement file ####
+    #### Reproduction file ####
+    print("Building Reproduction File")
+    repo <- readWorkbook(wb,sheet='Maturity', startRow = 2) %>% mutate(Sex=adjsex(Sex,nsex,section='Reproduction')) %>% rowwise() %>% mutate(Years=paste(Startseason, Endseason, sep='-'))
+    nrepo <- repo %>% group_by(Type) %>% summarise(num=length(Sex))
+    nstm <- nrow(repo)
+
+  ## Maturity
+    mature <- repo %>% filter(Type==1) %>% ungroup() %>% mutate(pos = row_number()) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(Startseason, Sex, area) %>% as.data.frame()
+    matspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==1]-1),Par_a=repo$par_a[repo$Type==1],Par_b=repo$par_b[repo$Type==1],hash='#',Area=repo$area[repo$Type==1], Years=repo$Years[repo$Type==1])
+    dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1)
+    dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+    seasons <- startseason:endseason
+    for(r in 1:nrow(mature)){
+      dat2[dat$age>=mature$Minage[r]-1 & dat$area==as.numeric(mature$area[r])-1, seasons%in%mature$Startseason[r]:mature$Endseason[r]] <- mature$pos[r]-1     }
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(age,area)
+    ## Check for complete data - does every sex age area moult at least once every year?
+    tdat <- dat %>%
+      tidyr::pivot_longer(cols = -c(age, area), names_to = "year", values_to = "value") %>%
+      mutate(year = as.integer(year)) %>%
+      group_by(area, year) %>%
+      summarise(has_valid = any(value != -1), .groups = "drop") %>%
+      filter(!has_valid) %>%
+      as.data.frame()
+
+    if (nrow(tdat) > 0) {
+      missing_str <- paste(
+        apply(tdat[, c("area", "year")], 1, function(x)
+          paste0("area=", x["area"], " year=", x["year"])
+        ),
+        collapse = "\n"
+      )
+      warning("The following area/year combinations have no maturity assigned:\n", missing_str)
+    }
+    matdat <- dat
+    minmaturity <- mature %>% group_by(area) %>% summarise(minage=min(Minage))
+
+    ## Multiple Spawn
+    spawn <- repo %>% filter(Type==3) %>% ungroup() %>% mutate(pos = row_number()) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(Startseason, Sex, area) %>% as.data.frame()
+    if(nrow(spawn)==0) {spawn <- data.frame(Type=3, Sex=0, Minage=0, Startseason=startseason, Endseason=endseason, area=sort(unique(areas$AreaCode)), par_a=1, par_b= -0.1, par_c=1, Years=paste0(startseason,'-',endseason), pos=1)}
+    spawnspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==3]-1),Par_a=repo$par_a[repo$Type==3],Par_b=repo$par_b[repo$Type==3],Par_c=repo$par_c[repo$Type==3],hash='#',Area=repo$area[repo$Type==3], Years=repo$Years[repo$Type==3])
+    dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1)
+    dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(r in 1:nrow(spawn)){
+      dat2[dat$age>=spawn$Minage[r]-1 & dat$area==as.numeric(spawn$area[r])-1, seasons%in%spawn$Startseason[r]:spawn$Endseason[r]] <- spawn$pos[r]-1  }
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(age,area)
+    ## Check for complete data - does every age area double spawn at least once every year?
+    tdat <- dat %>%
+      tidyr::pivot_longer(cols = -c(age, area), names_to = "year", values_to = "value") %>%
+      mutate(year = as.integer(year)) %>%
+      group_by(area, year) %>%
+      summarise(has_valid = any(value != -1), .groups = "drop") %>%
+      filter(!has_valid) %>%
+      as.data.frame()
+
+    if (nrow(tdat) > 0) {
+      missing_str <- paste(
+        apply(tdat[, c("area", "year")], 1, function(x)
+          paste0("area=", x["area"], " year=", x["year"])
+        ),
+        collapse = "\n"
+      )
+      warning("The following area/year combinations have no multiple spawning assigned:\n", missing_str)
+    }
+    spawndat <- dat
+
+    ## Fecundity
+    fec <- repo %>% filter(Type==2) %>% ungroup() %>% mutate(pos = row_number()) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(Startseason, Sex, area) %>% as.data.frame()
+    fecspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==2]-1),Par_a=repo$par_a[repo$Type==2],Par_b=repo$par_b[repo$Type==2],hash='#',Area=repo$area[repo$Type==2], Years=repo$Years[repo$Type==2])
+    dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1)
+    dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(r in 1:nrow(fec)){
+      dat2[dat$age>=fec$Minage[r]-1 & dat$area==as.numeric(fec$area[r])-1, seasons%in%fec$Startseason[r]:fec$Endseason[r]] <- fec$pos[r]-1  }
+    dat <- cbind(dat,dat2)
+    dat %<>% arrange(age,area)
+    ## Check for complete data - does every age area double spawn at least once every year?
+    tdat <- dat %>%
+      tidyr::pivot_longer(cols = -c(age, area), names_to = "year", values_to = "value") %>%
+      mutate(year = as.integer(year)) %>%
+      group_by(area, year) %>%
+      summarise(has_valid = any(value != -1), .groups = "drop") %>%
+      filter(!has_valid) %>%
+      as.data.frame()
+
+    if (nrow(tdat) > 0) {
+      missing_str <- paste(
+        apply(tdat[, c("area", "year")], 1, function(x)
+          paste0("area=", x["area"], " year=", x["year"])
+        ),
+        collapse = "\n"
+      )
+      warning("The following area/year combinations have no fecundity assigned:\n", missing_str)
+    }
+    fecdat <- dat
+
+    tmp <- list()
+    tmp <- c(tmp, "# Reproductive specification\n# Age at maturity ", 'Area ',paste(minmaturity$area, collapse = ' '),'\n')
+    tmp <- c(tmp, paste(minmaturity$minage,collapse = " "),"\n")
+    tmp <- c(tmp, "\n# Number of maturity patterns\n",nrow(matspec),"\n")
+    tmp <- c(tmp, "# ", paste(colnames(matspec),collapse='\t'),"\n")
+    for(i in 1:nrow(matspec)){ tmp <- c(tmp,'\t',paste(matspec[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for maturity\t\n# Age\tArea\t",paste(startseason:endseason,collapse = "\t"),"\n")
+    for(i in 1:nrow(matdat)){ tmp <- c(tmp,paste(matdat[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Number of multiple spawning patterns\n",nrow(spawnspec),"\n")
+    tmp <- c(tmp, "# ", paste(colnames(spawnspec),collapse='\t'),"\n")
+    for(i in 1:nrow(spawnspec)){ tmp <- c(tmp,'\t',paste(spawnspec[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for multiple spawning\t\n# Age\tArea\t",paste(startseason:endseason,collapse = "\t"),"\n")
+    for(i in 1:nrow(spawndat)){ tmp <- c(tmp,paste(spawndat[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Number of fecundity patterns\n",nrow(fecspec),"\n")
+    tmp <- c(tmp, "# ", paste(colnames(fecspec),collapse='\t'),"\n")
+    for(i in 1:nrow(fecspec)){ tmp <- c(tmp,'\t',paste(fecspec[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Specifications for fecundity\t\n# Age\tArea\t",paste(startseason:endseason,collapse = "\t"),"\n")
+    for(i in 1:nrow(fecdat)){ tmp <- c(tmp,paste(fecdat[i,],collapse = "\t"),"\n")}
+
+    tmp <- c(tmp, "\n# Final check\n123456")
+
+    write.table(tmp, paste(floc,'/REPOSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+
+    #### Movement file ####
     print("Building Migration File")
 
     migrate999 <- migrate %>% filter(Season==999)

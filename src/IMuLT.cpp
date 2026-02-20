@@ -611,7 +611,7 @@ template <class Type>
      for (int Iage=0;Iage<dat.Nage;Iage++){
       if(Iage>=(dat.MatAge(Iarea)-1)){
         for (int Isize=0;Isize<dat.Nlen(0);Isize++){
-         MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iarea,Isize);}}}
+         MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iage, Iarea, Iyear, Isize);}}}
      MatBio(dat.BurnIn+Iyear) += MatBioArea(Iarea,dat.BurnIn+Iyear);  }}
 
  // Need to set selectivity
@@ -1810,7 +1810,7 @@ Type objective_function<Type>::operator() ()
   DATA_INTEGER(RecSpatYr2); dataset.RecSpatYr2 = RecSpatYr2;
   DATA_INTEGER(MatTimeStep); dataset.MatTimeStep = MatTimeStep;
   DATA_INTEGER(BioTimeStep); dataset.BioTimeStep = BioTimeStep;
-  DATA_MATRIX(MatFem); dataset.MatFem = MatFem;
+  DATA_ARRAY(MatFem); dataset.MatFem = MatFem;
   DATA_IVECTOR(MatAge); dataset.MatAge = MatAge;
   DATA_IVECTOR(MparsLink); dataset.MparsLink = MparsLink;
   DATA_MATRIX(MparsPrior); dataset.MparsPrior = MparsPrior;
@@ -2308,7 +2308,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
           }}}
 
 
-   // Legal Biomass at predetermined timestep. Including Burn In.
+   // Legal Biomass at predetermined time-step. Including Burn In.
    int YearAdjusted;
    LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
    for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){

@@ -77,7 +77,8 @@ struct dataSet{
   int MatTimeStep;
   int BioTimeStep;
   vector <int> MatAge;
-  matrix<Type> MatFem;
+  //matrix<Type> MatFem;
+  array<Type> MatFem;
   vector <int> MparsLink;
   matrix <Type> MparsPrior;
   int InitOpt;

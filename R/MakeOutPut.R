@@ -208,12 +208,6 @@ MakeOutPut <- function(is95=TRUE){
           if(char==F) {if(!is.null(dim(tmp))) colnames(tmp) <- rname[1:length(colnames(tmp))]
           return(tmp) }}} else { return(NA) } } else { return(NA) }
   }
-  # find <- function(KeyWord, DataFile, Offset){
-  #   KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
-  #   if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))+Offset
-  #   if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))+Offset
-  #   if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))+Offset
-  #   return(pos1)}
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
@@ -228,8 +222,6 @@ MakeOutPut <- function(is95=TRUE){
     ids <- table(ids)
     return(as.numeric(names(which.max(ids)))+Offset)} else {
       return(as.numeric(pos1[[1]])) }}
-
-
 
   ##Get parameters
   p1 <- find("# parameter table",dat,0)
@@ -422,70 +414,6 @@ MakeOutPut <- function(is95=TRUE){
   }
 
   ####  Retention ####
-  # ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)  #Legal Selectivity by
-  # names(ret) <- c('sex','age','fleet','year','tstep',paste('a',1:(ncol(ret)-5)))
-  # for(sx in 1:length(unique(ret$sex))){
-  #   lastfleet <- 0
-  #   for(i in 1:length(unique(ret$fleet))){
-  #     tfleet1 <- ret[ret$sex==sx & ret$fleet==i,]
-  #     tfleet2 <- tfleet1
-  #     tfleet3 <- tfleet2[,6:ncol(tfleet2)]
-  #     tfleet2 <- tfleet2[!duplicated(apply(as.matrix(tfleet3),1,paste0,collapse=' ')),]
-  #     tfleet2 <- tfleet2[order(tfleet2$tstep),]; tfleet2 <- tfleet2[order(tfleet2$year),]
-  #     tfleet3 <- tfleet2[,6:ncol(tfleet2)]
-  #     if(nrow(tfleet3)>=4){
-  #      # filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",i,"Retention",".png"))
-  #     #  plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
-  #     #  parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
-  #       tfleet2 <- tfleet2[order(tfleet2$tstep),]
-  #       tfleet3 <- tfleet2[,6:ncol(tfleet2)]
-  #       lastfleet <- i
-  #       for(ts in 1:length(unique(tfleet2$tstep))){
-  #         tfleet4 <- tfleet2[tfleet2$tstep==ts,]
-  #         tfleet5 <- tfleet4[,6:ncol(tfleet4)]
-  #         id <- paste0("Age ",paste(unique(tfleet4$age),collapse='_')," Ts",tfleet4$tstep[1])
-  #         suppressWarnings(plot(lbin, tfleet5[1,], type='l', pch=16,cex=0.7,ylim=c(0,1), axes=F, ylab='Selectivity', xlab='Length (mm)', lty=1, main=id))
-  #         axis(1,seq(trunc(min(lbin)/5)*5,5+trunc(max(lbin)/5)*5,10))
-  #         axis(2,las=1)
-  #         for(nl in 2:nrow(tfleet5)){   lines(jitter(lbin), tfleet5[nl,], type='l',col=nl,lty=tfleet4$age[nl])      }
-  #         legend('topleft',lty=1, col=1:nrow(tfleet5),legend=tfleet4$year, bty = 'n')
-  #       }
-  #     #  caption <- paste("Retention curves pre-determined based on minimum and maximum legal size, sex and reproductive status in each timestep of the model. Different lines represent different ages (1=solid, 2=dashed,3=dotted)","Sex:",sx,"Fleet:",i)
-  #      # addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
-  #     } else {
-  #       tfleet1 <- ret[ret$sex==sx & ret$fleet%in%((lastfleet+1):i),]
-  #       tfleet2 <- tfleet1
-  #       tfleet3 <- tfleet2[,c(3,6:ncol(tfleet2))]
-  #       tfleet2 <- tfleet2[!duplicated(apply(as.matrix(tfleet3),1,paste0,collapse=' ')),]
-  #       tfleet2 <- tfleet2[order(tfleet2$year),]
-  #       tfleet3 <- tfleet2[,6:ncol(tfleet2)]
-  #       future <- 1
-  #       ## Look into the future
-  #       if(i < length(unique(ret$fleet))){
-  #         if(length(unique(ret$fleet))>1){
-  #           future <- ret[ret$sex==sx & ret$fleet==i+1,]
-  #           future <- future[,6:ncol(tfleet2)]
-  #           future <- sum(!duplicated(apply(as.matrix(future),1,paste0,collapse=' ')))      }
-  #       }
-  #       if(nrow(tfleet3)>=9 | i==length(unique(ret$fleet)) | future>length(unique(tfleet2$tstep))){
-  #      #   filename <- filenametopath(rundir,paste("Sex",sx,"Fleets",(lastfleet+1),"-",i,"Retention.png"))
-  #     #    plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
-  #     #    parset(plots=Fdims(nrow(tfleet3)), margin = c(1,1,1,0.5))
-  #         for(r in 1:nrow(tfleet3)){
-  #           id <- paste0('Fleet ',tfleet2$fleet[r]," Age ",tfleet2$age[r]," Time ",tfleet2$year[r],".",tfleet2$tstep[r])
-  #           suppressWarnings(plot(lbin, tfleet3[r,], type='l', pch=16,cex=0.7,ylim=c(0,1), axes=F, ylab='Selectivity', xlab='Length (mm)', lty=1, main=id))
-  #           axis(1,seq(trunc(min(lbin)/5)*5,5+trunc(max(lbin)/5)*5,10))
-  #           axis(2,las=1)
-  #         }
-  #     #    caption <- paste("Retention curves pre-determined based on minimum and maximum legal size, sex and reproductive status in each timestep of the model.","Sex:",sx,"Fleet:",lastfleet+1,"-",i)
-  #      #   addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
-  #         lastfleet <- i
-  #       }
-  #     }
-  #   }
-  # }
-
-
   ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)  #Legal Selectivity by
   names(ret) <- c('sex','age','fleet','year','tstep',paste0('lb',1:(ncol(ret)-5)))
   for(ft in sort(unique(ret$fleet))){
@@ -528,7 +456,50 @@ MakeOutPut <- function(is95=TRUE){
   }
       }}}
 
+  ####  Egg Production ####
+  egg <- findNclean(c('Egg','Production'), echo, 3)
+  egg <- egg[1:(which(is.na(egg[,20]))[1]-1),]
+  names(egg) <- c('age','area','season', paste0('lb',1:(ncol(egg)-3)))
+  tail(egg)
 
+  library(ggplot2)
+  library(dplyr)
+  library(tidyr)
+
+  # Pivot to long format
+  egg <- egg %>% tidyr::pivot_longer(cols = starts_with("lb"), names_to = "lbin", values_to = "value") %>% mutate(lbin = as.numeric(gsub("lb", "", lbin)))
+  # Create a signature for each year's curve shape (per area/age)
+  curve_sig <- egg %>% group_by(area, age, season) %>%
+    summarise(sig = paste(round(value, 6), collapse = "_"), .groups = "drop")
+  # Find distinct curves and their year ranges
+  curve_groups <- curve_sig %>%
+    group_by(area, age, sig) %>%
+    summarise(yr1 = min(season), yr2 = max(season), .groups = "drop") %>%
+    mutate(label = paste0("Age ", age, " (", yr1, "-", yr2, ")"))
+
+  # Join labels back to long data
+  df_plot <- egg %>% left_join(curve_sig, by = c("area", "age", "season")) %>%
+    left_join(curve_groups %>% select(area, age, sig, label), by = c("area", "age", "sig")) %>% mutate(value=value/1e+6)
+
+  for(a in unique(df_plot$area)) {
+    filename <- filenametopath(rundir,paste("Area",a,"Egg Production.png"))
+    plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=c(1,1))
+    p <- df_plot %>%
+      filter(area == a) %>%
+      ggplot(aes(x = lbin, y = value, colour = label, group = label)) +
+      geom_line() +
+      labs(x = "Length bin", y = "Egg production (Millions)",
+           colour = NULL, title = paste("Area", a)) +
+      theme_bw() +
+      theme(legend.position = "inside",
+            legend.position.inside = c(0.7, 0.3),
+            legend.text = element_text(size = 8),
+            legend.background = element_rect(fill = alpha("white", 0.7)))
+    suppressWarnings(print(p))
+    caption <- paste("Egg production curves by area", a,". This is a combination of maturity, multiple spawning and fecundity and used to estimate egg production by area.")
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+  }
 
 
   #### Growth ####

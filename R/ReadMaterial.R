@@ -998,7 +998,7 @@ ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
   write("Egg Production\nAge Area Year Lbins\n",EchoFile,append=T)
   for (Iage in 1:(GeneralSpecs$Nage)){
     for (Iarea in 1:(GeneralSpecs$Narea)){
-      MatFemEcho <- data.frame(age=rep(Iage,GeneralSpecs$Nyear),area=rep(Iarea,GeneralSpecs$Nyear),year=GeneralSpecs$Year1:GeneralSpecs$Year2)
+      MatFemEcho <- data.frame(age=rep(Iage,nyears),area=rep(Iarea,nyears),year=(GeneralSpecs$Year1-GeneralSpecs$BurnIn):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr+1))
       write(t(cbind(MatFemEcho,MatFem[Iage,Iarea,,])),EchoFile,append=T,ncol=GeneralSpecs$MaxLen+3)
     }}
 

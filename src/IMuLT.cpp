@@ -611,9 +611,7 @@ template <class Type>
      for (int Iage=0;Iage<dat.Nage;Iage++){
       if(Iage>=dat.MatAge(Iarea)){
         for (int Isize=0;Isize<dat.Nlen(0);Isize++){
-      //   MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iage, Iarea, Iyear, Isize);}}
-          MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize);}}
-
+         MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iage, Iarea, dat.BurnIn+Iyear, Isize);}}
       }
      MatBio(dat.BurnIn+Iyear) += MatBioArea(Iarea,dat.BurnIn+Iyear);
      }

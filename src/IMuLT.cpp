@@ -2309,18 +2309,18 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
 
 
    // Legal Biomass at predetermined time-step. Including Burn In.
-   // int YearAdjusted;
-   // LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
-   // for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){
-   //   if (Iyear <= 0) { YearAdjusted = 0; } else { YearAdjusted = Iyear; }
-   //   for (int Iarea=0;Iarea<Narea;Iarea++){
-   //     for (int Isex=0;Isex<Nsex;Isex++){
-   //       for (int Iage=0;Iage<Nage;Iage++){
-   //           for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
-   //             LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-   //             LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-   //             if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
-   //         }}}}
+   int YearAdjusted;
+   LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
+   for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){
+     if (Iyear <= 0) { YearAdjusted = 0; } else { YearAdjusted = Iyear; }
+     for (int Iarea=0;Iarea<Narea;Iarea++){
+       for (int Isex=0;Isex<Nsex;Isex++){
+         for (int Iage=0;Iage<Nage;Iage++){
+             for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
+               LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+               LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+               if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
+           }}}}
 
 
    // Simon's Cumulative catch reduced by average M based on time caught

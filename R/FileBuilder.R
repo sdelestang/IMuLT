@@ -520,6 +520,7 @@ print("Building Control File")
     }
     matdat <- dat
     minmaturity <- mature %>% group_by(area) %>% summarise(minage=min(Minage))
+    if(minmaturity>(ages-1)) minmaturity <- (ages-1)
 
     ## Multiple Spawn
     spawn <- repo %>% filter(Type==3) %>% ungroup() %>% mutate(pos = row_number()) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(Startseason, Sex, area) %>% as.data.frame()

@@ -418,7 +418,7 @@ print("Building Control File")
     growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
     umat <- unique(growth$matrix)
     nstm <- length(umat)
-    growth2 <- growth %>% mutate(area=as.numeric(area)-min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix, Years) %>% summarise(areas = paste(area, collapse = ","), .groups = "drop")
+    growth2 <- growth %>% mutate(area = as.numeric(area) - min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix) %>% summarise(areas = paste(area,collapse = ","),Years = paste(Years,collapse = ","), .groups = "drop")
     Sex <- growth2$sex-1
     Tstep <- as.numeric(growth2$tstep)
     Pointer <- 0:(nrow(growth2)-1)

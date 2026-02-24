@@ -2587,6 +2587,10 @@ LoadData <- function() {
   MoveSpecs <<- ReadMoveFile(MoveFile,GeneralSpecs)
   Data <<- append(Data,MoveSpecs)
 
+  # preset some things
+  FullOutput <- FALSE
+  Data$DoProject <- 0
+
   outtmp <- isnafunc2()
   if(!is.null(outtmp[[2]]))   { message("\nSome data objects are empty (which can be OK): ", paste(outtmp[[2]], collapse = ', '), '\n') }
 }

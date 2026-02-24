@@ -504,97 +504,123 @@ MakeOutPut <- function(is95=TRUE){
 
   #### Growth ####
   print("Making Growth Curves")
-  grow <- findNclean(c('#Growth','Curves'), dat, 2)
-  num <- length(unique(grow$sex))*length(unique(grow$area))
-  filename <- filenametopath(rundir,"Growth_Curves.png")
-  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(num))
+#  grow <- findNclean(c('#Growth','Curves'), dat, 2)
+#  head(grow)
+#  num <- length(unique(grow$sex))*length(unique(grow$area))
 
-  # Create unique area lookup
-  area_lookup <- fleetarea %>%
-    group_by(newarea) %>%
-    slice(1) %>%
-    ungroup() %>%
-    select(newarea, areaname)
+  find_unique_growth_years <- function(GrowthPnt) {
+    dims  <- dim(GrowthPnt)
+    Narea <- dims[1]; Nsex <- dims[2]; Nyear <- dims[4]
 
-  # Prepare polygon data
-  poly_list <- list()
-  mode_list <- list()
+    results <- list()
+    for (a in 1:Narea) {
+      for (s in 1:Nsex) {
+        gmat         <- GrowthPnt[a, s, 1, , ]
+        unique_years <- which(!duplicated(gmat))
+        results[[paste0("a", a, "_s", s)]] <- unique_years
+      }
+    }
+    results
+  }
 
-  for(iarea in unique(grow$area)){
-    for(isex in unique(grow$sex)){
-      tmp <- grow %>% filter(area == iarea, sex == isex)
-      Areaname <- area_lookup$areaname[match(iarea, area_lookup$newarea)]
+  compound_growth_trajectory <- function(Data, GrowthPnt, length_midpoints = Data$MidLenBin[1,1:Data$Nlen[1]], Nyear_traj = 30) {
 
-      # Extract the matrix
-      tmp2 <- as.matrix(tmp[, which(colnames(tmp) == 'lengthbins'):ncol(tmp)])
-      tmp2[tmp2 < 0.000001] <- NA
+    dims  <- dim(GrowthPnt)
+    Narea <- dims[1]; Nsex <- dims[2]; Nstep <- dims[5]
+    nlbin <- dim(Data$TransInp)[2]
 
-      # Create polygons for each age
-      for(i in 2:nrow(tmp2)){
-        pos <- which(!is.na(tmp2[i, ]))
+    unique_years <- find_unique_growth_years(GrowthPnt)
 
-        if(length(pos) > 0){
-          pos2 <- (min(pos)-1):(max(pos)+1)
-          pos2 <- pos2[pos2 > 0 & pos2 <= ncol(tmp2)]
+    all_results <- list()
 
-          # Build x-coordinates - save original crve for mode calc
-          crve_orig <- (i-1 + 10*tmp2[i, pos])
-          crve <- crve_orig
-          crve[length(crve)] <- i-1
+    for (a in 1:Narea) {
+      for (s in 1:Nsex) {
 
-          if(pos[1] != pos2[1]) crve <- c(i-1, crve)
-          if(pos[length(pos)] != pos2[length(pos2)]) crve <- c(crve, i-1)
+        key           <- paste0("a", a, "_s", s)
+        pattern_years <- unique_years[[key]]
 
-          # Create polygon dataframe
-          poly_df <- data.frame(
-            age = crve,
-            length = lbin[pos2],
-            timestep = i,
-            area = Areaname,
-            sex = isex,
-            group_id = paste(iarea, isex, i, sep = "_")
+        for (py in pattern_years) {
+
+          dist <- c(1, rep(0, nlbin - 1))
+
+          mean_len  <- numeric(Nyear_traj)
+          modal_len <- numeric(Nyear_traj)
+          sd_len    <- numeric(Nyear_traj)
+
+          for (y in 1:Nyear_traj) {
+
+            for (t in 1:Nstep) {
+              ptr <- GrowthPnt[a, s, 1, py, t]
+              if (ptr >= 0) {
+                stm  <- Data$TransInp[ptr + 1, , ]
+                dist <- as.numeric(stm %*% dist)
+              }
+            }
+
+            # Normalise just in case
+            dist_norm <- dist / sum(dist)
+
+            mean_len[y]  <- sum(dist_norm * length_midpoints)
+            modal_len[y] <- length_midpoints[which.max(dist_norm)]
+            sd_len[y]    <- sqrt(sum(dist_norm * (length_midpoints - mean_len[y])^2))
+          }
+
+          all_results[[paste0(key, "_py", py)]] <- data.frame(
+            age          = 1:Nyear_traj,
+            mean_len     = mean_len,
+            modal_len    = modal_len,
+            sd_len       = sd_len,
+            lo_len       = mean_len - sd_len,
+            hi_len       = mean_len + sd_len,
+            area         = factor(a),
+            sex          = factor(s, labels = c("Female", "Male")[s]),
+            pattern_year = factor(py)
           )
-
-          poly_list[[length(poly_list) + 1]] <- poly_df
-
-          # Mode point
-          crve_for_mode <- crve_orig
-          crve_for_mode[length(crve_for_mode)] <- i-1
-
-          mode_df <- data.frame(
-            age = max(crve_for_mode),
-            length = lbin[pos][which.max(crve_for_mode)],
-            area = Areaname,
-            sex = isex
-          )
-          mode_list[[length(mode_list) + 1]] <- mode_df
         }
       }
     }
+
+    do.call(rbind, all_results)
   }
 
-  all_poly <- bind_rows(poly_list)
-  all_modes <- bind_rows(mode_list)
+  # Run
+  growth_traj <- compound_growth_trajectory(Data, Data$GrowthPnt, Nyear_traj = 30)
 
-  # Create plot
-  suppressWarnings(print( ggplot() +
-                            geom_polygon(data = all_poly,
-                                         aes(x = age, y = length, group = group_id, fill = factor(sex)),
-                                         alpha = 0.2, color = "grey70", linewidth = 0.2) +
-                            geom_point(data = all_modes,
-                                       aes(x = age, y = length),
-                                       size = 0.5) +
-                            facet_wrap(~ area + sex,
-                                       labeller = labeller(sex = c("1" = "Females", "2" = "Males"))) +
-                            scale_fill_manual(values = c("1" = "red", "2" = "blue"), guide = "none") +
-                            scale_x_continuous(breaks = seq(0, 30, 2), limits = c(0, 30)) +
-                            labs(x = "Age (years)", y = "Carapace length (mm)") +
-                            theme_bw() +
-                            theme(strip.background = element_rect(fill = "white"),
-                                  panel.grid.minor = element_blank())))
+  growth_traj %<>% mutate(year=factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]))
 
-  caption <- "Growth curves derived from size transition matrices as interpreted by the model after import from the GROWTH.DAT file."
+  filename <- filenametopath(rundir,"Growth_Curves1.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(num))
+  # Plot with ribbon for +/- 1 SD
+  ggplot(growth_traj, aes(x = age, colour = year, fill = year, linetype = sex)) +
+    geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
+    geom_line(aes(y = mean_len), linewidth = 0.8) +
+    facet_grid(sex ~ area) +
+    labs(
+      x      = "Age (years since recruitment)",
+      y      = "Mean length (mm)",
+      colour = "Year first seen",
+      fill   = "Year first seen",
+      title  = "Growth by area"
+    ) +
+    theme_bw()
+
+  caption <- "Inputted growth trajectories by model areas and sex."
+  addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
+
+  filename <- filenametopath(rundir,"Growth_Curves2.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(num))
+  ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
+    geom_line(linewidth = 0.8) +
+    facet_wrap(~ sex) +
+    labs(
+      x            = "Age (years since 1st Length bin)",
+      y            = "Mean length (mm)",
+      colour       = "Model area",
+      title        = "Growth by sex"
+    ) + theme_bw()
+  caption <- "Inputted growth trajectories between model areas."
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
 
   #### Fit to Data ####
@@ -1086,7 +1112,7 @@ MakeOutPut <- function(is95=TRUE){
   #### Fit to Tagging data ####
   print("Making fit to Tagging data")
   tag <- findNclean(c('#Tagging','data'), dat, 2, convert = 2)
-  if(!is.na(tag[1])){
+  if(exists("tag") && is.data.frame(tag) && nrow(tag) > 0){
   tag %<>% dplyr::mutate(RLArea = paste0('Area', RelArea),
                   RCArea = as.character(RecArea),
                   pearson = (Obs - Est) / sqrt(Est + 1e-5),

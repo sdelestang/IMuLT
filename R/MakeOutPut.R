@@ -590,7 +590,7 @@ MakeOutPut <- function(is95=TRUE){
 
   filename <- filenametopath(rundir,"Growth_Curves1.png")
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(num))
+  parset(plots=Fdims(1))
   # Plot with ribbon for +/- 1 SD
   ggplot(growth_traj, aes(x = age, colour = year, fill = year, linetype = sex)) +
     geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
@@ -610,7 +610,7 @@ MakeOutPut <- function(is95=TRUE){
 
   filename <- filenametopath(rundir,"Growth_Curves2.png")
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(num))
+  parset(plots=Fdims(1))
   ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
     geom_line(linewidth = 0.8) +
     facet_wrap(~ sex) +

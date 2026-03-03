@@ -471,7 +471,12 @@ print("Building Control File")
     names(stm_list) <- umat
     nlbin <- length(lens)
     for (r in 1:nstm) {
-      label_idx <- which(grepl(paste0("^# ", umat[r]), lines))
+      label_idx <- which(grepl(paste0("^# *", umat[r]), lines))
+	  if (length(label_idx) == 0)
+      {
+        stop(paste("Mismatch between STM labels in Growth and SizeTransMatricesNew sheets. Label: ",umat[r]))
+      }
+
       start <- label_idx + 1
       mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]
       tmp <- c(tmp,paste("\n# Matrix #",umat[r],"\n"))

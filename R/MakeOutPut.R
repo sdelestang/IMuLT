@@ -404,18 +404,18 @@ MakeOutPut <- function(is95=TRUE){
     sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
       mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
       pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
-      mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
-    p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
+      mutate(bin = as.numeric(gsub("a", "", bin)) + 1, bin2 = lbin[bin])
+    p <- ggplot(sel_long, aes(x = bin2, y = selectivity, colour = name2)) +
       geom_line(linewidth = 1) +
       scale_colour_viridis_d(name = NULL) +
-      scale_x_continuous(breaks = seq(0, 40, 5)) +
-      labs(x = "Age", y = "Selectivity") +
+      #scale_x_continuous(breaks = seq(0, 40, 5)) +
+      labs(x = "LengthBin (midpoint)", y = "Selectivity") +
       facet_wrap(~sex)+
       theme_bw() +
       theme(legend.position = "bottom") +
       guides(colour = guide_legend(nrow = 2))
     print(p)
-    caption <- paste(Sex, "Selectivity curves estimated by the model.")
+    caption <- paste("Selectivity curves estimated by the model.")
     addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
   }
 

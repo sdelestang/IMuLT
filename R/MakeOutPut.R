@@ -394,30 +394,30 @@ MakeOutPut <- function(is95=TRUE){
   fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
 
-    for(f in unique(fleet4$Fleet)){
-      if(length(unique(fleet4$Sex))==1) { fleet4$sex <- 'Sex 1' } else { fleet4$sex <- c('F','M')[(fleet4$Sex+1)]}
-      fleet5 <- fleet4 %>% filter(Fleet==f)
-      filename <- filenametopath(rundir,paste0('Fleet.',(f+1),"_Selectivity.png"))
-      plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
-      parset(plots=c(1,1))
-      sel2 <- sel[(1+fleet5$link),]
-      sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
-        mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
-        pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
-        mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
-      p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
-        geom_line(linewidth = 1) +
-        scale_colour_viridis_d(name = NULL) +
-        scale_x_continuous(breaks = seq(0, 40, 5)) +
-        labs(x = "Age", y = "Selectivity") +
-        facet_wrap(~sex)+
-        theme_bw() +
-        theme(legend.position = "bottom") +
-        guides(colour = guide_legend(nrow = 2))
-      print(p)
-      caption <- paste(Sex, "Selectivity curves estimated by the model.")
-      addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
-    }
+  for(f in unique(fleet4$Fleet)){
+    if(length(unique(fleet4$Sex))==1) { fleet4$sex <- 'Sex 1' } else { fleet4$sex <- c('F','M')[(fleet4$Sex+1)]}
+    fleet5 <- fleet4 %>% filter(Fleet==f)
+    filename <- filenametopath(rundir,paste0('Fleet.',(f+1),"_Selectivity.png"))
+    plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=c(1,1))
+    sel2 <- sel[(1+fleet5$link),]
+    sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
+      mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
+      pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
+      mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
+    p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
+      geom_line(linewidth = 1) +
+      scale_colour_viridis_d(name = NULL) +
+      scale_x_continuous(breaks = seq(0, 40, 5)) +
+      labs(x = "Age", y = "Selectivity") +
+      facet_wrap(~sex)+
+      theme_bw() +
+      theme(legend.position = "bottom") +
+      guides(colour = guide_legend(nrow = 2))
+    print(p)
+    caption <- paste(Sex, "Selectivity curves estimated by the model.")
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+  }
 
   ####  Retention ####
   ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)  #Legal Selectivity by
@@ -510,9 +510,9 @@ MakeOutPut <- function(is95=TRUE){
 
   #### Growth ####
   print("Making Growth Curves")
-#  grow <- findNclean(c('#Growth','Curves'), dat, 2)
-#  head(grow)
-#  num <- length(unique(grow$sex))*length(unique(grow$area))
+  #  grow <- findNclean(c('#Growth','Curves'), dat, 2)
+  #  head(grow)
+  #  num <- length(unique(grow$sex))*length(unique(grow$area))
 
   find_unique_growth_years <- function(GrowthPnt) {
     dims  <- dim(GrowthPnt)
@@ -619,14 +619,14 @@ MakeOutPut <- function(is95=TRUE){
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=Fdims(1))
   print(ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
-    geom_line(linewidth = 0.8) +
-    facet_wrap(~ sex) +
-    labs(
-      x            = "Age (years since 1st Length bin)",
-      y            = "Mean length (mm)",
-      colour       = "Model area",
-      title        = "Growth by sex"
-    ) + theme_bw())
+          geom_line(linewidth = 0.8) +
+          facet_wrap(~ sex) +
+          labs(
+            x            = "Age (years since 1st Length bin)",
+            y            = "Mean length (mm)",
+            colour       = "Model area",
+            title        = "Growth by sex"
+          ) + theme_bw())
   caption <- "Inputted growth trajectories between model areas."
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
 
@@ -1120,80 +1120,80 @@ MakeOutPut <- function(is95=TRUE){
   print("Making fit to Tagging data")
   tag <- findNclean(c('#Tagging','data'), dat, 2, convert = 2)
   if(exists("tag") && is.data.frame(tag) && nrow(tag) > 0){
-  tag %<>% dplyr::mutate(RLArea = paste0('Area', RelArea),
-                  RCArea = as.character(RecArea),
-                  pearson = (Obs - Est) / sqrt(Est + 1e-5),
-                  yt = year + tstep / (max(tstep) + 1))
+    tag %<>% dplyr::mutate(RLArea = paste0('Area', RelArea),
+                           RCArea = as.character(RecArea),
+                           pearson = (Obs - Est) / sqrt(Est + 1e-5),
+                           yt = year + tstep / (max(tstep) + 1))
 
-  # Plot 1: Aggregated obs vs est by release area x recapture area
-  tag_agg <- tag %>%
-    group_by(RLArea, RCArea) %>%
-    summarise(TotalObs = sum(Obs, na.rm = TRUE),
-              TotalEst = sum(Est, na.rm = TRUE),
-              .groups = "drop")
+    # Plot 1: Aggregated obs vs est by release area x recapture area
+    tag_agg <- tag %>%
+      group_by(RLArea, RCArea) %>%
+      summarise(TotalObs = sum(Obs, na.rm = TRUE),
+                TotalEst = sum(Est, na.rm = TRUE),
+                .groups = "drop")
 
-  mx <- ceiling(max(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
-  mn <- floor(min(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
+    mx <- ceiling(max(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
+    mn <- floor(min(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
 
-  filename <- filenametopath(rundir, paste0("Tag_recapt_by_release.png"))
-  plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
-  parset(plots = c(1, 1))
-  suppressWarnings(print(
-    ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
-      geom_point(size = 3) +
-      facet_wrap(~RLArea) +
-      coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
-      theme(panel.background = element_rect(fill = "white", colour = NA),
-            panel.border = element_rect(fill = NA, colour = "grey20")) +
-      xlab("log(Total Observed)") + ylab("log(Total Estimated)")
-  ))
-  caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
-  addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-
-  # Plot 2: Pearson residuals by release area, faceted by recapture area
-  for (a in as.numeric(sort(unique(tag$RelArea)))) {
-    tmp <- tag[tag$RelArea == a, ]
-    filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
+    filename <- filenametopath(rundir, paste0("Tag_recapt_by_release.png"))
     plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
     parset(plots = c(1, 1))
     suppressWarnings(print(
-      ggplot(tmp, aes(x = yt, y = pearson)) +
-        geom_hline(yintercept = 0, linetype = "dashed", colour = "red") +
-        geom_point(alpha = 0.5) +
-        facet_wrap(~RCArea, scales = "free_y") +
+      ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
+        geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
+        geom_point(size = 3) +
+        facet_wrap(~RLArea) +
+        coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
         theme(panel.background = element_rect(fill = "white", colour = NA),
               panel.border = element_rect(fill = NA, colour = "grey20")) +
-        xlab("Year") + ylab("Pearson Residual  (O-E)/sqrt(E)") +
-        ggtitle(paste('Release Area', a))
+        xlab("log(Total Observed)") + ylab("log(Total Estimated)")
     ))
-    caption <- paste("Pearson residuals of tag recaptures for release area", a, ".")
+    caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
     addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-  }
-  tag <- findNclean(c('#Tagging','length'), dat, 2, convert = 2)
-  tag %<>% pivot_longer(
-    cols = c(ObsProp, EstProp),
-    names_to = "Type",
-    values_to = "Proportion"    )
-  for(s in as.numeric(sort(unique(tag$Sex)))){
-    for(a in as.numeric(sort(unique(tag$RelArea)))){
-      filename <- filenametopath(rundir,paste0("Tag_recapt_by_release",s,a,".png"))
-      plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
-      parset(plots=c(1,1))
-      tmp <- tag %>% filter(RelArea==a & Sex==s) %>% group_by(Type,RecArea) %>% mutate(Proportion=Proportion/(sum(Proportion)+1e-7)) %>% mutate(lbin=lbin[Size])
-      suppressWarnings(print(ggplot(tmp, aes(x=lbin, y=Proportion, colour=Type))+
-                               geom_point()+geom_line()+
-                               facet_wrap(~RecArea, scale='free_y')+
-                               scale_color_discrete(
-                                 name = "Type", labels = c("Observed", "Estimated")) +
-                               theme(panel.background = element_rect(fill = "white",colour = NA),
-                                     panel.border = element_rect(fill = NA, colour = "grey20"))+
-                               xlab("Length Bin (mm)")+ylab("Proportion")+ggtitle(paste('Sex',s,'Release Area',a))))
-      caption <- paste("Size composition of observed and estimated tag recaptures by sex",s,"and release area",a,".")
-      addplot(filen=filename,rundir=rundir,category="Tag-Recapture",caption=caption)
+
+    # Plot 2: Pearson residuals by release area, faceted by recapture area
+    for (a in as.numeric(sort(unique(tag$RelArea)))) {
+      tmp <- tag[tag$RelArea == a, ]
+      filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
+      plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
+      parset(plots = c(1, 1))
+      suppressWarnings(print(
+        ggplot(tmp, aes(x = yt, y = pearson)) +
+          geom_hline(yintercept = 0, linetype = "dashed", colour = "red") +
+          geom_point(alpha = 0.5) +
+          facet_wrap(~RCArea, scales = "free_y") +
+          theme(panel.background = element_rect(fill = "white", colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20")) +
+          xlab("Year") + ylab("Pearson Residual  (O-E)/sqrt(E)") +
+          ggtitle(paste('Release Area', a))
+      ))
+      caption <- paste("Pearson residuals of tag recaptures for release area", a, ".")
+      addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+    }
+    tag <- findNclean(c('#Tagging','length'), dat, 2, convert = 2)
+    tag %<>% pivot_longer(
+      cols = c(ObsProp, EstProp),
+      names_to = "Type",
+      values_to = "Proportion"    )
+    for(s in as.numeric(sort(unique(tag$Sex)))){
+      for(a in as.numeric(sort(unique(tag$RelArea)))){
+        filename <- filenametopath(rundir,paste0("Tag_recapt_by_release",s,a,".png"))
+        plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+        parset(plots=c(1,1))
+        tmp <- tag %>% filter(RelArea==a & Sex==s) %>% group_by(Type,RecArea) %>% mutate(Proportion=Proportion/(sum(Proportion)+1e-7)) %>% mutate(lbin=lbin[Size])
+        suppressWarnings(print(ggplot(tmp, aes(x=lbin, y=Proportion, colour=Type))+
+                                 geom_point()+geom_line()+
+                                 facet_wrap(~RecArea, scale='free_y')+
+                                 scale_color_discrete(
+                                   name = "Type", labels = c("Observed", "Estimated")) +
+                                 theme(panel.background = element_rect(fill = "white",colour = NA),
+                                       panel.border = element_rect(fill = NA, colour = "grey20"))+
+                                 xlab("Length Bin (mm)")+ylab("Proportion")+ggtitle(paste('Sex',s,'Release Area',a))))
+        caption <- paste("Size composition of observed and estimated tag recaptures by sex",s,"and release area",a,".")
+        addplot(filen=filename,rundir=rundir,category="Tag-Recapture",caption=caption)
+      }
     }
   }
-}
   ## Model Outputs
   ### Relative Legal Biomass by area
   print("Making Legal Biomass")

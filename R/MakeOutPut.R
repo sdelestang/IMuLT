@@ -163,7 +163,7 @@ MakeOutPut <- function(is95=TRUE){
   projectcatch <- as.numeric(dynamics$value[dynamics$object=='projectedcatch'])
   burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
-  sexs <- 0:as.numeric(dynamics$value[dynamics$object=='sexs'])
+  sexs <- 1:as.numeric(dynamics$value[dynamics$object=='sexs'])
   areas <- readWorkbook(wb,sheet='area', startRow = 2)
   nareas <- length(unique(areas$newarea))
   times <- readWorkbook(wb,sheet='times', startRow = 2)
@@ -394,16 +394,15 @@ MakeOutPut <- function(is95=TRUE){
   fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
 
-  for(s in unique(fleet4$Sex)){
     for(f in unique(fleet4$Fleet)){
-      if(length(unique(fleet4$Sex))==1) { Sex <- 'Sex 1' } else { Sex <- c('F','M')[(s+1)]}
-      fleet5 <- fleet4 %>% filter(Sex==s & Fleet==f)
-      filename <- filenametopath(rundir,paste0('Sex.',Sex,'_fleet.',(f+1),"_Selectivity.png"))
+      if(length(unique(fleet4$Sex))==1) { fleet4$sex <- 'Sex 1' } else { fleet4$sex <- c('F','M')[(fleet4$Sex+1)]}
+      fleet5 <- fleet4 %>% filter(Fleet==f)
+      filename <- filenametopath(rundir,paste0('Fleet.',(f+1),"_Selectivity.png"))
       plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
       parset(plots=c(1,1))
       sel2 <- sel[(1+fleet5$link),]
       sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
-        mutate(name2 = fleet5$name2) %>%
+        mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
         pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
         mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
       p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
@@ -411,6 +410,7 @@ MakeOutPut <- function(is95=TRUE){
         scale_colour_viridis_d(name = NULL) +
         scale_x_continuous(breaks = seq(0, 40, 5)) +
         labs(x = "Age", y = "Selectivity") +
+        facet_wrap(~sex)+
         theme_bw() +
         theme(legend.position = "bottom") +
         guides(colour = guide_legend(nrow = 2))
@@ -418,7 +418,6 @@ MakeOutPut <- function(is95=TRUE){
       caption <- paste(Sex, "Selectivity curves estimated by the model.")
       addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
     }
-  }
 
   ####  Retention ####
   ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)  #Legal Selectivity by
@@ -595,25 +594,26 @@ MakeOutPut <- function(is95=TRUE){
 
   growth_traj %<>% mutate(year=factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]))
 
-  filename <- filenametopath(rundir,"Growth_Curves1.png")
-  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(1))
-  # Plot with ribbon for +/- 1 SD
-  print(ggplot(growth_traj, aes(x = age, colour = year, fill = year, linetype = sex)) +
-    geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
-    geom_line(aes(y = mean_len), linewidth = 0.8) +
-    facet_grid(sex ~ area) +
-    labs(
-      x      = "Age (years since recruitment)",
-      y      = "Mean length (mm)",
-      colour = "Year first seen",
-      fill   = "Year first seen",
-      title  = "Growth by area"
-    ) +
-    theme_bw())
+  for(s in unique(growth_traj$sex)){
+    filename <- filenametopath(rundir,paste(s,"Growth_Curves1.png"))
+    plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=Fdims(1))
+    # Plot with ribbon for +/- 1 SD
+    print(ggplot(growth_traj[growth_traj$sex==s,], aes(x = age, colour = year, fill = year)) +
+            geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
+            geom_line(aes(y = mean_len), linewidth = 0.8) +
+            facet_wrap( ~ area) +
+            labs(
+              x      = "Age (years since recruitment)",
+              y      = "Mean length (mm)",
+              colour = "Year first seen",
+              fill   = "Year first seen",
+              title  = "Growth by area"
+            ) +
+            theme_bw())
 
-  caption <- "Inputted growth trajectories by model areas and sex."
-  addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
+    caption <- paste("Inputted growth trajectories by model areas for",s)
+    addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)}
 
   filename <- filenametopath(rundir,"Growth_Curves2.png")
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)

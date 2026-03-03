@@ -32,7 +32,9 @@ BASIC WORKFLOW:
    UpdateLFWeights('No')
 
 5. Set output options and run model:
+   FullOutput <- FALSE
    LoadData()
+   Data$DoProject <- 0
    LoadPars()
    SolveModelNew(500, 2000, report = TRUE)
    MakeDiagReport(is95 = FALSE)

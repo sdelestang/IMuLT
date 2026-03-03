@@ -661,7 +661,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   for (Isex in 1:GeneralSpecs$Nsex)
   {
     for (Jlen in 1:GeneralSpecs$Nlen[Isex]) WeightLen[Isex,Jlen] <- as.numeric(ControlFile[Index,Jlen])
-    if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[Isex]+1])) { print("Error reading weight-at-length; too many inputs: Stopping"); AAA }
+    if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[Isex]+1]) & ControlFile[Index,GeneralSpecs$Nlen[Isex]+1]!="") { print("Error reading weight-at-length; too many inputs: Stopping"); AAA }
     Index <- Index + 1
   }
   write("Weight-length regressions",EchoFile,append=T)
@@ -2586,6 +2586,10 @@ LoadData <- function() {
   # Read in the Movement file
   MoveSpecs <<- ReadMoveFile(MoveFile,GeneralSpecs)
   Data <<- append(Data,MoveSpecs)
+
+  # preset some things
+  FullOutput <<- FALSE
+  Data$DoProject <<- 0
 
   outtmp <- isnafunc2()
   if(!is.null(outtmp[[2]]))   { message("\nSome data objects are empty (which can be OK): ", paste(outtmp[[2]], collapse = ', '), '\n') }

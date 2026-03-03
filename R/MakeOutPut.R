@@ -275,7 +275,7 @@ MakeOutPut <- function(is95=TRUE){
   addtable(intable=like,filen=filen,rundir=rundir,category="Like",
            caption="Raw and weighted likelihoods.")
 
-  ### Penalties
+  ### Penalties ####
   INP <- as.numeric(dat[11,4])
   RP <-  as.numeric(dat[12,3])
   RSP <-  as.numeric(dat[13,4])
@@ -284,7 +284,7 @@ MakeOutPut <- function(is95=TRUE){
   addtable(intable=dfram,filen=filen,rundir=rundir,category="Like",
            caption="Penalities added to likelihoods.")
 
-  ### Parameters: Main and those estimated
+  ### Parameters: Main and those estimated ####
   mainP <- pout[grepl('MainPars', pout$name),]
   ctl2 <- findNclean(c('#','Basic','parameters'), ctl1, 1, char=T)
   mpnames <- ctl2$X10
@@ -305,7 +305,7 @@ MakeOutPut <- function(is95=TRUE){
     ntab$Estimated[i] <- ifelse(un_names[i]%in%pout$Parameter, 'Y','N')
   }
 
-  ### Model Run Comments
+  ### Model Run Comments ####
   init <- findNclean('Initiation', dat, 0)
   init <- init[!is.na(init)]
   txt <- paste('Initiation option is ', init,'.\n', sep='')
@@ -387,30 +387,37 @@ MakeOutPut <- function(is95=TRUE){
   sel <- findNclean(c('Full','Selectivity'), dat, 1)
   sel <- sel[,2:ncol(sel)]
   ids <- findNclean(c('#','Selectivity','Parameters'), selx, 2, char = T)
-  ids <- unique(ids$ID)
-  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% group_by(Fleet, Sex, link) %>% summarise(num=length(link)) %>% as.data.frame()
-  fleet3$AreaNames <- fleetarea$description[match((fleet3$Fleet+1), fleetarea$fleet)]
-  fleet4 <- fleet3 %>% group_by(link) %>% summarise(name=paste(unique(AreaNames),collapse = ' ')) %>% mutate(name2=NA)
-  for(r in 1:nrow(fleet4)){
-    nm <- fleet4$name[r]
-    common <- unlist(strsplit(nm, '_'))[1]
-    fleet4$name2[r] <- paste(common,gsub(paste0(common,'_'), '', nm))
-  }
+  infpos <- which(grepl('inflect',ids[1,]))
+  ids$name <- paste(ids[,(infpos+1)],ids[,(infpos+2)])
+  ids <- data.frame(link=NA, name=unique(ids$name))
+  ids$link <- as.numeric(row.names(ids))-1
+  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
+  fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
 
-  for(s in 1:length(unique(fleet3$Sex))){
-    if(length(unique(fleet3$Sex))==1) { Sex <- 'Sex 1' } else { Sex <- c('F','M')[s]}
-    filename <- filenametopath(rundir,paste(Sex,"Selectivity.png"))
-    plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
-    #parset(plots=Fdims(nrow(sel)))
-    parset(plots=c(1,1))
-    sel2 <- sel[1+sort(unique(fleet3$link[fleet3$Sex==sort(unique(fleet3$Sex))[s]])),]
-    Cols <- viridis::turbo(length(unique(fleet3$link)))
-    par(las=1)
-    plot(lbin,sel2[1,],type="l",col=Cols[1],lwd=2,ylim=c(0,1.1),xlab="Carapace Length",ylab="Proportion")
-    for(i in 2:length(unique(fleet3$link))){ lines(lbin,sel2[i,],type="l",lwd=2,col=Cols[i],)}
-    legend('top',lwd=2,lty=1,col=c(Cols),legend=fleet4$name2, ncol = 2, bty='n', cex=0.6)
-    caption <- paste(Sex, "Selectivity curves estimated by the model.")
-    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+  for(s in unique(fleet4$Sex)){
+    for(f in unique(fleet4$Fleet)){
+      if(length(unique(fleet4$Sex))==1) { Sex <- 'Sex 1' } else { Sex <- c('F','M')[(s+1)]}
+      fleet5 <- fleet4 %>% filter(Sex==s & Fleet==f)
+      filename <- filenametopath(rundir,paste0('Sex.',Sex,'_fleet.',(f+1),"_Selectivity.png"))
+      plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
+      parset(plots=c(1,1))
+      sel2 <- sel[(1+fleet5$link),]
+      sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
+        mutate(name2 = fleet5$name2) %>%
+        pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
+        mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
+      p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
+        geom_line(linewidth = 1) +
+        scale_colour_viridis_d(name = NULL) +
+        scale_x_continuous(breaks = seq(0, 40, 5)) +
+        labs(x = "Age", y = "Selectivity") +
+        theme_bw() +
+        theme(legend.position = "bottom") +
+        guides(colour = guide_legend(nrow = 2))
+      print(p)
+      caption <- paste(Sex, "Selectivity curves estimated by the model.")
+      addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+    }
   }
 
   ####  Retention ####
@@ -422,38 +429,38 @@ MakeOutPut <- function(is95=TRUE){
         tfleet1 <- ret[ret$sex==sx & ret$fleet==ft & ret$age==ag,]
         tfleet1 <- tfleet1[!duplicated(apply(as.matrix(tfleet1[,6:ncol(tfleet1)]),1,paste0,collapse=' ')), ]
         if(nrow(tfleet1)>4){
-        tfleet2 <- tfleet1 %>% tidyr::pivot_longer(cols = starts_with("lb"),names_to = "length_bin",names_prefix = "lb",names_transform = list(length_bin = as.integer),values_to = "proportion") %>% mutate(length_bin = lbin[length_bin], id=as.factor(year), Age=paste('Age',age), Tstep=paste('Tstep',tstep))
-        filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",ft,"Age",ag,"Retention",".png"))
-        plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
-        parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
-        suppressWarnings(print(ggplot(tfleet2, aes(x=length_bin,y=proportion,colour=id))+
-            geom_line()+ylab('Proportion')+xlab("Length bin (mm)")+
-            scale_color_discrete(name = "Year") + scale_y_continuous(limits = c(0, 1))+
-            theme_bw() + ggtitle(paste('Fleet',ft,'Sex',sx,'Age',ag)) +
-            facet_wrap(~Tstep)+
-          theme(legend.position = "top", strip.background = element_rect(fill = "white"),
-                panel.grid.minor = element_blank())))
-        caption <- paste("Retention curves for fleet", ft,",sex", sx,"and age",ag,".")
-        addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+          tfleet2 <- tfleet1 %>% tidyr::pivot_longer(cols = starts_with("lb"),names_to = "length_bin",names_prefix = "lb",names_transform = list(length_bin = as.integer),values_to = "proportion") %>% mutate(length_bin = lbin[length_bin], id=as.factor(year), Age=paste('Age',age), Tstep=paste('Tstep',tstep))
+          filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",ft,"Age",ag,"Retention",".png"))
+          plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
+          parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
+          suppressWarnings(print(ggplot(tfleet2, aes(x=length_bin,y=proportion,colour=id))+
+                                   geom_line()+ylab('Proportion')+xlab("Length bin (mm)")+
+                                   scale_color_discrete(name = "Year") + scale_y_continuous(limits = c(0, 1))+
+                                   theme_bw() + ggtitle(paste('Fleet',ft,'Sex',sx,'Age',ag)) +
+                                   facet_wrap(~Tstep)+
+                                   theme(legend.position = "top", strip.background = element_rect(fill = "white"),
+                                         panel.grid.minor = element_blank())))
+          caption <- paste("Retention curves for fleet", ft,",sex", sx,"and age",ag,".")
+          addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
 
-  } else {
-    tfleet1 <- ret[ret$sex==sx & ret$fleet==ft,]
-    tfleet1 <- tfleet1[!duplicated(apply(as.matrix(tfleet1[,6:ncol(tfleet1)]),1,paste0,collapse=' ')), ]
-    tfleet2 <- tfleet1 %>% tidyr::pivot_longer(cols = starts_with("lb"),names_to = "length_bin",names_prefix = "lb",names_transform = list(length_bin = as.integer),values_to = "proportion") %>% mutate(length_bin = lbin[length_bin], id=as.factor(year), TstepAge=paste("Ts",tstep,"Age",age))
-      filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",ft,"Retention",".png"))
-      plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
-      parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
-      suppressWarnings(print(ggplot(tfleet2, aes(x=length_bin,y=proportion,colour=id))+
-                               geom_line()+ylab('Proportion')+xlab("Length bin (mm)")+
-                               scale_color_discrete(name = "Year") + scale_y_continuous(limits = c(0, 1))+
-                               theme_bw() + ggtitle(paste('Fleet',ft,'Sex',sx,'Age',ag)) +
-                               facet_wrap(~TstepAge)+
-                               theme(legend.position = "top", strip.background = element_rect(fill = "white"),
-                                     panel.grid.minor = element_blank())))
-      caption <- paste("Retention curves for fleet", ft,"and sex", sx,".")
-      addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+        } else {
+          tfleet1 <- ret[ret$sex==sx & ret$fleet==ft,]
+          tfleet1 <- tfleet1[!duplicated(apply(as.matrix(tfleet1[,6:ncol(tfleet1)]),1,paste0,collapse=' ')), ]
+          tfleet2 <- tfleet1 %>% tidyr::pivot_longer(cols = starts_with("lb"),names_to = "length_bin",names_prefix = "lb",names_transform = list(length_bin = as.integer),values_to = "proportion") %>% mutate(length_bin = lbin[length_bin], id=as.factor(year), TstepAge=paste("Ts",tstep,"Age",age))
+          filename <- filenametopath(rundir,paste("Sex",sx,"Fleet",ft,"Retention",".png"))
+          plotprep(width=10,height=14,filename=filename,cex=0.9,verbose=FALSE)
+          parset(plots=Fdims(length(unique(tfleet2$tstep))), margin = c(0.5,0.5,0.25,0.05))
+          suppressWarnings(print(ggplot(tfleet2, aes(x=length_bin,y=proportion,colour=id))+
+                                   geom_line()+ylab('Proportion')+xlab("Length bin (mm)")+
+                                   scale_color_discrete(name = "Year") + scale_y_continuous(limits = c(0, 1))+
+                                   theme_bw() + ggtitle(paste('Fleet',ft,'Sex',sx,'Age',ag)) +
+                                   facet_wrap(~TstepAge)+
+                                   theme(legend.position = "top", strip.background = element_rect(fill = "white"),
+                                         panel.grid.minor = element_blank())))
+          caption <- paste("Retention curves for fleet", ft,"and sex", sx,".")
+          addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
 
-  }
+        }
       }}}
 
   ####  Egg Production ####
@@ -590,9 +597,9 @@ MakeOutPut <- function(is95=TRUE){
 
   filename <- filenametopath(rundir,"Growth_Curves1.png")
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(num))
+  parset(plots=Fdims(1))
   # Plot with ribbon for +/- 1 SD
-  ggplot(growth_traj, aes(x = age, colour = year, fill = year, linetype = sex)) +
+  print(ggplot(growth_traj, aes(x = age, colour = year, fill = year, linetype = sex)) +
     geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
     geom_line(aes(y = mean_len), linewidth = 0.8) +
     facet_grid(sex ~ area) +
@@ -603,15 +610,15 @@ MakeOutPut <- function(is95=TRUE){
       fill   = "Year first seen",
       title  = "Growth by area"
     ) +
-    theme_bw()
+    theme_bw())
 
   caption <- "Inputted growth trajectories by model areas and sex."
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
 
   filename <- filenametopath(rundir,"Growth_Curves2.png")
   plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-  parset(plots=Fdims(num))
-  ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
+  parset(plots=Fdims(1))
+  print(ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
     geom_line(linewidth = 0.8) +
     facet_wrap(~ sex) +
     labs(
@@ -619,7 +626,7 @@ MakeOutPut <- function(is95=TRUE){
       y            = "Mean length (mm)",
       colour       = "Model area",
       title        = "Growth by sex"
-    ) + theme_bw()
+    ) + theme_bw())
   caption <- "Inputted growth trajectories between model areas."
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
 

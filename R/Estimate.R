@@ -661,15 +661,34 @@ AdjustPhase <- function(dum=' '){
   MaxPhase <- 0
   for(i in 1:length(names(InitialVars))) {
     if(dum!='dummy') {
-      todo <- dlg_list(c('All','Individual','Skip','                '),  title=paste('Phase for',names(InitialVars)[i],'                             ') )$res
-      ## Get estimated parameters  KeyWord <- locs$id[i]
+      #todo <- dlg_list(c('All','Individual','Skip this par','End all resets','                '),  title=paste('Phase for',names(InitialVars)[i],'                             ') )$res
+
+      todo <- tk_choice(
+        choices = c('All', 'Individual', 'Skip this par', 'End all resets'),
+        title   = paste('Phase for', names(InitialVars)[i]) )
+
+      if(todo=='End all resets') {
+        InitialVars <<- InitialVars
+        MaxPhase <<- MaxPhase
+        return(invisible(NULL))
+      }
+
       if(todo=='All'){
-        nphase <- dlg_list(c('-1','1','2','3','4','                '),  title=paste('Phase for all',names(InitialVars)[i],'                             ') )$res
+        #nphase <- dlg_list(c('-1','1','2','3','4','                '),  title=paste('Phase for all',names(InitialVars)[i],'                             ') )$res
+        nphase <- tk_choice(
+          choices = c('-1','1','2','3','4','5','6'),
+          title   = paste('Phase for all', names(InitialVars)[i]) )
+
         InitialVars[[i]]$Phase <- rep(as.numeric(nphase), length(InitialVars[[i]]$Phase))
       }
       if(todo=='Individual'){
         for(ip in 1:length(InitialVars[[i]]$Initial)){
-          nphase <- dlg_list(c('-1','1','2','3','4','                '),  title=paste('Phase',names(InitialVars)[i],'par #',ip,'                             ') )$res
+          #nphase <- dlg_list(c('-1','1','2','3','4','End this par','                '),  title=paste('Phase',names(InitialVars)[i],'par #',ip,'                             ') )$res
+          nphase <- tk_choice(
+            choices = c('-1','1','2','3','4','5','6','End this par'),
+            title   = paste('Phase',names(InitialVars)[i],'par #',ip) )
+
+          if(nphase=='End this par') break
           InitialVars[[i]]$Phase[ip] <- as.numeric(nphase)
         }
       }
@@ -683,6 +702,71 @@ AdjustPhase <- function(dum=' '){
   }
   InitialVars <<- InitialVars
   MaxPhase <<- MaxPhase
+}
+
+#' Display a styled Tk list selection dialog
+#'
+#' A styled replacement for \code{svDialogs::dlg_list} using a light blue
+#' Tk window with a listbox and OK button.
+#'
+#' @param choices Character vector of options to display in the listbox.
+#' @param title Character string for the window title. Default is \code{"Select"}.
+#'
+#' @return A single character string corresponding to the selected item.
+#'
+#' @importFrom tcltk tktoplevel tkwm.title tkwm.geometry tkwm.resizable
+#' @importFrom tcltk tclVar tklabel tkpack tklistbox tkinsert tkselection.set
+#' @importFrom tcltk tkcurselection tclvalue tkdestroy tkbutton tkfocus tkwait.window
+#'
+#' @export
+tk_choice <- function(choices, title = "Select") {
+  tt <- tktoplevel(background = "#d6eaf8")        # light blue background
+  tkwm.title(tt, title)
+  tkwm.geometry(tt, "350x300")
+  tkwm.resizable(tt, FALSE, FALSE)
+
+  result <- tclVar("")
+
+  # Title label
+  lbl <- tklabel(tt, text = title, font = "Arial 11 bold",
+                 background = "#d6eaf8", foreground = "#1a5276")
+  tkpack(lbl, pady = c(15, 5))
+
+  # Listbox with blue tones
+  lb <- tklistbox(tt, height = length(choices), width = 40,
+                  selectmode = "single", font = "Arial 12",
+                  background = "#eaf4fb",           # very light blue listbox
+                  foreground = "#1a5276",            # dark blue text
+                  selectbackground = "#2e86c1",      # mid blue selection
+                  selectforeground = "white",
+                  borderwidth = 0, relief = "flat",
+                  highlightthickness = 1,
+                  highlightbackground = "#aed6f1")
+
+  for (item in choices) tkinsert(lb, "end", item)
+  tkselection.set(lb, 0)
+
+  tkpack(lb, padx = 20, pady = 10)
+
+  onOK <- function() {
+    idx <- as.integer(tkcurselection(lb))
+    tclvalue(result) <- choices[idx + 1]
+    tkdestroy(tt)
+  }
+
+  btn <- tkbutton(tt, text = "OK", width = 15, font = "Arial 11 bold",
+                  background = "#2e86c1",            # blue button
+                  foreground = "white",
+                  activebackground = "#1a5276",       # darker on hover
+                  activeforeground = "white",
+                  relief = "flat", borderwidth = 0,
+                  command = onOK)
+  tkpack(btn, pady = 15)
+
+  tkfocus(tt)
+  tkwait.window(tt)
+
+  return(tclvalue(result))
 }
 
 #' Update Length Frequency Data Weights Based on Tuning Results

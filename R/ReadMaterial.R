@@ -1325,8 +1325,10 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
 
   Index <- MatchTable(SelexFile,Char1="#",Char2="Reference",Char3="selectivity",Char4="pattern");
-  LegalRef <- rep(0,GeneralSpecs$MaxLen)
-  for (Jlen in 1:GeneralSpecs$Nlen[1]) LegalRef[Jlen] <- as.numeric(SelexFile[Index+1,Jlen])
+  LegalRef <- matrix(0,nrow=GeneralSpecs$Nsex, ncol=GeneralSpecs$MaxLen)
+  for (Jsex in 1:GeneralSpecs$Nsex) {
+    for (Jlen in 1:GeneralSpecs$Nlen[1]) {
+      LegalRef[Jsex,Jlen] <- as.numeric(SelexFile[Index+Jsex,Jlen])}}
   write("Reference legal pattern",EchoFile,append=T)
   write(LegalRef,EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 

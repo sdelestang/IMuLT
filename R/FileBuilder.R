@@ -916,10 +916,6 @@ for(p in pars){
       qselect <- round(qselect,4)
       tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
 
-
-    ## Retention -  Move onto Legal patterns
-    #gauge <- readWorkbook(wb,sheet='LegalID', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
-
     gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
 
     tmp <- c(tmp, "\n# Number Legal patterns (What is legal and can be retained [e.g. above Min Legal length, not egg bearing] or in a survey all can be caught)\n", nrow(gauge),"\n# Pattern\tType\tExtra\tPointer\t#  Description\n")
@@ -993,7 +989,19 @@ for(r in 1:nrow(gauge4)){
 
     tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
     ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
-    tmp <- c(tmp, paste(gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][1,], collapse = "\t"))
+    conslb <- gauge3[gauge3$pos[gauge3$IsConstantLegal==1],]
+    if(nsex==1){
+      conslb <- gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][1,]
+    }
+    if(nsex==2) {
+      Fem <- which(gauge3$Sex[gauge3$pos[gauge3$IsConstantLegal==1]]==1)[1]
+      Mal <- which(gauge3$Sex[gauge3$pos[gauge3$IsConstantLegal==1]]==2)[1]
+      if(is.na(Fem)) Fem <- Mal
+      if(is.na(Mal)) Mal <- Fem
+      conslb <- gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][c(Fem,Mal),]
+    }
+
+    for(r in 1:nrow(conslb)){ tmp <- c(tmp, paste(conslb[r,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n\n# IsRed specifications - assignment of unique life stage quality\n")
     dat <- expand.grid(sex=sexs,age=(1:ages)-1, area=sort(unique(areas$AreaCode ))-1, step=sort(unique(times$tstep))-1, state=1)

@@ -1261,7 +1261,7 @@ template <class Type>
                          array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
                          matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &VirginLegalBio, vector<Type> &LegalRef,vector<Type> &CurrentBio) {
+                         vector<Type> &VirginBio, vector<Type> &VirginLegalBio, matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
 
   Type Initial_pen;
   int IsVirgin;                                                           // Set to 1 for unfished state
@@ -1328,7 +1328,7 @@ template <class Type>
       for (int Iage=0;Iage<dat.Nage;Iage++){
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
           VirginBio(Iarea) += N(Iarea,0,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
-          VirginLegalBio(Iarea) += LegalRef(Isize) * N(Iarea,0,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
+          VirginLegalBio(Iarea) += LegalRef(Isex,Isize) * N(Iarea,0,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
           }}}}
 
   // Penalty on non-convergence
@@ -1892,7 +1892,7 @@ Type objective_function<Type>::operator() ()
   DATA_IVECTOR(NareasPerZone);
   DATA_IMATRIX(AreasPerZone);
   DATA_IARRAY(LegalPnt);
-  DATA_VECTOR(LegalRef);
+  DATA_MATRIX(LegalRef);
 
   DATA_INTEGER(NvarTypes);
   DATA_IVECTOR(VarTypes);
@@ -2298,7 +2298,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
           for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
             Ipoint = LegalPnt(Isex,Iage,Iarea,Iyear,Istep);
             LegalBioTS(Iyear,Iarea,Istep) += LegalFI(Ipoint,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-            LegalBio76TS(Iyear,Iarea,Istep) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+            LegalBio76TS(Iyear,Iarea,Istep) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
           }}}}}}
 
   // Average Legal Biomass by Year and Area - average by the length of the time step
@@ -2320,8 +2320,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
        for (int Isex=0;Isex<Nsex;Isex++){
          for (int Iage=0;Iage<Nage;Iage++){
              for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
-               LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-               LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+               LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+               LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
                if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
            }}}}
 

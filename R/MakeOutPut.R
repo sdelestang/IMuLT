@@ -1185,7 +1185,7 @@ MakeOutPut <- function(is95=TRUE){
     ))
     caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
     addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-
+    }
     # Plot 2: Pearson residuals by release area, faceted by recapture area
     for (a in as.numeric(sort(unique(tag$RelArea)))) {
       tmp <- tag[tag$RelArea == a, ]

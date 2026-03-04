@@ -36,6 +36,7 @@ The following packages will be automatically installed:
 - tidyr
 - ggplot2
 - openxlsx
+- tcltk
 
 ## First Time Setup
 
@@ -63,9 +64,10 @@ BuildInputFiles()
 # Choose your model run
 choose_model()
 
-# Update parameters and length composition weightings if needed
+# Update parameters, length composition weightings and parameter phases if needed
 UpdatePars("No")
 UpdateLFWeights("No")
+AdjustPhase()
 
 # Run the model
 FullOutput <- FALSE

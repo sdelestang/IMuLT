@@ -25,6 +25,7 @@ Imports:
     tidyr,
     viridis,
     ggplot2,
-    openxlsx
+    openxlsx,
+    tcltk
 LinkingTo: TMB, RcppEigen
 RoxygenNote: 7.3.2

@@ -68,10 +68,9 @@ UpdatePars("No")
 UpdateLFWeights("No")
 
 # Run the model
-FullOutput <- FALSE
 LoadData()
-Data$DoProject <- 0
 LoadPars()
+
 SolveModelNew(500, 2000, report = TRUE)
 MakeDiagReport(is95 = FALSE)
 ```

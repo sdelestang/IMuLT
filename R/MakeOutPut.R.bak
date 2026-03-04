@@ -152,22 +152,7 @@ MakeOutPut <- function(is95=TRUE){
   lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-
-  file_path <- "../../ModelStructure.xlsx"
-  # Test workbook and inform user that it is open
-  is_file_locked <- function(path) {
-    tryCatch({
-      con <- file(path, open = "a")  # "a" = append, requires exclusive access
-      close(con)
-      FALSE  # not locked
-    }, error = function(e) {
-      TRUE   # locked / open elsewhere
-    })
-  }
-
-  if (is_file_locked(file_path)) {
-    stop("ModelStructure.xlsx is currently open in another application. Please close it and try again.")
-  } else {  wb <- loadWorkbook(file = file_path)  }
+  wb <- loadWorkbook(file="../../ModelStructure.xlsx")
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
@@ -180,7 +165,7 @@ MakeOutPut <- function(is95=TRUE){
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
   sexs <- 1:as.numeric(dynamics$value[dynamics$object=='sexs'])
   areas <- readWorkbook(wb,sheet='area', startRow = 2)
-  nareas <- length(unique(areas$AreaCode))
+  nareas <- length(unique(areas$newarea))
   times <- readWorkbook(wb,sheet='times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
 
@@ -419,18 +404,18 @@ MakeOutPut <- function(is95=TRUE){
     sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
       mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
       pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
-      mutate(bin = as.numeric(gsub("a", "", bin)) + 1, bin2 = lbin[bin])
-    p <- ggplot(sel_long, aes(x = bin2, y = selectivity, colour = name2)) +
+      mutate(bin = as.numeric(gsub("a", "", bin)) + 1)
+    p <- ggplot(sel_long, aes(x = bin, y = selectivity, colour = name2)) +
       geom_line(linewidth = 1) +
       scale_colour_viridis_d(name = NULL) +
-      #scale_x_continuous(breaks = seq(0, 40, 5)) +
-      labs(x = "LengthBin (midpoint)", y = "Selectivity") +
+      scale_x_continuous(breaks = seq(0, 40, 5)) +
+      labs(x = "Age", y = "Selectivity") +
       facet_wrap(~sex)+
       theme_bw() +
       theme(legend.position = "bottom") +
       guides(colour = guide_legend(nrow = 2))
     print(p)
-    caption <- paste("Selectivity curves estimated by the model.")
+    caption <- paste(Sex, "Selectivity curves estimated by the model.")
     addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
   }
 
@@ -738,7 +723,7 @@ MakeOutPut <- function(is95=TRUE){
                                                                axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
                                                          ylab('Catch rate (kg/pot)'))}
                                               }
-    caption <- paste(unique(tdat3$aSex), unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    caption <- paste(Sex, unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 

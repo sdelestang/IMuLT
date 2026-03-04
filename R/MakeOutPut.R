@@ -152,7 +152,22 @@ MakeOutPut <- function(is95=TRUE){
   lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-  wb <- loadWorkbook(file="../../ModelStructure.xlsx")
+
+  file_path <- "../../ModelStructure.xlsx"
+  # Test workbook and inform user that it is open
+  is_file_locked <- function(path) {
+    tryCatch({
+      con <- file(path, open = "a")  # "a" = append, requires exclusive access
+      close(con)
+      FALSE  # not locked
+    }, error = function(e) {
+      TRUE   # locked / open elsewhere
+    })
+  }
+
+  if (is_file_locked(file_path)) {
+    stop("ModelStructure.xlsx is currently open in another application. Please close it and try again.")
+  } else {  wb <- loadWorkbook(file = file_path)  }
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
@@ -165,7 +180,7 @@ MakeOutPut <- function(is95=TRUE){
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
   sexs <- 1:as.numeric(dynamics$value[dynamics$object=='sexs'])
   areas <- readWorkbook(wb,sheet='area', startRow = 2)
-  nareas <- length(unique(areas$newarea))
+  nareas <- length(unique(areas$AreaCode))
   times <- readWorkbook(wb,sheet='times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
 
@@ -723,7 +738,7 @@ MakeOutPut <- function(is95=TRUE){
                                                                axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
                                                          ylab('Catch rate (kg/pot)'))}
                                               }
-    caption <- paste(Sex, unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    caption <- paste(unique(tdat3$aSex), unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 
@@ -1075,7 +1090,6 @@ MakeOutPut <- function(is95=TRUE){
     }}
   caption <- "The size composition at the start of the model time-series (Year 1, final time-step).  Each plot represents one area in the model and the various modes are the different sex and age groups. Sex 1 is red and Sex 2 blue."
   addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
-
 
   ### Tuning Length Composition Sample Size
   tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)

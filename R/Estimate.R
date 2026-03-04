@@ -659,13 +659,16 @@ MakeDiagReport <- function(is95=T,folder_name = '') {
 #' @export
 AdjustPhase <- function(dum=' '){
   MaxPhase <- 0
-  for(i in 1:length(names(InitialVars))) {
+  Innames <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RecDevs","RecSpatDevs","efpars","MovePars")
+  for(i in 1:length(Innames)) {
+
+    iv <- which(names(InitialVars)==Innames[i]) ## which Initivals vars matches the name
     if(dum!='dummy') {
       #todo <- dlg_list(c('All','Individual','Skip this par','End all resets','                '),  title=paste('Phase for',names(InitialVars)[i],'                             ') )$res
 
       todo <- tk_choice(
         choices = c('All', 'Individual', 'Skip this par', 'End all resets'),
-        title   = paste('Phase for', names(InitialVars)[i]) )
+        title   = paste('Phase for', Innames[i]) )
 
       if(todo=='End all resets') {
         InitialVars <<- InitialVars
@@ -677,22 +680,20 @@ AdjustPhase <- function(dum=' '){
         #nphase <- dlg_list(c('-1','1','2','3','4','                '),  title=paste('Phase for all',names(InitialVars)[i],'                             ') )$res
         nphase <- tk_choice(
           choices = c('-1','1','2','3','4','5','6'),
-          title   = paste('Phase for all', names(InitialVars)[i]) )
+          title   = paste('Phase for all', Innames[i]) )
 
-        InitialVars[[i]]$Phase <- rep(as.numeric(nphase), length(InitialVars[[i]]$Phase))
+        InitialVars[[iv]]$Phase <- rep(as.numeric(nphase), length(InitialVars[[iv]]$Phase))
       }
       if(todo=='Individual'){
-        for(ip in 1:length(InitialVars[[i]]$Initial)){
-          #nphase <- dlg_list(c('-1','1','2','3','4','End this par','                '),  title=paste('Phase',names(InitialVars)[i],'par #',ip,'                             ') )$res
+        for(ip in 1:length(InitialVars[[iv]]$Initial)){
           nphase <- tk_choice(
             choices = c('-1','1','2','3','4','5','6','End this par'),
-            title   = paste('Phase',names(InitialVars)[i],'par #',ip) )
-
+            title   = paste('Phase',Innames[i],'par #',ip) )
           if(nphase=='End this par') break
-          InitialVars[[i]]$Phase[ip] <- as.numeric(nphase)
+          InitialVars[[iv]]$Phase[ip] <- as.numeric(nphase)
         }
       }
-      if(max(InitialVars[[i]]$Phase)>MaxPhase) MaxPhase <- max(InitialVars[[i]]$Phase)
+      if(max(InitialVars[[iv]]$Phase)>MaxPhase) MaxPhase <- max(InitialVars[[i]]$Phase)
     }
     if(dum=='dummy') {
       InitialVars[[i]]$Phase <- rep(-1, length(InitialVars[[i]]$Phase))
@@ -700,8 +701,11 @@ AdjustPhase <- function(dum=' '){
       InitialVars$dummy <- tmp
     }
   }
+  Parssolved(InitialVars) ## Records which parameters were used to solve the model for output file
+  (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
   InitialVars <<- InitialVars
   MaxPhase <<- MaxPhase
+
 }
 
 #' Display a styled Tk list selection dialog
@@ -722,14 +726,11 @@ tk_choice <- function(choices, title = "Select") {
   tkwm.title(tt, title)
   tkwm.geometry(tt, "350x300")
   tkwm.resizable(tt, FALSE, FALSE)
-
   result <- tclVar("")
-
   # Title label
   lbl <- tklabel(tt, text = title, font = "Arial 11 bold",
                  background = "#d6eaf8", foreground = "#1a5276")
   tkpack(lbl, pady = c(15, 5))
-
   # Listbox with blue tones
   lb <- tklistbox(tt, height = length(choices), width = 40,
                   selectmode = "single", font = "Arial 12",
@@ -740,18 +741,14 @@ tk_choice <- function(choices, title = "Select") {
                   borderwidth = 0, relief = "flat",
                   highlightthickness = 1,
                   highlightbackground = "#aed6f1")
-
   for (item in choices) tkinsert(lb, "end", item)
   tkselection.set(lb, 0)
-
   tkpack(lb, padx = 20, pady = 10)
-
   onOK <- function() {
     idx <- as.integer(tkcurselection(lb))
     tclvalue(result) <- choices[idx + 1]
     tkdestroy(tt)
   }
-
   btn <- tkbutton(tt, text = "OK", width = 15, font = "Arial 11 bold",
                   background = "#2e86c1",            # blue button
                   foreground = "white",
@@ -760,13 +757,23 @@ tk_choice <- function(choices, title = "Select") {
                   relief = "flat", borderwidth = 0,
                   command = onOK)
   tkpack(btn, pady = 15)
-
+  # --- keyboard bindings ---
+  tkbind(tt, "<Return>", onOK)
+  tkbind(lb, "<Return>", onOK)
+  for (k in seq_along(choices)) {
+    local({
+      idx <- k - 1
+      tkbind(tt, as.character(k), function() {
+        tkselection.clear(lb, 0, "end")
+        tkselection.set(lb, idx)
+      })
+    })
+  }
+  # -------------------------
   tkfocus(tt)
   tkwait.window(tt)
-
   return(tclvalue(result))
 }
-
 #' Update Length Frequency Data Weights Based on Tuning Results
 #'
 #' Updates the weighting of length frequency data in CONTROL.DAT based on

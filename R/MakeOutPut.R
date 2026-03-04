@@ -10,6 +10,8 @@
 #' @param folder_name The name for the folder to contain the outputs (inside Summary). 
 #' If omitted or left blank it will revert to the default behaviour of storing outputs
 #' in 'summary/result/'.
+#' 
+#' @param openfile Whether to open the html file on completion. Default TRUE
 #'
 #' @return Invisibly returns NULL. Side effects include:
 #' \itemize{
@@ -109,7 +111,7 @@
 #' @seealso \code{\link{LoadOutputData}} for loading outputs without report generation
 #'
 #' @export
-MakeOutPut <- function(is95=TRUE,folder_name=''){
+MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   library(makehtml)
   library(hplot) # for plotprep and parset; automates the use of png
@@ -1507,7 +1509,7 @@ MakeOutPut <- function(is95=TRUE,folder_name=''){
   for(f in 1: length(addfiles))  file.copy(addfiles[f], paste0(rundir,'/',addfiles[f]))
 
 
-  make_html(replist=reportlist,rundir=rundir,width=500,openfile=TRUE,
+  make_html(replist=reportlist,rundir=rundir,width=500,openfile=openfile,
             runnotes=runnotes,verbose=FALSE,packagename="makehtml",
             htmlname="IMuLT")
 

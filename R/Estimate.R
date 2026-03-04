@@ -564,7 +564,10 @@ LoadPars <- function(aask=''){
 #' @param folder_name The name for the folder to contain the outputs (inside Summary).
 #' If omitted or left blank it will revert to the default behaviour of storing outputs
 #' in 'summary/result/'.
-#'
+#' 
+#' 
+#' @param openfile Whether to open the html file on completion. Default TRUE
+#' 
 #' @return NULL. Creates output files in the Output/ directory as a side effect.
 #'
 #' @details
@@ -597,13 +600,13 @@ LoadPars <- function(aask=''){
 #' @seealso \code{\link{choose_model}} for selecting model directory
 #'
 #' @export
-MakeDiagReport <- function(is95=T,folder_name = '') {
+MakeDiagReport <- function(is95=T,folder_name = '',openfile=TRUE) {
   ## Run and output diagnostics file
   print("Making Diagnostics report")
   current_wd = getwd()
   if(max(list.files()%in%'Output')==1) {  setwd(makehtml::filenametopath(getwd(),'Output'))}
   #source('../../R files/MakeOutPut.R')
-  MakeOutPut(is95,folder_name)
+  MakeOutPut(is95,folder_name,openfile=openfile)
 
     #return user to wd
   setwd(current_wd)

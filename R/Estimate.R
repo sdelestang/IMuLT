@@ -711,7 +711,6 @@ AdjustPhase <- function(dum=' '){
 #' @importFrom tcltk tkcurselection tclvalue tkdestroy tkbutton tkfocus tkwait.window
 #'
 #' @export
-library(tcltk)
 tk_choice <- function(choices, title = "Select") {
   tt <- tktoplevel(background = "#d6eaf8")        # light blue background
   tkwm.title(tt, title)

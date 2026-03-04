@@ -561,6 +561,10 @@ LoadPars <- function(aask=''){
 #' @param is95 Logical. If TRUE (default), uses 95% confidence intervals
 #'   in output plots and tables. If FALSE, may use alternative interval levels.
 #'
+#' @param folder_name The name for the folder to contain the outputs (inside Summary). 
+#' If omitted or left blank it will revert to the default behaviour of storing outputs
+#' in 'summary/result/'.
+#' 
 #' @return NULL. Creates output files in the Output/ directory as a side effect.
 #'
 #' @details
@@ -593,12 +597,16 @@ LoadPars <- function(aask=''){
 #' @seealso \code{\link{choose_model}} for selecting model directory
 #'
 #' @export
-MakeDiagReport <- function(is95=T) {
+MakeDiagReport <- function(is95=T,folder_name = '') {
   ## Run and output diagnostics file
   print("Making Diagnostics report")
+  current_wd = getwd()
   if(max(list.files()%in%'Output')==1) {  setwd(makehtml::filenametopath(getwd(),'Output'))}
   #source('../../R files/MakeOutPut.R')
-  MakeOutPut(is95)
+  MakeOutPut(is95,folder_name)
+
+    #return user to wd
+  setwd(current_wd)
 }
 
 #' Interactively Adjust Parameter Estimation Phases

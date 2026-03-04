@@ -561,10 +561,10 @@ LoadPars <- function(aask=''){
 #' @param is95 Logical. If TRUE (default), uses 95% confidence intervals
 #'   in output plots and tables. If FALSE, may use alternative interval levels.
 #'
-#' @param folder_name The name for the folder to contain the outputs (inside Summary). 
+#' @param folder_name The name for the folder to contain the outputs (inside Summary).
 #' If omitted or left blank it will revert to the default behaviour of storing outputs
 #' in 'summary/result/'.
-#' 
+#'
 #' @return NULL. Creates output files in the Output/ directory as a side effect.
 #'
 #' @details
@@ -828,14 +828,17 @@ UpdateLFWeights <- function(todo='No'){
     # open Control file and find weightings
     DataFile <- read.table('CONTROL.DAT',comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
     ## Find the length freqs weights
-    pos1 <- which(1==(grepl('length',DataFile[,8])))
-    if(length(pos1)!=nrow(tmp)) {
+    pos1 <- which(grepl('Weights',DataFile[,2]) & grepl('by',DataFile[,3]))
+    pos2 <- which(grepl('Basic',DataFile[,2]) & grepl('parameters',DataFile[,3]))
+    pos3 <- which(grepl('3',DataFile[,1]))
+    posall <- pos3[pos3>pos1 & pos3<pos2]
+    if(length(posall)!=nrow(tmp)) {
       stop("Predetermined weights do not match length compositions")  # Changed!
     }
-    for(i in 1:length(pos1)){
-      ttmp <- DataFile[pos1[i],1:10]
+    for(i in 1:length(posall)){
+      ttmp <- DataFile[posall[i],1:10]
       Scale <- tmp$Multiscale[(tmp$Fleet-1)==as.numeric(ttmp[,2]) & (tmp$Sex-1)==as.numeric(ttmp[,4])]
-      DataFile[pos1[i],5] <-  as.numeric(DataFile[pos1[i],5]) * as.numeric(Scale)
+      DataFile[posall[i],5] <-  as.numeric(DataFile[posall[i],5]) * as.numeric(Scale)
     }
     write.table(DataFile, 'CONTROL.DAT',na=" ", sep=" ", row.names = F, col.names = F, quote=F)
   }

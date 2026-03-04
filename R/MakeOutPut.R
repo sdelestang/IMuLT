@@ -1093,7 +1093,6 @@ MakeOutPut <- function(is95=TRUE){
   caption <- "The size composition at the start of the model time-series (Year 1, final time-step).  Each plot represents one area in the model and the various modes are the different sex and age groups. Sex 1 is red and Sex 2 blue."
   addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
 
-
   ### Tuning Length Composition Sample Size
   tdat <- findNclean(c('Obs/Pred','Fleet'), dat, 1, convert=1)
   cnames <- colnames(tdat)

@@ -706,9 +706,7 @@ AdjustPhase <- function(dum=' '){
 #'
 #' @return A single character string corresponding to the selected item.
 #'
-#' @importFrom tcltk tktoplevel tkwm.title tkwm.geometry tkwm.resizable
-#' @importFrom tcltk tclVar tklabel tkpack tklistbox tkinsert tkselection.set
-#' @importFrom tcltk tkcurselection tclvalue tkdestroy tkbutton tkfocus tkwait.window
+#' @import tcltk
 #'
 #' @export
 tk_choice <- function(choices, title = "Select") {

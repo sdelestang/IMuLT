@@ -14,6 +14,7 @@ A package to load, control and run the stock assessment model IMuLT.
 Authors:
 \itemize{
   \item Andre Punt
+  \item Klaas Hartmann
 }
 
 }

@@ -1238,7 +1238,7 @@ MakeOutPut <- function(is95=TRUE){
   #write.csv(lb,'egg.csv')
   virgin <- data.frame(est=findNclean(c('#Virgin','Legal'), dat, 1)) %>% mutate(area=1:nrow(.))  ## Uses the reference legal statement >76
   lb %<>% mutate(virgin=virgin$est[match(area,virgin$area)], `Legal Biomass (t)`=est/1e+3, LBlwr=(est-se*SclErr)/1e+3, LBupr=(est+se*SclErr)/1e+3, rel=est/virgin, rellwr=(est-se*SclErr)/virgin, relupr=(est+se*SclErr)/virgin) %>% filter(est>0)
-  lb %<>% filter(year>=GeneralSpecs$Year1) %>% group_by(area) %>% mutate(`B/B0`=rel/max(rel), lwr=rellwr/max(rel), upr=relupr/max(rel), lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
+  lb %<>% filter(year>=GeneralSpecs$Year1) %>% group_by(area) %>% mutate(`B/B0`=rel, lwr=rellwr, upr=relupr, lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
   areas <- readWorkbook(wb,sheet='area', startRow = 2)
   lb$areaname <- areas$Name[match(lb$area,areas$AreaCode)]
   reflev <- findNclean(c('#', 'Biomass', 'target'), ctl1, 1)
@@ -1246,7 +1246,7 @@ MakeOutPut <- function(is95=TRUE){
   styr <- findNclean(c('#','First', 'year'), lbin1, 1)
 
   ## Relative biomass
-  alllb <- lb %>% group_by(year) %>% summarise(est=sum(est), vir=sum(virgin), se=sqrt(sum(se^2))) %>% mutate(rel=est/vir, lwr=(est-se*SclErr)/vir, upr=(est+se*SclErr)/vir) %>% mutate(`B/B0`=rel/max(rel), lwr=lwr/max(rel), upr=upr/max(rel))
+  alllb <- lb %>% group_by(year) %>% summarise(est=sum(est), vir=sum(virgin), se=sqrt(sum(se^2))) %>% mutate(rel=est/vir, lwr=(est-se*SclErr)/vir, upr=(est+se*SclErr)/vir) %>% mutate(`B/B0`=rel, lwr=lwr, upr=upr)
   filename <- filenametopath(rundir,paste0("Relative_Legal_Biom.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=c(1,1))

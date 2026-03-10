@@ -989,16 +989,17 @@ for(r in 1:nrow(gauge4)){
 
     tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
     ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
-    conslb <- gauge3[gauge3$pos[gauge3$IsConstantLegal==1],]
     if(nsex==1){
       conslb <- gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][1,]
     }
+
     if(nsex==2) {
-      Fem <- which(gauge3$Sex[gauge3$pos[gauge3$IsConstantLegal==1]]==1)[1]
-      Mal <- which(gauge3$Sex[gauge3$pos[gauge3$IsConstantLegal==1]]==2)[1]
+      conslb <- rbind(conslb,conslb)
+      Fem <- gauge3$pos[gauge3$IsConstantLegal==1 & gauge3$Sex==1][1]
+      Mal <- gauge3$pos[gauge3$IsConstantLegal==1 & gauge3$Sex==2][1]
       if(is.na(Fem)) Fem <- Mal
       if(is.na(Mal)) Mal <- Fem
-      conslb <- gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][c(Fem,Mal),]
+      if(!is.na(Fem) & !is.na(Mal)) conslb <- gauge2[c(Fem,Mal),]
     }
 
     for(r in 1:nrow(conslb)){ tmp <- c(tmp, paste(conslb[r,], collapse = "\t"),"\n")}

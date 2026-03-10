@@ -457,11 +457,14 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
     # Run model
     BestFn <- model$fn(model$par)
     initBestFn <- BestFn
-    mout<-nlminb(model$par,model$fn,model$gr,lower=RunSpecs$lowBnd,upper=RunSpecs$uppBnd,control = list(iter.max = MaXeVaL, eval.max=MaXeVaL))
+    mout<-nlminb(model$par,model$fn,model$gr,lower=RunSpecs$lowBnd,upper=RunSpecs$uppBnd,control = list(iter.max = MaXeVaL, eval.max=MaXeVaL, rel.tol=1e-12))
+    #tmppars <- model$env$last.par.best
+    #mout<-nlminb(start=tmppars,model$fn,model$gr,lower=RunSpecs$lowBnd,upper=RunSpecs$uppBnd,control = list(iter.max = MaXeVaL/2, eval.max=MaXeVaL, rel.tol=1e-12))
+    initBestFn <- BestFn
     pars <- mout$par; names(pars) <- pnames; ParOld <- mout$par;
-    Grad <- model$gr(mout$par)
-    grad <- round(max(abs(Grad)),6)
-    cat("Likelihood: ",round(initBestFn,6),' to ' ,round(mout$objective,6),"Convergence:",ifelse(mout$convergence==0,'Yes','No')," (",mout$convergence,") ","Max Gradient:",round(max(abs(model$gr(mout$par))),6)," Interations:",mout$iterations,"Evalutions:",mout$evaluations,"\n")
+    Grad <- abs(model$gr(mout$par))
+    badpar <- paste0("[",pnames[Grad==max(Grad)],"]")
+    cat("Likelihood: ",round(initBestFn,6),' to ' ,round(mout$objective,6),"| Convergence:",ifelse(mout$convergence==0,'Yes','No')," (",mout$convergence,") ","| Max Gradient [Par]:",round(max(abs(model$gr(mout$par))),6), badpar, "| Interations:",mout$iterations,"| Evalutions:",mout$evaluations,"\n")
     # Store and save parameters
     pout <- unlist(parameters); pout[names(pout)%in%names(pars)] <- pars; suffix <- ifelse(CurrPhase==MaxPhase," final", CurrPhase); write.table(pout, paste("Output/model",suffix,".par",sep=""), sep='\t', col.names = c('name\test'), quote=F)
   if(report==T & CurrPhase==MaxPhase){       cat("Making report object.\n")
@@ -564,10 +567,10 @@ LoadPars <- function(aask=''){
 #' @param folder_name The name for the folder to contain the outputs (inside Summary).
 #' If omitted or left blank it will revert to the default behaviour of storing outputs
 #' in 'summary/result/'.
-#' 
-#' 
+#'
+#'
 #' @param openfile Whether to open the html file on completion. Default TRUE
-#' 
+#'
 #' @return NULL. Creates output files in the Output/ directory as a side effect.
 #'
 #' @details
@@ -704,11 +707,10 @@ AdjustPhase <- function(dum=' '){
       InitialVars$dummy <- tmp
     }
   }
-  Parssolved(InitialVars) ## Records which parameters were used to solve the model for output file
   (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
   InitialVars <<- InitialVars
   MaxPhase <<- MaxPhase
-
+  Parssolved(InitialVars) ## Records which parameters were used to solve the model for output file
 }
 
 #' Display a styled Tk list selection dialog

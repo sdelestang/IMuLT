@@ -55,8 +55,8 @@ get_model_structure_path()
 ```r
 library(IMuLT)
 
-# Set working directory to your lobster model folder
-setwd("C:/Users/YourName/Lobster Model/2026")
+# Set working directory to your model folder
+setwd("C:/Users/YourName/Crust_Model/2026")
 
 # Update data in ModelStructure.xlsx, then build input files
 BuildInputFiles()

@@ -930,6 +930,7 @@ for(p in pars){
     tmp <- c(tmp, "\n# Specifications for Fleet legal assignment\n#Sex\tAge\tFleet\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
 
     gauge3 <- gauge[,1:which(colnames(gauge)=='IsConstantLegal')] %>% mutate(Sex=ifelse(Sex=='F',1, ifelse(Sex=='M',2,Sex)))
+    if(sexs==0) gauge3$Sex <- 1 ## Handle if only a one sex model
 
     ## Expand gauge3 if there are common fleets/ages or timesteps
     gauge3 <- gauge3 %>%  tidyr::separate_rows(Fleet, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(Age, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(TimeStep, sep = ",", convert = TRUE) %>% arrange(pos)

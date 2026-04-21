@@ -865,3 +865,389 @@ UpdateLFWeights <- function(todo='No'){
   }
 }
 
+
+
+#' Fit IMuLT Stock Assessment Model Using TMB
+#'
+#' Main function for estimating model parameters using Template Model Builder (TMB)
+#' and sequential phased optimization. Minimizes negative log-likelihood using
+#' a sandwich optimization strategy: \code{nlminb} for the primary solve, then
+#' alternating \code{L-BFGS-B} and \code{nlminb} restarts in the final phase to
+#' drive the gradient down, with optional Newton polishing steps via the Hessian.
+#'
+#' @param phit Integer. Maximum number of function evaluations for intermediate
+#'   estimation phases. Default is 500.
+#' @param lphit Integer. Maximum number of function evaluations for the final
+#'   estimation phase. Default is 1000 (allows more iterations for convergence).
+#' @param mxph Integer. Maximum phase number to run. Default is \code{MaxPhase}
+#'   (set by \code{LoadPars()}). Use lower values to run partial estimation
+#'   sequences.
+#' @param PrintLag Integer. Progress is printed every \code{PrintLag} function
+#'   calls. Default is 50. Lower values give more frequent updates.
+#' @param report Logical. If \code{TRUE}, generates full diagnostic report
+#'   including SD report and saves \code{BigSave.lda} and \code{Output.RL}
+#'   files. Default is \code{FALSE} (faster, for intermediate runs). Set
+#'   \code{TRUE} for final model run.
+#' @param nRestarts Integer. Number of sandwich restart cycles
+#'   (\code{L-BFGS-B} \eqn{\rightarrow} \code{nlminb}) applied in the final
+#'   phase. Default is 3. The loop exits early if the maximum absolute gradient
+#'   drops below \code{1e-6}.
+#' @param newtonSteps Integer. Number of explicit Newton polishing steps
+#'   (using the Hessian) attempted after the sandwich restarts. Default is 3.
+#'   Set to 0 to skip Newton polishing. Steps that encounter a singular Hessian
+#'   are caught and skipped without crashing.
+#'
+#' @return Called for side effects. Creates output files:
+#' \itemize{
+#'   \item \code{Output/model[phase].par} — parameter values after each phase
+#'   \item \code{Output/model final.par} — final converged parameters
+#'   \item \code{Output/BigSave.lda} — complete model object (if
+#'     \code{report = TRUE})
+#'   \item \code{Output/Output.RL} — formatted results for diagnostics (if
+#'     \code{report = TRUE})
+#' }
+#'
+#' @details
+#' The function implements sequential phased estimation. For each phase (1 to
+#' \code{MaxPhase}), active parameters are set according to the phase
+#' specification, the TMB model object is built via \code{MakeADFun}, and
+#' \code{nlminb} is run with parameter bounds. Estimates from each phase serve
+#' as starting values for the next.
+#'
+#' In the final phase, three additional strategies are applied to reduce the
+#' gradient:
+#'
+#' \enumerate{
+#'   \item \strong{Sandwich restarts.} The solution from \code{nlminb} is
+#'     passed to \code{L-BFGS-B} (via \code{optim}), and the \code{L-BFGS-B}
+#'     result is fed back into \code{nlminb}. This cycle repeats up to
+#'     \code{nRestarts} times, exploiting the fact that different optimizers
+#'     escape different local ridges. If no bounds are set, \code{BFGS} is
+#'     used instead of \code{L-BFGS-B}.
+#'   \item \strong{Newton polishing.} Up to \code{newtonSteps} explicit
+#'     Newton steps are taken using the Hessian from \code{optimHess},
+#'     with results clamped to parameter bounds. A final \code{nlminb} call
+#'     cleans up from the Newton-polished position.
+#'   \item \strong{Bound diagnostics.} Parameters sitting at or near their
+#'     bounds are flagged with their gradient values. A parameter on a bound
+#'     with a large gradient is the most common cause of non-convergence and
+#'     cannot be resolved by further optimizer restarts — the bound must be
+#'     widened or the parameter fixed via \code{map}.
+#' }
+#'
+#' Progress monitoring displays the current phase and iteration number,
+#' negative log-likelihood value, percent improvement from the previous best,
+#' and the number of active parameters.
+#'
+#' Convergence is indicated by a convergence code of 0 (successful) and a
+#' maximum absolute gradient below approximately \code{1e-4}. Values above
+#' \code{0.01} warrant investigation, typically starting with the bound
+#' diagnostics printed at the end of the run.
+#'
+#' @note
+#' \itemize{
+#'   \item \code{LoadPars()} must be run before calling this function.
+#'   \item Set \code{report = TRUE} only for final production runs (SD report
+#'     computation is slow).
+#'   \item If the maximum gradient remains stubbornly large, check the bound
+#'     diagnostics first. If the worst-gradient parameter is at a bound, widen
+#'     the bound or fix it via \code{map}.
+#'   \item The Newton polishing steps can be numerically fragile for very
+#'     large models; reduce \code{newtonSteps} or set to 0 if they cause
+#'     issues.
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # Standard workflow
+#' choose_model()
+#' LoadPars()
+#'
+#' # Quick test run (no report, no sandwich restarts)
+#' FitModel(phit = 100, lphit = 200, nRestarts = 0, newtonSteps = 0)
+#'
+#' # Full production run with reports
+#' FitModel(phit = 500, lphit = 1000, report = TRUE)
+#'
+#' # Aggressive convergence: more restarts and Newton steps
+#' FitModel(lphit = 2000, nRestarts = 5, newtonSteps = 5, report = TRUE)
+#'
+#' # Run only first 2 phases for testing
+#' FitModel(mxph = 2, report = FALSE)
+#'
+#' # More frequent progress updates
+#' FitModel(PrintLag = 10)
+#' }
+#'
+#' @seealso
+#' \code{\link{LoadPars}} for loading parameters before estimation,
+#' \code{\link{AdjustPhase}} for modifying estimation phases,
+#' \code{\link{MakeDiagReport}} for generating diagnostic outputs,
+#' \code{\link{choose_model}} for selecting model directory
+#'
+#' @export
+FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
+                          PrintLag = 50, report = FALSE,
+                          nRestarts = 3, newtonSteps = 0) {
+
+  MaxPhase <- ifelse(mxph == 0, 1, mxph)
+
+  for (CurrPhase in 1:MaxPhase) {
+
+    MaXeVaL <- ifelse(CurrPhase < MaxPhase, phit, lphit)
+
+    parameters <- list(
+      MainPars    = InitialVars$MainPars$Initial,
+      RecruitPars = InitialVars$RecruitPars$Initial,
+      PuerPowPars = InitialVars$PuerPowPars$Initial,
+      SelPars     = InitialVars$SelPars$Initial,
+      RetPars     = InitialVars$RetPars$Initial,
+      RecDevs     = InitialVars$RecDevs$Initial,
+      Qpars       = InitialVars$Qpars$Initial,
+      efpars      = InitialVars$efpars$Initial,
+      InitPars    = InitialVars$InitPars$Initial,
+      RecSpatDevs = InitialVars$RecSpatDevs$Initial,
+      MovePars    = InitialVars$MovePars$Initial,
+      GrowthPars  = InitialVars$GrowthPars$Initial,
+      dummy       = 0
+    )
+
+    # Set parameters and mapping
+    RunSpecs <- SetInitialAndPhases(ParOld, parameters, InitialVars, CurrPhase = CurrPhase)
+
+    ## Identify active parameters
+    pnames <- names(unlist(RunSpecs$map)[!is.na(unlist(RunSpecs$map))])
+    nam <- stringr::str_extract(pnames, "[\\p{Letter}]+")
+    num <- stringr::str_extract(pnames, "\\d+$")
+    unnam <- nam[!duplicated(nam)]
+
+    cat("Making model object that will solve for", sum(!is.na(unlist(RunSpecs$map))),
+        "parameters.", "Phase =", CurrPhase, "\n")
+    for (iii in seq_along(unnam)) {
+      print(paste(unnam[iii], length(num[nam == unnam[iii]]), 'parameters'))
+    }
+
+    ## Build AD model
+    model <- MakeADFun(Data, parameters, map = RunSpecs$map, DLL = "IMuLT", silent = TRUE)
+
+    BestFn <- model$fn()
+    initBestFn <- BestFn
+    FnCallNo <<- 0
+    model$fn_Orig <- model$fn
+    yy <- 1e+10
+
+    # Wrapper to track progress
+    model$fn <- function(x) {
+      tyy <- model$fn_Orig(x)
+      yy <<- ifelse(is.na(tyy), yy, tyy)
+      FnCallNo <<- FnCallNo + 1
+      if (BestFn > yy) {
+        if ((FnCallNo %% PrintLag) == 0) {
+          cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike / Delta: ", yy, " / ",
+              round(100 * (1 - (yy / BestFn)), 6), "%; npar = ", length(x), "\n", sep = "")
+          BestFn <<- yy
+        }
+      }
+      return(tyy)
+    }
+
+    model$par <- RunSpecs$EstVec
+
+    # ---- Control list used throughout ----
+    ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                 rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
+
+    has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
+
+    # ===========================================================
+    # Initial nlminb run
+    # ===========================================================
+    BestFn <- model$fn(model$par)
+    initBestFn <- BestFn
+
+    mout <- nlminb(model$par, model$fn, model$gr,
+                   lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                   control = ctrl)
+
+    .report_fit(mout, model, pnames, initBestFn, label = "Initial nlminb")
+
+    # ===========================================================
+    # Sandwich restarts (final phase only)
+    # ===========================================================
+    if (CurrPhase == MaxPhase) {
+
+      for (restart in seq_len(nRestarts)) {
+
+        cat("\n--- Sandwich restart", restart, "of", nRestarts, "---\n")
+
+        # ---- Step A: L-BFGS-B (or BFGS if no bounds) ----
+        bfgs_start <- model$env$last.par.best
+
+        if (has_bounds) {
+          fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
+                            method  = "L-BFGS-B",
+                            lower   = RunSpecs$lowBnd,
+                            upper   = RunSpecs$uppBnd,
+                            control = list(maxit = MaXeVaL, factr = 1e-15))
+        } else {
+          fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
+                            method  = "BFGS",
+                            control = list(maxit = MaXeVaL, reltol = 1e-12))
+        }
+
+        bfgs_grad <- max(abs(model$gr(fit_bfgs$par)))
+        cat("  L-BFGS-B: obj =", round(fit_bfgs$value, 6),
+            "| max|grad| =", round(bfgs_grad, 6),
+            "| convergence:", fit_bfgs$convergence, "\n")
+
+        # ---- Step B: Back to nlminb from the BFGS solution ----
+        initBestFn <- BestFn
+        mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
+                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                       control = ctrl)
+
+        .report_fit(mout, model, pnames, initBestFn,
+                    label = paste("  nlminb restart", restart))
+
+        # ---- Early exit if gradient is small enough ----
+        cur_grad <- max(abs(model$gr(mout$par)))
+        if (cur_grad < 1e-3) {
+          cat("  Gradient < 1e-3 — exiting restart loop early.\n")
+          break
+        }
+      }
+
+      # ===========================================================
+      # Newton polishing steps
+      # ===========================================================
+      if (newtonSteps > 0) {
+        cat("\n--- Newton polishing steps ---\n")
+        newton_par <- model$env$last.par.best
+
+        for (ns in seq_len(newtonSteps)) {
+          tryCatch({
+            H <- optimHess(newton_par, model$fn, model$gr)
+            g <- as.vector(model$gr(newton_par))
+            step <- solve(H, g)
+            newton_par <- newton_par - step
+
+            # Respect bounds if they exist
+            if (has_bounds) {
+              newton_par <- pmax(newton_par, RunSpecs$lowBnd)
+              newton_par <- pmin(newton_par, RunSpecs$uppBnd)
+            }
+
+            ng <- max(abs(model$gr(newton_par)))
+            cat("  Newton step", ns, "- obj:", round(model$fn(newton_par), 6),
+                "| max|grad|:", round(ng, 8), "\n")
+
+            if (ng < 1e-3) {
+              cat("  Gradient < 1e-3 after Newton — stopping.\n")
+              break
+            }
+          }, error = function(e) {
+            cat("  Newton step", ns, "failed (Hessian singular?):", conditionMessage(e), "\n")
+          })
+        }
+
+        # Final nlminb from Newton-polished parameters
+        initBestFn <- BestFn
+        mout <- nlminb(newton_par, model$fn, model$gr,
+                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                       control = ctrl)
+        .report_fit(mout, model, pnames, initBestFn, label = "  Final nlminb (post-Newton)")
+      }
+
+      # ===========================================================
+      # Bound diagnostics
+      # ===========================================================
+      .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
+    }
+
+    # ===========================================================
+    # Store and save parameters
+    # ===========================================================
+    pars <- mout$par
+    names(pars) <- pnames
+    ParOld <- mout$par
+
+    pout <- unlist(parameters)
+    pout[names(pout) %in% names(pars)] <- pars
+    suffix <- ifelse(CurrPhase == MaxPhase, " final", CurrPhase)
+    write.table(pout, paste0("Output/model", suffix, ".par"),
+                sep = '\t', col.names = c('name\test'), quote = FALSE)
+
+    # ===========================================================
+    # Report (final phase only)
+    # ===========================================================
+    if (report && CurrPhase == MaxPhase) {
+      cat("Making report object.\n")
+      print("Loading report")
+      Report <- model$report()
+      best <- mout$par
+
+      print("Loading SD report (can take quite a long time)")
+      SDrep  <- sdreport(model)
+      fullrep <- summary(SDrep)
+
+      BigSave <- list(
+        Report     = Report,
+        SDrep      = SDrep,
+        map        = RunSpecs$map,
+        Data       = Data,
+        fullrep    = fullrep,
+        parameters = parameters,
+        pin        = pout,
+        best       = best,
+        Gradient   = abs(model$gr(best))
+      )
+
+      if (max(list.files() == 'Output') == 1) {
+        setwd(paste0(getwd(), "/Output"))
+      }
+      save(BigSave, file = "BigSave.lda")
+
+      print("making Output.RL")
+      WriteOutput(Report, SDrep, fullrep, parameters, pout,
+                  GeneralSpecs, ControlSpecs, TheData,
+                  CurrPhase = 0, best = best, grad = abs(model$gr(best)))
+    }
+  }
+}
+
+
+# ---- Helper: report optimiser result ----
+.report_fit <- function(mout, model, pnames, initBestFn, label = "") {
+  Grad   <- abs(model$gr(mout$par))
+  badpar <- paste0("[", pnames[Grad == max(Grad)], "]")
+  cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
+      "| Convergence:", ifelse(mout$convergence == 0, "Yes", "No"),
+      "(", mout$convergence, ")",
+      "| Max|grad| [par]:", round(max(Grad), 6), badpar,
+      "| Iter:", mout$iterations,
+      "| Eval:", mout$evaluations, "\n")
+}
+
+
+# ---- Helper: check for parameters sitting on bounds ----
+.check_bounds <- function(par, lower, upper, pnames, model, tol = 1e-4) {
+  if (is.null(lower) || is.null(upper)) return(invisible(NULL))
+
+  at_lower <- which(abs(par - lower) < tol)
+  at_upper <- which(abs(par - upper) < tol)
+  at_bound <- c(at_lower, at_upper)
+
+  if (length(at_bound) > 0) {
+    Grad <- abs(model$gr(par))
+    cat("\n*** WARNING: Parameters at or near bounds ***\n")
+    for (idx in at_bound) {
+      side <- ifelse(idx %in% at_lower, "LOWER", "UPPER")
+      cat("  ", pnames[idx], "=", round(par[idx], 6),
+          " [", side, " bound:", ifelse(side == "LOWER", lower[idx], upper[idx]), "]",
+          " |grad| =", round(Grad[idx], 6), "\n")
+    }
+    cat("  If these have large gradients, widen the bound or fix via map.\n\n")
+  } else {
+    cat("\n  No parameters at bounds.\n")
+  }
+}

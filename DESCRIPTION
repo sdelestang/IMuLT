@@ -27,6 +27,6 @@ Imports:
     ggplot2,
     openxlsx,
     tcltk,
-    ggplot
+    ggplot2
 LinkingTo: TMB, RcppEigen
 RoxygenNote: 7.3.2

@@ -2,7 +2,7 @@
 % Please edit documentation in R/Estimate.R
 \name{FitModel}
 \alias{FitModel}
-\title{Fit IMuLT Stock Assessment Model Using TMB}
+\title{Fit the IMuLT Stock Assessment Model}
 \usage{
 FitModel(
   phit = 500,
@@ -10,133 +10,89 @@ FitModel(
   mxph = MaxPhase,
   PrintLag = 50,
   report = FALSE,
-  nRestarts = 3,
-  newtonSteps = 0
+  nRestarts = 0,
+  newtonSteps = 0,
+  PrintNll = TRUE
 )
 }
 \arguments{
-\item{phit}{Integer. Maximum number of function evaluations for intermediate
-estimation phases. Default is 500.}
+\item{phit}{Integer. Maximum number of function evaluations per phase for
+all phases except the last. Default 500.}
 
-\item{lphit}{Integer. Maximum number of function evaluations for the final
-estimation phase. Default is 1000 (allows more iterations for convergence).}
+\item{lphit}{Integer. Maximum number of function evaluations for the last
+phase (per optimizer call). Default 1000.}
 
-\item{mxph}{Integer. Maximum phase number to run. Default is \code{MaxPhase}
-(set by \code{LoadPars()}). Use lower values to run partial estimation
-sequences.}
+\item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
+the global \code{MaxPhase}.}
 
-\item{PrintLag}{Integer. Progress is printed every \code{PrintLag} function
-calls. Default is 50. Lower values give more frequent updates.}
+\item{PrintLag}{Integer. Print and plot progress every \code{PrintLag}
+function evaluations. Default 50.}
 
-\item{report}{Logical. If \code{TRUE}, generates full diagnostic report
-including SD report and saves \code{BigSave.lda} and \code{Output.RL}
-files. Default is \code{FALSE} (faster, for intermediate runs). Set
-\code{TRUE} for final model run.}
+\item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
+after the final phase. Default \code{FALSE}.}
 
-\item{nRestarts}{Integer. Number of sandwich restart cycles
-(\code{L-BFGS-B} \eqn{\rightarrow} \code{nlminb}) applied in the final
-phase. Default is 3. The loop exits early if the maximum absolute gradient
-drops below \code{1e-6}.}
+\item{nRestarts}{Integer. Number of sandwich restarts (L-BFGS-B then nlminb)
+in the final phase. Default 3.}
 
-\item{newtonSteps}{Integer. Number of explicit Newton polishing steps
-(using the Hessian) attempted after the sandwich restarts. Default is 3.
-Set to 0 to skip Newton polishing. Steps that encounter a singular Hessian
-are caught and skipped without crashing.}
+\item{newtonSteps}{Integer. Number of Newton polishing steps after sandwich
+restarts. Default 0 (disabled).}
+
+\item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
+plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
 }
 \value{
-Called for side effects. Creates output files:
-\itemize{
-\item \code{Output/model[phase].par} — parameter values after each phase
-\item \code{Output/model final.par} — final converged parameters
-\item \code{Output/BigSave.lda} — complete model object (if
-\code{report = TRUE})
-\item \code{Output/Output.RL} — formatted results for diagnostics (if
-\code{report = TRUE})
-}
+Invisibly returns \code{NULL}. Side effects include writing
+parameter files to \code{Output/}, and if \code{report = TRUE}, saving
+\code{BigSave.lda} and calling \code{WriteOutput()}.
 }
 \description{
-Main function for estimating model parameters using Template Model Builder (TMB)
-and sequential phased optimization. Minimizes negative log-likelihood using
-a sandwich optimization strategy: \code{nlminb} for the primary solve, then
-alternating \code{L-BFGS-B} and \code{nlminb} restarts in the final phase to
-drive the gradient down, with optional Newton polishing steps via the Hessian.
+Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
+progressively introduced across phases, with the final phase employing
+sandwich restarts (alternating L-BFGS-B and nlminb) to escape local minima.
+Optional Newton polishing steps can further refine the solution.
 }
 \details{
-The function implements sequential phased estimation. For each phase (1 to
-\code{MaxPhase}), active parameters are set according to the phase
-specification, the TMB model object is built via \code{MakeADFun}, and
-\code{nlminb} is run with parameter bounds. Estimates from each phase serve
-as starting values for the next.
+\strong{Phased estimation:} Parameters are activated across phases via
+\code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
+the final phase uses \code{lphit}.
 
-In the final phase, three additional strategies are applied to reduce the
-gradient:
+\strong{Sandwich restarts:} In the final phase, after the initial nlminb run,
+the optimizer alternates between L-BFGS-B (which uses a different Hessian
+approximation) and nlminb. This helps escape ridges and saddle points that
+trap a single algorithm. Each restart resets progress tracking for clean
+reporting.
 
-\enumerate{
-\item \strong{Sandwich restarts.} The solution from \code{nlminb} is
-passed to \code{L-BFGS-B} (via \code{optim}), and the \code{L-BFGS-B}
-result is fed back into \code{nlminb}. This cycle repeats up to
-\code{nRestarts} times, exploiting the fact that different optimizers
-escape different local ridges. If no bounds are set, \code{BFGS} is
-used instead of \code{L-BFGS-B}.
-\item \strong{Newton polishing.} Up to \code{newtonSteps} explicit
-Newton steps are taken using the Hessian from \code{optimHess},
-with results clamped to parameter bounds. A final \code{nlminb} call
-cleans up from the Newton-polished position.
-\item \strong{Bound diagnostics.} Parameters sitting at or near their
-bounds are flagged with their gradient values. A parameter on a bound
-with a large gradient is the most common cause of non-convergence and
-cannot be resolved by further optimizer restarts — the bound must be
-widened or the parameter fixed via \code{map}.
-}
+\strong{Newton polishing:} If \code{newtonSteps > 0}, exact Newton steps
+using the full Hessian are attempted after the sandwich restarts, followed
+by a final nlminb call.
 
-Progress monitoring displays the current phase and iteration number,
-negative log-likelihood value, percent improvement from the previous best,
-and the number of active parameters.
+\strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
+\pkg{ggplot2}/\pkg{patchwork} figure is updated every \code{PrintLag}
+function evaluations. The top panel shows the full optimisation history
+across all phases and restarts. Below it, any stage (phase or restart)
+that accumulates two or more print points receives its own sub-panel,
+arranged side by side in chronological order. A red dot marks the current
+best value.
 
-Convergence is indicated by a convergence code of 0 (successful) and a
-maximum absolute gradient below approximately \code{1e-4}. Values above
-\code{0.01} warrant investigation, typically starting with the bound
-diagnostics printed at the end of the run.
-}
-\note{
-\itemize{
-\item \code{LoadPars()} must be run before calling this function.
-\item Set \code{report = TRUE} only for final production runs (SD report
-computation is slow).
-\item If the maximum gradient remains stubbornly large, check the bound
-diagnostics first. If the worst-gradient parameter is at a bound, widen
-the bound or fix it via \code{map}.
-\item The Newton polishing steps can be numerically fragile for very
-large models; reduce \code{newtonSteps} or set to 0 if they cause
-issues.
-}
+\strong{Prior penalties:} The model supports normal (type 1) and gamma
+(type 2) priors on main parameters via \code{MparsPrior}. Gamma priors
+are recommended for strictly positive parameters such as natural mortality.
+
+\strong{Global side effects:} The function writes to the global environment
+via \code{<<-}. The trace is stored in \code{TraceDF} (a data frame with
+columns \code{eval}, \code{nll}, \code{stage}), cumulative evaluations in
+\code{TotalEval}, and the current stage label in \code{CurrentStage}.
 }
 \examples{
 \dontrun{
-# Standard workflow
-choose_model()
-LoadPars()
+# Quick fit with defaults
+FitModel(500, 1000)
 
-# Quick test run (no report, no sandwich restarts)
-FitModel(phit = 100, lphit = 200, nRestarts = 0, newtonSteps = 0)
+# Full fit with reporting, extra restarts, and Newton polishing
+FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
 
-# Full production run with reports
-FitModel(phit = 500, lphit = 1000, report = TRUE)
-
-# Aggressive convergence: more restarts and Newton steps
-FitModel(lphit = 2000, nRestarts = 5, newtonSteps = 5, report = TRUE)
-
-# Run only first 2 phases for testing
-FitModel(mxph = 2, report = FALSE)
-
-# More frequent progress updates
-FitModel(PrintLag = 10)
+# Fit without live plotting
+FitModel(500, 1000, PrintNll = FALSE)
 }
 
-}
-\seealso{
-\code{\link{LoadPars}} for loading parameters before estimation,
-\code{\link{AdjustPhase}} for modifying estimation phases,
-\code{\link{MakeDiagReport}} for generating diagnostic outputs,
-\code{\link{choose_model}} for selecting model directory
 }

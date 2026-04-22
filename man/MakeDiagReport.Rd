@@ -4,11 +4,17 @@
 \alias{MakeDiagReport}
 \title{Generate Model Diagnostics Report}
 \usage{
-MakeDiagReport(is95 = T)
+MakeDiagReport(is95 = T, folder_name = "", openfile = TRUE)
 }
 \arguments{
 \item{is95}{Logical. If TRUE (default), uses 95\% confidence intervals
 in output plots and tables. If FALSE, may use alternative interval levels.}
+
+\item{folder_name}{The name for the folder to contain the outputs (inside Summary).
+If omitted or left blank it will revert to the default behaviour of storing outputs
+in 'summary/result/'.}
+
+\item{openfile}{Whether to open the html file on completion. Default TRUE}
 }
 \value{
 NULL. Creates output files in the Output/ directory as a side effect.

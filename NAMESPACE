@@ -2,6 +2,7 @@
 
 export(AdjustPhase)
 export(BuildInputFiles)
+export(FitModel)
 export(LoadData)
 export(LoadPars)
 export(MakeDiagReport)

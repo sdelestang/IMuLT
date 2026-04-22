@@ -4,11 +4,17 @@
 \alias{MakeOutPut}
 \title{Generate Comprehensive HTML Report from IMuLT Model Outputs}
 \usage{
-MakeOutPut(is95 = TRUE)
+MakeOutPut(is95 = TRUE, folder_name = "", openfile = TRUE)
 }
 \arguments{
 \item{is95}{Logical indicating whether to use 95\% confidence intervals (TRUE)
 or 68\% confidence intervals (FALSE, approximately ±1 SE). Default is TRUE}
+
+\item{folder_name}{The name for the folder to contain the outputs (inside Summary).
+If omitted or left blank it will revert to the default behaviour of storing outputs
+in 'summary/result/'.}
+
+\item{openfile}{Whether to open the html file on completion. Default TRUE}
 }
 \value{
 Invisibly returns NULL. Side effects include:

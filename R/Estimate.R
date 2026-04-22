@@ -867,13 +867,75 @@ UpdateLFWeights <- function(todo='No'){
 
 
 
+# ── Helper: build the live-trace plot ─────────────────────────────────────────
+
+#' Build Live NLL Trace Plot
+#'
+#' Constructs a multi-panel \pkg{ggplot2}/\pkg{patchwork} figure showing
+#' optimisation progress. The top panel shows the full history of the negative
+#' log-likelihood across all phases and restarts. Below it, any optimisation
+#' stage that recorded two or more print points gets its own sub-panel,
+#' arranged side by side in chronological order.
+#'
+#' @param df Data frame with columns \code{eval} (cumulative function
+#'   evaluations), \code{nll} (negative log-likelihood), and \code{stage}
+#'   (character label for the optimisation stage).
+#' @param current_nll Numeric. Current best negative log-likelihood, used in
+#'   the global panel title.
+#'
+#' @return A \pkg{patchwork} plot object (or a single \code{ggplot} if no
+#'   stage qualifies for a sub-panel).
+#'
+#' @keywords internal
+.plot_trace <- function(df, current_nll) {
+
+  # -- Global panel (always shown) --
+  p_global <- ggplot(df, aes(eval, nll)) +
+    geom_line(colour = "steelblue", linewidth = 0.8) +
+    geom_point(data = dplyr::slice_tail(df, n = 1),
+               colour = "red", size = 3) +
+    labs(x = "Function evaluations", y = "-log L",
+         title = paste0("Global  |  -logL = ", round(current_nll, 2))) +
+    theme_minimal(base_size = 11)
+
+  # -- Stage panels (only stages with >= 2 recorded points) --
+  stage_counts <- df |> dplyr::count(stage) |> dplyr::filter(n >= 2)
+
+  # Preserve chronological order of stages
+  stage_order  <- unique(df$stage)
+  stage_counts <- stage_counts[match(intersect(stage_order, stage_counts$stage),
+                                     stage_counts$stage), ]
+
+  stage_panels <- list()
+  for (s in stage_counts$stage) {
+    sub <- dplyr::filter(df, stage == s)
+    stage_panels[[s]] <- ggplot(sub, aes(eval, nll)) +
+      geom_line(colour = "steelblue", linewidth = 0.8) +
+      geom_point(data = dplyr::slice_tail(sub, n = 1),
+                 colour = "red", size = 3) +
+      labs(x = "Function evaluations", y = "-log L", title = s) +
+      theme_minimal(base_size = 11)
+  }
+
+  # -- Assemble with patchwork --
+  if (length(stage_panels) > 0) {
+    bottom <- patchwork::wrap_plots(stage_panels, nrow = 1)
+    out    <- p_global / bottom + patchwork::plot_layout(heights = c(1, 1))
+  } else {
+    out <- p_global
+  }
+  out
+}
+
+
+# ── Main function ─────────────────────────────────────────────────────────────
+
 #' Fit the IMuLT Stock Assessment Model
 #'
 #' Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
 #' progressively introduced across phases, with the final phase employing
 #' sandwich restarts (alternating L-BFGS-B and nlminb) to escape local minima.
-#' Optional Newton polishing steps can further refine the solution. A live
-#' trace plot of the negative log-likelihood is displayed during fitting.
+#' Optional Newton polishing steps can further refine the solution.
 #'
 #' @param phit Integer. Maximum number of function evaluations per phase for
 #'   all phases except the last. Default 500.
@@ -889,6 +951,8 @@ UpdateLFWeights <- function(todo='No'){
 #'   in the final phase. Default 3.
 #' @param newtonSteps Integer. Number of Newton polishing steps after sandwich
 #'   restarts. Default 0 (disabled).
+#' @param PrintNll Logical. If \code{TRUE}, display a live multi-panel trace
+#'   plot of the negative log-likelihood during fitting. Default \code{TRUE}.
 #'
 #' @details
 #' \strong{Phased estimation:} Parameters are activated across phases via
@@ -905,14 +969,22 @@ UpdateLFWeights <- function(todo='No'){
 #' using the full Hessian are attempted after the sandwich restarts, followed
 #' by a final nlminb call.
 #'
-#' \strong{Live trace plot:} A plot of the negative log-likelihood versus
-#' cumulative function evaluations is updated every \code{PrintLag} evaluations.
-#' Vertical dashed lines mark restart boundaries and a red dot shows the
-#' current best.
+#' \strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
+#' \pkg{ggplot2}/\pkg{patchwork} figure is updated every \code{PrintLag}
+#' function evaluations. The top panel shows the full optimisation history
+#' across all phases and restarts. Below it, any stage (phase or restart)
+#' that accumulates two or more print points receives its own sub-panel,
+#' arranged side by side in chronological order. A red dot marks the current
+#' best value.
 #'
 #' \strong{Prior penalties:} The model supports normal (type 1) and gamma
 #' (type 2) priors on main parameters via \code{MparsPrior}. Gamma priors
 #' are recommended for strictly positive parameters such as natural mortality.
+#'
+#' \strong{Global side effects:} The function writes to the global environment
+#' via \code{<<-}. The trace is stored in \code{TraceDF} (a data frame with
+#' columns \code{eval}, \code{nll}, \code{stage}), cumulative evaluations in
+#' \code{TotalEval}, and the current stage label in \code{CurrentStage}.
 #'
 #' @return Invisibly returns \code{NULL}. Side effects include writing
 #'   parameter files to \code{Output/}, and if \code{report = TRUE}, saving
@@ -925,20 +997,32 @@ UpdateLFWeights <- function(todo='No'){
 #'
 #' # Full fit with reporting, extra restarts, and Newton polishing
 #' FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
+#'
+#' # Fit without live plotting
+#' FitModel(500, 1000, PrintNll = FALSE)
 #' }
 #'
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 3, newtonSteps = 0) {
+                     nRestarts = 3, newtonSteps = 0, PrintNll = TRUE) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
-  # Initialise trace vectors for live plotting
-  TraceNLL    <<- numeric(0)
-  TraceEval   <<- numeric(0)
-  TotalEval   <<- 0
-  RestartEvals <<- numeric(0)
+  # Initialise trace bookkeeping
+  TraceDF      <<- data.frame(eval = numeric(0), nll = numeric(0),
+                              stage = character(0),
+                              stringsAsFactors = FALSE)
+  TotalEval    <<- 0
+  CurrentStage <<- ""
+
+  # ---- Local helper to append to the trace ----
+  .trace_append <- function(ev, nll) {
+    TraceDF <<- rbind(TraceDF,
+                      data.frame(eval = ev, nll = nll,
+                                 stage = CurrentStage,
+                                 stringsAsFactors = FALSE))
+  }
 
   for (CurrPhase in 1:MaxPhase) {
 
@@ -961,22 +1045,25 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     )
 
     # Set parameters and mapping
-    RunSpecs <- SetInitialAndPhases(ParOld, parameters, InitialVars, CurrPhase = CurrPhase)
+    RunSpecs <- SetInitialAndPhases(ParOld, parameters, InitialVars,
+                                    CurrPhase = CurrPhase)
 
     ## Identify active parameters
     pnames <- names(unlist(RunSpecs$map)[!is.na(unlist(RunSpecs$map))])
-    nam <- stringr::str_extract(pnames, "[\\p{Letter}]+")
-    num <- stringr::str_extract(pnames, "\\d+$")
-    unnam <- nam[!duplicated(nam)]
+    nam    <- stringr::str_extract(pnames, "[\\p{Letter}]+")
+    num    <- stringr::str_extract(pnames, "\\d+$")
+    unnam  <- nam[!duplicated(nam)]
 
-    cat("Making model object that will solve for", sum(!is.na(unlist(RunSpecs$map))),
+    cat("Making model object that will solve for",
+        sum(!is.na(unlist(RunSpecs$map))),
         "parameters.", "Phase =", CurrPhase, "\n")
     for (iii in seq_along(unnam)) {
       print(paste(unnam[iii], length(num[nam == unnam[iii]]), "parameters"))
     }
 
     ## Build AD model
-    model <- MakeADFun(Data, parameters, map = RunSpecs$map, DLL = "IMuLT", silent = TRUE)
+    model <- MakeADFun(Data, parameters, map = RunSpecs$map,
+                       DLL = "IMuLT", silent = TRUE)
 
     BestFn      <- model$fn()
     initBestFn  <- BestFn
@@ -984,42 +1071,35 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     FnCallNo    <<- 0
     model$fn_Orig <- model$fn
 
-    # Accumulate starting point on trace
-    TraceNLL  <<- c(TraceNLL, BestFn)
-    TraceEval <<- c(TraceEval, TotalEval)
+    # Record starting point
+    CurrentStage <<- paste0("Phase ", CurrPhase, " \u2013 Initial")
+    .trace_append(TotalEval, BestFn)
 
     yy <- 1e+10
 
-    # ---- Wrapper to track progress and update live plot ----
+    # ── Wrapper to track progress and update live plot ────────
     model$fn <- function(x) {
       tyy <- model$fn_Orig(x)
       yy <<- ifelse(is.na(tyy), yy, tyy)
       FnCallNo <<- FnCallNo + 1
+
       if (BestFn > yy) {
         BestFn <<- yy
         if ((FnCallNo %% PrintLag) == 0) {
           delta <- 100 * (1 - (yy / LastPrintFn))
-          cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike: ", round(yy, 3),
-              " | Delta: ", round(delta, 6), "%\n", sep = "")
+          cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike: ",
+              round(yy, 3), " | Delta: ", round(delta, 6), "%\n", sep = "")
           LastPrintFn <<- yy
 
-          # Accumulate and plot
-          TraceNLL  <<- c(TraceNLL, yy)
-          TraceEval <<- c(TraceEval, TotalEval + FnCallNo)
+          # Append to trace
+          .trace_append(TotalEval + FnCallNo, yy)
 
-          dev.hold()
-          par(mar = c(4, 5, 2, 1))
-          plot(TraceEval, TraceNLL, type = "l", lwd = 2, col = "steelblue",
-               xlab = "Function evaluations", ylab = "-log L",
-               main = paste0("Phase ", CurrPhase, " | -logL = ", round(yy, 2)))
-          points(tail(TraceEval, 1), tail(TraceNLL, 1),
-                 pch = 19, col = "red", cex = 1.5)
-
-          # Mark restart boundaries
-          if (length(RestartEvals) > 0) {
-            abline(v = RestartEvals, lty = 2, col = "grey50")
+          # Live plot
+          if (PrintNll) {
+            dev.hold()
+            print(.plot_trace(TraceDF, yy))
+            dev.flush()
           }
-          dev.flush()
         }
       }
       return(tyy)
@@ -1036,11 +1116,13 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     # ===========================================================
     # Initial nlminb run
     # ===========================================================
-    cat("\n  Initial nlminb\n")
-    BestFn      <- model$fn(model$par)
-    initBestFn  <- BestFn
-    LastPrintFn <<- BestFn
-    FnCallNo    <<- 0
+    CurrentStage <<- paste0("Phase ", CurrPhase, " \u2013 nlminb")
+    BestFn       <- model$fn(model$par)
+    initBestFn   <- BestFn
+    LastPrintFn  <<- BestFn
+    FnCallNo     <<- 0
+
+    .trace_append(TotalEval, BestFn)
 
     mout <- nlminb(model$par, model$fn, model$gr,
                    lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
@@ -1057,14 +1139,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       for (restart in seq_len(nRestarts)) {
 
         cat("\n--- Sandwich restart", restart, "of", nRestarts, "---\n")
-        RestartEvals <<- c(RestartEvals, TotalEval)
 
-        # ---- Step A: L-BFGS-B ----
+        # ---- Step A: L-BFGS-B ────────────────────────────────
+        CurrentStage <<- paste0("Restart ", restart, " \u2013 L-BFGS-B")
         cat("  Step A: L-BFGS-B\n")
-        FnCallNo    <<- 0
-        BestFn      <- model$fn(model$env$last.par.best)
-        LastPrintFn <<- BestFn
-        bfgs_start  <- model$env$last.par.best
+        FnCallNo     <<- 0
+        BestFn       <- model$fn(model$env$last.par.best)
+        LastPrintFn  <<- BestFn
+        bfgs_start   <- model$env$last.par.best
+
+        .trace_append(TotalEval, BestFn)
 
         if (has_bounds) {
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
@@ -1084,12 +1168,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        # ---- Step B: nlminb from BFGS solution ----
+        # ---- Step B: nlminb from BFGS solution ───────────────
+        CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
-        FnCallNo    <<- 0
-        BestFn      <- fit_bfgs$value
-        initBestFn  <- BestFn
-        LastPrintFn <<- BestFn
+        FnCallNo     <<- 0
+        BestFn       <- fit_bfgs$value
+        initBestFn   <- BestFn
+        LastPrintFn  <<- BestFn
+
+        .trace_append(TotalEval, BestFn)
 
         mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
@@ -1101,9 +1188,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
         # ---- Early exit if gradient is small enough ----
         cur_grad <- max(abs(model$gr(mout$par)))
-        cat("  Restart", restart, "complete: max|grad| =", round(cur_grad, 6), "\n")
+        cat("  Restart", restart, "complete: max|grad| =",
+            round(cur_grad, 6), "\n")
         if (cur_grad < 1e-3) {
-          cat("  Gradient < 1e-3 — exiting restart loop early.\n")
+          cat("  Gradient < 1e-3 \u2014 exiting restart loop early.\n")
           break
         }
       }
@@ -1113,12 +1201,13 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       # ===========================================================
       if (newtonSteps > 0) {
         cat("\n--- Newton polishing steps ---\n")
-        newton_par <- model$env$last.par.best
+        CurrentStage <<- "Newton polish"
+        newton_par   <- model$env$last.par.best
 
         for (ns in seq_len(newtonSteps)) {
           tryCatch({
-            H <- optimHess(newton_par, model$fn, model$gr)
-            g <- as.vector(model$gr(newton_par))
+            H    <- optimHess(newton_par, model$fn, model$gr)
+            g    <- as.vector(model$gr(newton_par))
             step <- solve(H, g)
             newton_par <- newton_par - step
 
@@ -1129,29 +1218,35 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             }
 
             ng <- max(abs(model$gr(newton_par)))
-            cat("  Newton step", ns, "- obj:", round(model$fn(newton_par), 6),
+            cat("  Newton step", ns, "- obj:",
+                round(model$fn(newton_par), 6),
                 "| max|grad|:", round(ng, 8), "\n")
 
             if (ng < 1e-3) {
-              cat("  Gradient < 1e-3 after Newton — stopping.\n")
+              cat("  Gradient < 1e-3 after Newton \u2014 stopping.\n")
               break
             }
           }, error = function(e) {
-            cat("  Newton step", ns, "failed (Hessian singular?):", conditionMessage(e), "\n")
+            cat("  Newton step", ns,
+                "failed (Hessian singular?):", conditionMessage(e), "\n")
           })
         }
 
         # Final nlminb from Newton-polished parameters
+        CurrentStage <<- "Post-Newton nlminb"
         cat("  Final nlminb (post-Newton)\n")
-        FnCallNo    <<- 0
-        BestFn      <- model$fn(newton_par)
-        initBestFn  <- BestFn
-        LastPrintFn <<- BestFn
+        FnCallNo     <<- 0
+        BestFn       <- model$fn(newton_par)
+        initBestFn   <- BestFn
+        LastPrintFn  <<- BestFn
+
+        .trace_append(TotalEval, BestFn)
 
         mout <- nlminb(newton_par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                        control = ctrl)
-        .report_fit(mout, model, pnames, initBestFn, label = "  Final nlminb (post-Newton)")
+        .report_fit(mout, model, pnames, initBestFn,
+                    label = "  Final nlminb (post-Newton)")
         TotalEval <<- TotalEval + FnCallNo
       }
 
@@ -1181,7 +1276,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       cat("Making report object.\n")
       print("Loading report")
       Report <- model$report()
-      best <- mout$par
+      best   <- mout$par
 
       print("Loading SD report (can take quite a long time)")
       SDrep   <- sdreport(model)
@@ -1207,7 +1302,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       print("making Output.RL")
       WriteOutput(Report, SDrep, fullrep, parameters, pout,
                   GeneralSpecs, ControlSpecs, TheData,
-                  CurrPhase = 0, best = best, grad = abs(model$gr(best)))
+                  CurrPhase = 0, best = best,
+                  grad = abs(model$gr(best)))
     }
   }
 }
@@ -1219,11 +1315,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 #' likelihood, convergence status, maximum gradient and the associated
 #' parameter name, iteration and evaluation counts.
 #'
-#' @param mout Output from \code{nlminb}.
-#' @param model TMB model object.
+#' @param mout Output list from \code{\link[stats]{nlminb}}.
+#' @param model TMB model object created by \code{\link[TMB]{MakeADFun}}.
 #' @param pnames Character vector of active parameter names.
-#' @param initBestFn Numeric. Objective value at the start of this optimiser call.
+#' @param initBestFn Numeric. Objective value at the start of this optimiser
+#'   call.
 #' @param label Character. Label prefix for the printed line.
+#'
+#' @return Called for its side effect (printing to the console). Returns
+#'   \code{invisible(NULL)}.
 #'
 #' @keywords internal
 .report_fit <- function(mout, model, pnames, initBestFn, label = "") {
@@ -1245,11 +1345,14 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 #' bounds with large gradients indicate the bound is constraining the solution.
 #'
 #' @param par Numeric vector. Estimated parameter values.
-#' @param lower Numeric vector. Lower bounds.
-#' @param upper Numeric vector. Upper bounds.
+#' @param lower Numeric vector or \code{NULL}. Lower bounds.
+#' @param upper Numeric vector or \code{NULL}. Upper bounds.
 #' @param pnames Character vector. Parameter names.
-#' @param model TMB model object.
+#' @param model TMB model object created by \code{\link[TMB]{MakeADFun}}.
 #' @param tol Numeric. Tolerance for detecting bound proximity. Default 1e-4.
+#'
+#' @return Called for its side effect (printing to the console). Returns
+#'   \code{invisible(NULL)}.
 #'
 #' @keywords internal
 .check_bounds <- function(par, lower, upper, pnames, model, tol = 1e-4) {

@@ -871,11 +871,12 @@ UpdateLFWeights <- function(todo='No'){
 
 #' Build Live NLL Trace Plot
 #'
-#' Constructs a multi-panel \pkg{ggplot2}/\pkg{patchwork} figure showing
-#' optimisation progress. The top panel shows the full history of the negative
-#' log-likelihood across all phases and restarts. Below it, any optimisation
-#' stage that recorded two or more print points gets its own sub-panel,
-#' arranged side by side in chronological order.
+#' Constructs a multi-panel base-graphics figure showing optimisation progress.
+#' The top panel shows the full history of the negative log-likelihood across
+#' all phases and restarts. Below it, any optimisation stage that recorded two
+#' or more print points gets its own sub-panel, arranged side by side in
+#' chronological order. Uses \code{\link[graphics]{layout}} for the panel
+#' structure.
 #'
 #' @param df Data frame with columns \code{eval} (cumulative function
 #'   evaluations), \code{nll} (negative log-likelihood), and \code{stage}
@@ -883,49 +884,41 @@ UpdateLFWeights <- function(todo='No'){
 #' @param current_nll Numeric. Current best negative log-likelihood, used in
 #'   the global panel title.
 #'
-#' @return A \pkg{patchwork} plot object (or a single \code{ggplot} if no
-#'   stage qualifies for a sub-panel).
+#' @return Called for its side effect (drawing to the active graphics device).
+#'   Returns \code{invisible(NULL)}.
 #'
-#' @importFrom ggplot2 ggplot aes geom_line geom_point labs theme_minimal
 #' @keywords internal
 .plot_trace <- function(df, current_nll) {
 
-  # -- Global panel (always shown) --
-  p_global <- ggplot(df, aes(eval, nll)) +
-    geom_line(colour = "steelblue", linewidth = 0.8) +
-    geom_point(data = dplyr::slice_tail(df, n = 1),
-               colour = "red", size = 3) +
-    labs(x = "Function evaluations", y = "-log L",
-         title = paste0("Global  |  -logL = ", round(current_nll, 2))) +
-    theme_minimal(base_size = 11)
-
-  # -- Stage panels (only stages with >= 2 recorded points) --
-  stage_counts <- df |> dplyr::count(stage) |> dplyr::filter(n >= 2)
-
-  # Preserve chronological order of stages
+  # Which stages have >= 2 points?
   stage_order  <- unique(df$stage)
-  stage_counts <- stage_counts[match(intersect(stage_order, stage_counts$stage),
-                                     stage_counts$stage), ]
+  stage_counts <- table(df$stage)
+  plot_stages  <- stage_order[stage_counts[stage_order] >= 2]
+  n_sub        <- length(plot_stages)
 
-  stage_panels <- list()
-  for (s in stage_counts$stage) {
-    sub <- dplyr::filter(df, stage == s)
-    stage_panels[[s]] <- ggplot(sub, aes(eval, nll)) +
-      geom_line(colour = "steelblue", linewidth = 0.8) +
-      geom_point(data = dplyr::slice_tail(sub, n = 1),
-                 colour = "red", size = 3) +
-      labs(x = "Function evaluations", y = "-log L", title = s) +
-      theme_minimal(base_size = 11)
-  }
-
-  # -- Assemble with patchwork --
-  if (length(stage_panels) > 0) {
-    bottom <- patchwork::wrap_plots(stage_panels, nrow = 1)
-    out    <- p_global / bottom + patchwork::plot_layout(heights = c(1, 1))
+  # Layout: global on top, stage panels below (if any)
+  if (n_sub > 0) {
+    layout(matrix(c(rep(1, n_sub), seq_len(n_sub) + 1),
+                  nrow = 2, byrow = TRUE),
+           heights = c(1, 1))
   } else {
-    out <- p_global
+    layout(matrix(1))
   }
-  out
+  par(mar = c(4, 5, 2, 1))
+
+  # Global panel
+  plot(df$eval, df$nll, type = "l", lwd = 2, col = "steelblue",
+       xlab = "Function evaluations", ylab = "-log L",
+       main = paste0("Global  |  -logL = ", round(current_nll, 2)))
+  points(tail(df$eval, 1), tail(df$nll, 1), pch = 19, col = "red", cex = 1.5)
+
+  # Stage panels
+  for (s in plot_stages) {
+    sub <- df[df$stage == s, ]
+    plot(sub$eval, sub$nll, type = "l", lwd = 2, col = "steelblue",
+         xlab = "Function evaluations", ylab = "-log L", main = s)
+    points(tail(sub$eval, 1), tail(sub$nll, 1), pch = 19, col = "red", cex = 1.5)
+  }
 }
 
 
@@ -971,12 +964,13 @@ UpdateLFWeights <- function(todo='No'){
 #' by a final nlminb call.
 #'
 #' \strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
-#' \pkg{ggplot2}/\pkg{patchwork} figure is updated every \code{PrintLag}
-#' function evaluations. The top panel shows the full optimisation history
-#' across all phases and restarts. Below it, any stage (phase or restart)
-#' that accumulates two or more print points receives its own sub-panel,
-#' arranged side by side in chronological order. A red dot marks the current
-#' best value.
+#' base-graphics figure is updated every \code{PrintLag} function evaluations
+#' using \code{\link[grDevices]{dev.hold}}/\code{\link[grDevices]{dev.flush}}
+#' for flicker-free rendering. The top panel shows the full optimisation
+#' history across all phases and restarts. Below it, any stage (phase or
+#' restart) that accumulates two or more print points receives its own
+#' sub-panel, arranged side by side in chronological order. A red dot marks
+#' the current best value.
 #'
 #' \strong{Prior penalties:} The model supports normal (type 1) and gamma
 #' (type 2) priors on main parameters via \code{MparsPrior}. Gamma priors
@@ -1006,7 +1000,7 @@ UpdateLFWeights <- function(todo='No'){
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 0, newtonSteps = 0, PrintNll = TRUE) {
+                     nRestarts = 3, newtonSteps = 0, PrintNll = TRUE) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
@@ -1098,7 +1092,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           # Live plot
           if (PrintNll) {
             dev.hold()
-            print(.plot_trace(TraceDF, yy))
+            .plot_trace(TraceDF, yy)
             dev.flush()
           }
         }

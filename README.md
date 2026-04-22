@@ -73,7 +73,7 @@ AdjustPhase()
 LoadData()
 LoadPars()
 
-SolveModelNew(500, 2000, report = TRUE)
+FitModel(500, 3000, report = TRUE)
 MakeDiagReport(is95 = FALSE)
 ```
 
@@ -87,3 +87,4 @@ imult_usage()  # Displays step-by-step instructions
 
 Simon de Lestang (DPIRD, Western Australia)
 Andre Punt (University of Washington & CSIRO)
+Klaas Hartman (University of Tasmania)

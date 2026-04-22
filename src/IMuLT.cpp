@@ -1929,13 +1929,23 @@ Type objective_function<Type>::operator() ()
   for(int mp=0;mp<MparsLink.size();mp++){
     if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1); }
 
-  // Apply priors if requested
+  // Apply priors on Main Pars if requested
   Type MainParPriorPen = 0;
+  Type ScaleMP = 0;
+  Type ShapeMP = 0;
   int nrowMP = MparsPrior.rows();
-  for (int r=0;r<nrowMP;r++) {
-      if(MparsPrior(r,0)==1){
-        MainParPriorPen +=  0.5*square(MainPars(r,0)-MparsPrior(r,1))/MparsPrior(r,2);
-      }}
+  for (int r=0; r<nrowMP; r++) {
+    // Normal prior
+    if(MparsPrior(r,0)==1){
+      MainParPriorPen += -dnorm(MainPars(r,0), MparsPrior(r,1), MparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(MparsPrior(r,0)==2){
+      ScaleMP = square(MparsPrior(r,2))/MparsPrior(r,1);
+      ShapeMP = MparsPrior(r,1)/ScaleMP;
+      MainParPriorPen += -dgamma(MainPars(r,0), ShapeMP, ScaleMP, true);
+    }
+  }
 
   // Split MainPars out into their various groups
   Rbar = MainPars(0);

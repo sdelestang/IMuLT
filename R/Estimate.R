@@ -1005,7 +1005,7 @@ UpdateLFWeights <- function(todo='No'){
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 3, newtonSteps = 0, PrintNll = TRUE) {
+                     nRestarts = 0, newtonSteps = 0, PrintNll = TRUE) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 

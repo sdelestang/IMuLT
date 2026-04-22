@@ -1,6 +1,6 @@
 Package: IMuLT
 Title: Integrated Model using Length Transition (IMuLT)
-Version: 0.1.3
+Version: 0.1.4
 Authors@R: c(
     person("Simon", "de Lestang", email = "simon.delestang@dpird.wa.gov.au", role = c("aut", "cre")),
     person("Andre", "Punt", role = "aut"),person("Klaas", "Hartmann", role = "aut")
@@ -11,7 +11,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE, load = "installed")
 NeedsCompilation: yes
 Depends:
-    R (>= 3.5.0),
+    R (>= 4.1.0),
     TMB
 Imports:
     readxl,

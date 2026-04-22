@@ -87,4 +87,4 @@ imult_usage()  # Displays step-by-step instructions
 
 Simon de Lestang (DPIRD, Western Australia)
 Andre Punt (University of Washington & CSIRO)
-Klaas Hartman (University of Tasmania)
+Klaas Hartmann (University of Tasmania)

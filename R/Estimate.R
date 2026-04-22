@@ -889,22 +889,17 @@ UpdateLFWeights <- function(todo='No'){
 #'
 #' @keywords internal
 .plot_trace <- function(df, current_nll) {
-
   # Which stages have >= 2 points?
   stage_order  <- unique(df$stage)
   stage_counts <- table(df$stage)
   plot_stages  <- stage_order[stage_counts[stage_order] >= 2]
   n_sub        <- length(plot_stages)
 
-  # Layout: global on top, stage panels below (if any)
-  if (n_sub > 0) {
-    layout(matrix(c(rep(1, n_sub), seq_len(n_sub) + 1),
-                  nrow = 2, byrow = TRUE),
-           heights = c(1, 1))
-  } else {
-    layout(matrix(1))
-  }
-  par(mar = c(4, 5, 2, 1))
+  n_panels <- 1 + n_sub
+  # Grid with equal-sized cells: fill row-wise
+  ncol <- min(n_panels, 3)
+  nrow <- ceiling(n_panels / ncol)
+  par(mfrow = c(nrow, ncol), mar = c(4, 5, 2, 1))
 
   # Global panel
   plot(df$eval, df$nll, type = "l", lwd = 2, col = "steelblue",
@@ -1000,7 +995,7 @@ UpdateLFWeights <- function(todo='No'){
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 3, newtonSteps = 0, PrintNll = TRUE) {
+                     nRestarts = 0, newtonSteps = 0, PrintNll = TRUE) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 

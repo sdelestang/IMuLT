@@ -886,6 +886,7 @@ UpdateLFWeights <- function(todo='No'){
 #' @return A \pkg{patchwork} plot object (or a single \code{ggplot} if no
 #'   stage qualifies for a sub-panel).
 #'
+#' @importFrom ggplot2 ggplot aes geom_line geom_point labs theme_minimal
 #' @keywords internal
 .plot_trace <- function(df, current_nll) {
 

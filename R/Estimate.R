@@ -783,7 +783,7 @@ tk_choice <- function(choices, title = "Select") {
       })
     })
   }
-  # -------------------------
+
   tkfocus(tt)
   tkwait.window(tt)
   return(tclvalue(result))
@@ -1042,10 +1042,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       yy <<- ifelse(is.na(tyy), yy, tyy)
       FnCallNo <<- FnCallNo + 1
       if (BestFn > yy) {
+        BestFn <<- yy
         if ((FnCallNo %% PrintLag) == 0) {
           cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike / Delta: ", yy, " / ",
-              round(100 * (1 - (yy / BestFn)), 6), "%; npar = ", length(x), "\n", sep = "")
-          BestFn <<- yy
+              round(100 * (1 - (yy / initBestFn)), 6), "%; npar = ", length(x), "\n", sep = "")
         }
       }
       return(tyy)
@@ -1059,9 +1059,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
 
-    # ===========================================================
+
     # Initial nlminb run
-    # ===========================================================
+
     BestFn <- model$fn(model$par)
     initBestFn <- BestFn
 
@@ -1071,16 +1071,21 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     .report_fit(mout, model, pnames, initBestFn, label = "Initial nlminb")
 
-    # ===========================================================
+
     # Sandwich restarts (final phase only)
-    # ===========================================================
+
     if (CurrPhase == MaxPhase) {
 
       for (restart in seq_len(nRestarts)) {
 
         cat("\n--- Sandwich restart", restart, "of", nRestarts, "---\n")
 
-        # ---- Step A: L-BFGS-B (or BFGS if no bounds) ----
+        # Reset progress tracking
+        FnCallNo <<- 0
+        BestFn <- model$fn(model$env$last.par.best)
+
+        # ---- Step A: L-BFGS-B ----
+        cat("  Step A: L-BFGS-B\n")
         bfgs_start <- model$env$last.par.best
 
         if (has_bounds) {
@@ -1096,12 +1101,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         }
 
         bfgs_grad <- max(abs(model$gr(fit_bfgs$par)))
-        cat("  L-BFGS-B: obj =", round(fit_bfgs$value, 6),
+        cat("  L-BFGS-B complete: obj =", round(fit_bfgs$value, 6),
             "| max|grad| =", round(bfgs_grad, 6),
             "| convergence:", fit_bfgs$convergence, "\n")
 
-        # ---- Step B: Back to nlminb from the BFGS solution ----
+        # ---- Step B: nlminb from BFGS solution ----
+        cat("  Step B: nlminb\n")
+        FnCallNo <<- 0
+        BestFn <- fit_bfgs$value
         initBestFn <- BestFn
+
         mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                        control = ctrl)
@@ -1111,15 +1120,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
         # ---- Early exit if gradient is small enough ----
         cur_grad <- max(abs(model$gr(mout$par)))
+        cat("  Restart", restart, "complete: max|grad| =", round(cur_grad, 6), "\n")
         if (cur_grad < 1e-3) {
           cat("  Gradient < 1e-3 — exiting restart loop early.\n")
           break
         }
       }
 
-      # ===========================================================
+
       # Newton polishing steps
-      # ===========================================================
+
       if (newtonSteps > 0) {
         cat("\n--- Newton polishing steps ---\n")
         newton_par <- model$env$last.par.best
@@ -1158,15 +1168,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         .report_fit(mout, model, pnames, initBestFn, label = "  Final nlminb (post-Newton)")
       }
 
-      # ===========================================================
+
       # Bound diagnostics
-      # ===========================================================
+
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
     }
 
-    # ===========================================================
+
     # Store and save parameters
-    # ===========================================================
+
     pars <- mout$par
     names(pars) <- pnames
     ParOld <- mout$par
@@ -1177,9 +1187,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     write.table(pout, paste0("Output/model", suffix, ".par"),
                 sep = '\t', col.names = c('name\test'), quote = FALSE)
 
-    # ===========================================================
+
     # Report (final phase only)
-    # ===========================================================
+
     if (report && CurrPhase == MaxPhase) {
       cat("Making report object.\n")
       print("Loading report")

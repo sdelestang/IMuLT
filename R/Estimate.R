@@ -1075,7 +1075,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       yy <<- ifelse(is.na(tyy), yy, tyy)
       FnCallNo <<- FnCallNo + 1
 
-      if (!is.na(yy) && BestFn > yy) {
+      if (!is.na(yy) && !is.na(BestFn) && BestFn > yy) {
         BestFn <<- yy
         if ((FnCallNo %% PrintLag) == 0) {
           delta <- 100 * (1 - (yy / LastPrintFn))

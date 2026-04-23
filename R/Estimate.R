@@ -1057,6 +1057,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                        DLL = "IMuLT", silent = TRUE)
 
     BestFn      <- model$fn()
+    if (is.na(BestFn)) BestFn <- Inf
     initBestFn  <- BestFn
     LastPrintFn <<- BestFn
     FnCallNo    <<- 0

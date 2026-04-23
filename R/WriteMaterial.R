@@ -239,7 +239,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         if (ThePar$Phase[Ipar] > 0)
          {
           Ipnt <- Ipnt + 1;
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Iqnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2],sep="")
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2],sep="")
           write(best[Ipnt],ParFileName,append=T)
          }
         else

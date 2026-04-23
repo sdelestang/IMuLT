@@ -897,7 +897,7 @@ UpdateLFWeights <- function(todo='No'){
 
   n_panels <- 1 + n_sub
   # Grid with equal-sized cells: fill row-wise
-  ncol <- min(n_panels, 3)
+  ncol <- min(n_panels, 2)
   nrow <- ceiling(n_panels / ncol)
   par(mfrow = c(nrow, ncol), mar = c(4, 5, 2, 1))
 

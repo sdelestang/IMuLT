@@ -1945,6 +1945,12 @@ Type objective_function<Type>::operator() ()
       ShapeMP = MparsPrior(r,1)/ScaleMP;
       MainParPriorPen += -dgamma(MainPars(r,0), ShapeMP, ScaleMP, true);
     }
+    // Log-normal prior
+    if(MparsPrior(r,0)==3){
+      Type mulog  = log(MparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(MparsPrior(r,2)/MparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(MparsPrior(r,2)/MparsPrior(r,1))));
+      MainParPriorPen += -dnorm(log(MainPars(r,0)), mulog, sdlog, true) + log(MainPars(r,0));
+    }
   }
 
   // Split MainPars out into their various groups

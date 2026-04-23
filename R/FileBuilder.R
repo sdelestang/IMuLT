@@ -360,7 +360,7 @@ print("Building Control File")
     tmp <- c(tmp, nrow(wei), "\t# set to number of individual weights defined below - 0 would define no individual weights\n")
     if(nrow(wei)>0) for(i in 1:nrow(wei)){ tmp <- c(tmp,paste(paste(wei[i,],collapse = "\t")),"\n")}
 
-    tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
+    tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
 
     mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
 

@@ -1817,6 +1817,10 @@ Type objective_function<Type>::operator() ()
   DATA_IVECTOR(MatAge); dataset.MatAge = MatAge;
   DATA_IVECTOR(MparsLink); dataset.MparsLink = MparsLink;
   DATA_MATRIX(MparsPrior); dataset.MparsPrior = MparsPrior;
+  DATA_IVECTOR(RecparsLink); dataset.RecparsLink = RecparsLink;
+  DATA_MATRIX(RecparsPrior); dataset.RecparsPrior = RecparsPrior;
+  DATA_IVECTOR(SelparsLink); dataset.SelparsLink = SelparsLink;
+  DATA_MATRIX(SelparsPrior); dataset.SelparsPrior = SelparsPrior;
   DATA_INTEGER(InitOpt); dataset.InitOpt = InitOpt;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;

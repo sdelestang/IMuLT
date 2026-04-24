@@ -15,14 +15,15 @@ evaluations), \code{nll} (negative log-likelihood), and \code{stage}
 the global panel title.}
 }
 \value{
-A \pkg{patchwork} plot object (or a single \code{ggplot} if no
-stage qualifies for a sub-panel).
+Called for its side effect (drawing to the active graphics device).
+Returns \code{invisible(NULL)}.
 }
 \description{
-Constructs a multi-panel \pkg{ggplot2}/\pkg{patchwork} figure showing
-optimisation progress. The top panel shows the full history of the negative
-log-likelihood across all phases and restarts. Below it, any optimisation
-stage that recorded two or more print points gets its own sub-panel,
-arranged side by side in chronological order.
+Constructs a multi-panel base-graphics figure showing optimisation progress.
+The top panel shows the full history of the negative log-likelihood across
+all phases and restarts. Below it, any optimisation stage that recorded two
+or more print points gets its own sub-panel, arranged side by side in
+chronological order. Uses \code{\link[graphics]{layout}} for the panel
+structure.
 }
 \keyword{internal}

@@ -67,12 +67,13 @@ using the full Hessian are attempted after the sandwich restarts, followed
 by a final nlminb call.
 
 \strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
-\pkg{ggplot2}/\pkg{patchwork} figure is updated every \code{PrintLag}
-function evaluations. The top panel shows the full optimisation history
-across all phases and restarts. Below it, any stage (phase or restart)
-that accumulates two or more print points receives its own sub-panel,
-arranged side by side in chronological order. A red dot marks the current
-best value.
+base-graphics figure is updated every \code{PrintLag} function evaluations
+using \code{\link[grDevices]{dev.hold}}/\code{\link[grDevices]{dev.flush}}
+for flicker-free rendering. The top panel shows the full optimisation
+history across all phases and restarts. Below it, any stage (phase or
+restart) that accumulates two or more print points receives its own
+sub-panel, arranged side by side in chronological order. A red dot marks
+the current best value.
 
 \strong{Prior penalties:} The model supports normal (type 1) and gamma
 (type 2) priors on main parameters via \code{MparsPrior}. Gamma priors

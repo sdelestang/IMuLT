@@ -1924,8 +1924,8 @@ Type objective_function<Type>::operator() ()
   //for(int Iarea=0;Iarea<Narea;Iarea++){ if(BurnIn<BurnInVec(Iarea)) BurnIn=BurnInVec(Iarea); }
   //dataset.BurnIn=BurnIn;
 
-  // Deal with mainpars
-    // Adjust main parameters to account for linked parameters
+  ////// Deal with mainpars ///////
+  // Adjust main parameters to account for linked parameters
   for(int mp=0;mp<MparsLink.size();mp++){
     if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1); }
 
@@ -1952,6 +1952,62 @@ Type objective_function<Type>::operator() ()
       MainParPriorPen += -dnorm(log(MainPars(r,0)), mulog, sdlog, true) + log(MainPars(r,0));
     }
   }
+
+  //// Deal with Recruitment Pars  ///////
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<RecparsLink.size();mp++){
+    if(RecparsLink(mp)>0) RecruitPars(mp)=RecruitPars(RecparsLink(mp)-1); }
+
+  // Apply priors on Rec Pars if requested
+  Type RecParPriorPen = 0;
+  int nrowRP = RecparsPrior.rows();
+  for (int r=0; r<nrowRP; r++) {
+    // Normal prior
+    if(RecparsPrior(r,0)==1){
+      RecParPriorPen += -dnorm(RecruitPars(r,0), RecparsPrior(r,1), RecparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(RecparsPrior(r,0)==2){
+      ScaleMP = square(RecparsPrior(r,2))/RecparsPrior(r,1);
+      ShapeMP = RecparsPrior(r,1)/ScaleMP;
+      RecParPriorPen += -dgamma(RecruitPars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(RecparsPrior(r,0)==3){
+      Type mulog  = log(RecparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(RecparsPrior(r,2)/RecparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(RecparsPrior(r,2)/RecparsPrior(r,1))));
+      RecParPriorPen += -dnorm(log(RecruitPars(r,0)), mulog, sdlog, true) + log(RecruitPars(r,0));
+    }
+  }
+
+
+  //// Deal with Selectivity Pars  ///////
+  // Adjust  parameters to account for linked parameters
+  for(int mp=0;mp<SelparsLink.size();mp++){
+    if(SelparsLink(mp)>0) SelPars(mp)=SelPars(SelparsLink(mp)-1); }
+
+  // Apply priors on Select Pars if requested
+  Type SelParPriorPen = 0;
+  int nrowSP = SelparsPrior.rows();
+  for (int r=0; r<nrowSP; r++) {
+    // Normal prior
+    if(SelparsPrior(r,0)==1){
+      SelParPriorPen += -dnorm(SelPars(r,0), SelparsPrior(r,1), SelparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(SelparsPrior(r,0)==2){
+      ScaleMP = square(SelparsPrior(r,2))/SelparsPrior(r,1);
+      ShapeMP = SelparsPrior(r,1)/ScaleMP;
+      SelParPriorPen += -dgamma(SelPars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(SelparsPrior(r,0)==3){
+      Type mulog  = log(SelparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(SelparsPrior(r,2)/SelparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(SelparsPrior(r,2)/SelparsPrior(r,1))));
+      SelParPriorPen += -dnorm(log(SelPars(r,0)), mulog, sdlog, true) + log(SelPars(r,0));
+    }
+  }
+
 
   // Split MainPars out into their various groups
   Rbar = MainPars(0);
@@ -2500,7 +2556,7 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalities
-  neglogL += MainParPriorPen;
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen;
 
   // Now do projections
   if (DoProject==1)
@@ -2619,6 +2675,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(GrowthOut);
     REPORT(CpueEcreep);
     REPORT(MainParPriorPen);
+    REPORT(RecParPriorPen);
+    REPORT(SelParPriorPen);
 
     }
 

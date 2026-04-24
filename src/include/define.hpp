@@ -43,7 +43,6 @@ struct dataSet{
   vector <int> Narea_fleet;
   matrix <int> Area_fleet;
   array <int> SelPnt;
-  vector <int> SelparsLink;
   array <int> RetPnt;
   array <int> LegalFleetPnt;
   array <int> SelPntFut;
@@ -81,6 +80,10 @@ struct dataSet{
   array<Type> MatFem;
   vector <int> MparsLink;
   matrix <Type> MparsPrior;
+  vector <int> RecparsLink;
+  matrix <Type> RecparsPrior;
+  vector <int> SelparsLink;
+  matrix <Type> SelparsPrior;
   int InitOpt;
   Type Bias_Ramp_Yr1;
   Type Bias_Ramp_Yr2;

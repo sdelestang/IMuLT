@@ -787,16 +787,16 @@ print("Building Control File")
     recdist <- recdist[1:nsizecomp,]
     for(i in 1:nrow(recdist)){ tmp <- c(tmp,paste(recdist[i,],collapse = "\t"),"\n")  }
 
-    tmp <- c(tmp, "\n#  Recuitment1 parameters\n#Lower\tUpper\tEstimate\tPhase::\t Number of recruitment fraction parameters must match Number of pre-specified recruitment functions above.\n")
+    tmp <- c(tmp, "\n#  Recuitment1 parameters\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd::\t Number of recruitment size parameter pairs (mean+sd) must match Number of pre-specified recruitment functions above.\n")
 
-    rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
+    rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,link,useprior,mnprior,sdprior,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
     npars <- length(unique(areas$AreaCode))+nsizecomp*2
     if(nrow(rec)!=npars) warning("Number of recruitment pars for size at recruitment does not match recruitment areas defined in Area tab. \nThey have been truncated.")
     rec <- rec[i:npars,]
     for(a in 1:nrow(rec)){ tmp <- c(tmp, paste(rec[a,],collapse='\t'), "\n")  }
 
     # Bias ramp
-    tmp <- c(tmp, "\n# Bias ramp - insert description here\n",paste(c(startseason, startseason+2, endseason-5, endseason-1),collapse = "\t"),"\t#description\tdescription\tdescription\tdescription\n")
+    tmp <- c(tmp, "\n# Bias ramp - insert description here\n",paste(c(startseason, startseason, endseason, endseason),collapse = "\t"),"\t#description\tdescription\tdescription\tdescription\n")
 
     if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 3)))){
       puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))
@@ -902,8 +902,9 @@ for(p in pars){
     code <- cbind(Selid,Semat)
     for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
 
-    tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower Upper Estimate Phase ParLink ID\n")
-    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,parlink,hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(parlink==0,phase, -abs(phase)))
+    tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, ParLink, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
+
+    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,parlink,parlink, useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(parlink==0,phase, -abs(phase)))
     ## Now make the multiple links
     tegapparog <- tegappar
     for(p in pars){

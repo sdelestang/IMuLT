@@ -1229,6 +1229,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   # Selectivity parameters linking conditions
   Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+2;
   SelparsLink <- as.numeric(SelexFile[(Index):(Index+NselPars-1),5])
+  SelparsPrior <- apply(as.matrix(SelexFile[(Index):(Index++NselPars-1),6:8]),2,as.numeric)
 
   # Fixed selectivity
   Index <- MatchTable(SelexFile,Char1="#",Char2="selectivity",Char3=NULL)+1;
@@ -1371,6 +1372,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   ReturnObj$SelSpec <- SelSpec
   ReturnObj$SelPnt <- SelPnt
   ReturnObj$SelparsLink <- SelparsLink
+  ReturnObj$SelparsPrior <- SelparsPrior
   ReturnObj$SelexFI <- SelexFI
   ReturnObj$NselPars <- NselPars
   ReturnObj$NfixedSelex <- NfixedSelex
@@ -1638,6 +1640,11 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
    write("Fixed recruitment patterns",EchoFile,append=T)
    write(t(RecruitFrac),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
+   # REcruitment Parameters linking conditions
+   Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
+   npars <- GeneralSpecs$Narea+(CalcRecruitFrac*2)
+   RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
+   RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
 
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Bias",Char3="ramp")+1;
   Bias_Ramp_Yr1 <- as.numeric(RecruitFile[Index,1])-GeneralSpecs$Year1;
@@ -1659,6 +1666,8 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   ReturnObj$NrecruitPars <- NrecruitPars
   ReturnObj$NfixedRecruits <- NfixedRecruits
   ReturnObj$CalcRecruitFrac <- CalcRecruitFrac
+  ReturnObj$RecparsLink <- RecparsLink
+  ReturnObj$RecparsPrior <- RecparsPrior
   ReturnObj$Bias_Ramp_Yr1  <- Bias_Ramp_Yr1;
   ReturnObj$Bias_Ramp_Yr2  <- Bias_Ramp_Yr2;
   ReturnObj$Bias_Ramp_Yr3  <- Bias_Ramp_Yr3;

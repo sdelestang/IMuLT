@@ -1781,7 +1781,6 @@ Type objective_function<Type>::operator() ()
   DATA_IVECTOR(Narea_fleet); dataset.Narea_fleet=Narea_fleet;
   DATA_IMATRIX(Area_fleet); dataset.Area_fleet=Area_fleet;
   DATA_IARRAY(SelPnt); dataset.SelPnt = SelPnt;
-  DATA_IVECTOR(SelparsLink); dataset.SelparsLink=SelparsLink;
   DATA_IARRAY(RetPnt); dataset.RetPnt = RetPnt;
   DATA_IARRAY(LegalFleetPnt); dataset.LegalFleetPnt = LegalFleetPnt;
   DATA_IARRAY(SelPntFut); dataset.SelPntFut = SelPnt;
@@ -2054,9 +2053,6 @@ Type objective_function<Type>::operator() ()
    dataset.RecruitFrac = RecruitFrac;
    }
 
-  // Set up selectivity parameters that need to swap around due to linkages.
-  for(int sp=0;sp<SelparsLink.size();sp++){
-    if(SelparsLink(sp)>0) SelPars(sp)=SelPars(SelparsLink(sp)-1); }
 
   // Local variables
   Type        neglogL;                                                                     // Negative log likelihood

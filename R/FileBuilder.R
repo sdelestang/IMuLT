@@ -529,8 +529,13 @@ print("Building Control File")
 
     ## Multiple Spawn
     spawn <- repo %>% filter(Type==3) %>% ungroup() %>% mutate(pos = row_number()) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(Startseason, Sex, area) %>% as.data.frame()
-    if(nrow(spawn)==0) {spawn <- data.frame(Type=3, Sex=0, Minage=0, Startseason=startseason, Endseason=endseason, area=sort(unique(areas$AreaCode)), par_a=1, par_b= -0.1, par_c=1, Years=paste0(startseason,'-',endseason), pos=1)}
-    spawnspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==3]-1),Par_a=repo$par_a[repo$Type==3],Par_b=repo$par_b[repo$Type==3],Par_c=repo$par_c[repo$Type==3],hash='#',Area=repo$area[repo$Type==3], Years=repo$Years[repo$Type==3])
+    if(nrow(spawn)>0) {
+      spawnspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==3]-1),Par_a=repo$par_a[repo$Type==3],Par_b=repo$par_b[repo$Type==3],Par_c=repo$par_c[repo$Type==3],hash='#',Area=repo$area[repo$Type==3], Years=repo$Years[repo$Type==3])
+    }
+    if(nrow(spawn)==0) {
+      spawn <- data.frame(Type=3, Sex=0, Minage=0, Startseason=startseason, Endseason=endseason, area=sort(unique(areas$AreaCode)), par_a=1, par_b= -0.1, par_c=1, Years=paste0(startseason,'-',endseason), pos=1)
+      spawnspec <- data.frame(Pointer=0:(nrepo$num[nrepo$Type==1]-1),Par_a=1,Par_b=-1,Par_c=1,hash='#',Area=repo$area[repo$Type==1], Years=repo$Years[repo$Type==1])
+    }
     dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1)
     dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
     for(r in 1:nrow(spawn)){

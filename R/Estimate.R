@@ -1056,6 +1056,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     model <- MakeADFun(Data, parameters, map = RunSpecs$map,
                        DLL = "IMuLT", silent = TRUE)
 
+    model$par <- RunSpecs$EstVec
     BestFn      <- model$fn()
     if (is.na(BestFn)) BestFn <- Inf
     initBestFn  <- BestFn
@@ -1096,8 +1097,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       }
       return(tyy)
     }
-
-    model$par <- RunSpecs$EstVec
 
     # ---- Control list used throughout ----
     ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,

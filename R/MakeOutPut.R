@@ -7,10 +7,10 @@
 #' @param is95 Logical indicating whether to use 95% confidence intervals (TRUE)
 #'   or 68% confidence intervals (FALSE, approximately ±1 SE). Default is TRUE
 #'
-#' @param folder_name The name for the folder to contain the outputs (inside Summary). 
+#' @param folder_name The name for the folder to contain the outputs (inside Summary).
 #' If omitted or left blank it will revert to the default behaviour of storing outputs
 #' in 'summary/result/'.
-#' 
+#'
 #' @param openfile Whether to open the html file on completion. Default TRUE
 #'
 #' @return Invisibly returns NULL. Side effects include:
@@ -131,28 +131,32 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ddir <- filenametopath(getwd(),"")
   indir <- filenametopath(ddir,"Summary")
 
-  if (folder_name=='')
-  {
-    #Original default behaviour
-    
-    rundir <- filenametopath(indir,"result") # define directory for results
-  
-    f <- list.files(rundir, include.dirs = F, full.names = T, recursive = T) ## List all files in result
-  
-    Archive <-  toupper(dlg_input('Archive pervious model run? (Y or N)')$res)
-  
-    if(length(f)>0){
-      ctime <- gsub(' ','',gsub(".","",format( Sys.time(), '%Y.%m.%d %H.%M'), fixed=T))
-      if(Archive=='Y'){
-        rundirA <- paste0(indir,'/archive', ctime)
-        invisible(dir.create(rundirA))
-        invisible(file.copy(rundir,rundirA, recursive = T))
-        print("Archived old report")}
-      suppressWarnings(invisible(file.remove(f)))
+  if (folder_name == '') {
+    # Ask what to call this run
+    run_name <- dlg_input("Name for this model run (blank = 'result'):")$res
+    if (run_name == '') run_name <- 'result'
+
+    rundir <- filenametopath(indir, run_name)
+
+    # Only ask about archiving if that folder already exists with files
+    if (dir.exists(rundir)) {
+      f <- list.files(rundir, include.dirs = FALSE, full.names = TRUE, recursive = TRUE)
+      if (length(f) > 0) {
+        Archive <- toupper(dlg_input(
+          paste0("'", run_name, "' already exists. Archive it first? (Y or N)")
+        )$res)
+        if (Archive == 'Y') {
+          ctime <- gsub(' ', '', gsub(".", "", format(Sys.time(), '%Y.%m.%d %H.%M'), fixed = TRUE))
+          rundirA <- paste0(indir, '/archive', ctime)
+          invisible(dir.create(rundirA))
+          invisible(file.copy(rundir, rundirA, recursive = TRUE))
+          print("Archived old report")
+        }
+        suppressWarnings(invisible(file.remove(f)))
+      }
     }
-  } else 
-  {
-    rundir <- filenametopath(indir,folder_name) # define directory for results
+  } else {
+    rundir <- filenametopath(indir, folder_name)
   }
 
   dirExists(rundir,verbose=TRUE)  ## This makes it

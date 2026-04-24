@@ -768,6 +768,7 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
 
     rec <- areas %>% group_by(AreaCode) %>% summarise(area=mean(recruitarea)-1)
+    nsizecomp <- length(unique(rec$area))
     tmp <- c(tmp, "\n# Recruit by area\n",paste(rec$area,collapse = "\t"),"\n")
 
     rec <- readWorkbook(wb,sheet='Recruitment', startRow = 2)
@@ -781,11 +782,17 @@ print("Building Control File")
 
     recdist <- rec %>% dplyr::select(starts_with('Prespecified'))
     recdist <- recdist[!is.na(recdist[,1]),]
+    ## Trim in case more info has been added but we want only have minimal size dist for recruitment, i.e. same size comp for all areas
+    if(nrow(recdist)!=nsizecomp) warning("Number of predetermined size at recruitment does not match recruitment areas defined in Area tab. \nThey have been truncated.")
+    recdist <- recdist[1:nsizecomp,]
     for(i in 1:nrow(recdist)){ tmp <- c(tmp,paste(recdist[i,],collapse = "\t"),"\n")  }
 
     tmp <- c(tmp, "\n#  Recuitment1 parameters\n#Lower\tUpper\tEstimate\tPhase::\t Number of recruitment fraction parameters must match Number of pre-specified recruitment functions above.\n")
 
     rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
+    npars <- length(unique(areas$AreaCode))+nsizecomp*2
+    if(nrow(rec)!=npars) warning("Number of recruitment pars for size at recruitment does not match recruitment areas defined in Area tab. \nThey have been truncated.")
+    rec <- rec[i:npars,]
     for(a in 1:nrow(rec)){ tmp <- c(tmp, paste(rec[a,],collapse='\t'), "\n")  }
 
     # Bias ramp

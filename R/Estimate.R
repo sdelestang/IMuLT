@@ -845,13 +845,16 @@ tk_choice <- function(choices, title = "Select") {
 UpdateLFWeights <- function(todo='No'){
   library(dplyr); library(magrittr)
   if(todo=='Yes'){
-    tmp  <- read.csv(paste0(getwd(),"/Output/Summary/result/Tuning.csv"))
+    dirs <- list.dirs("Output/Summary", recursive = FALSE)
+    newest <- dirs[which.max(file.info(dirs)$mtime)]
+    file.name <- paste0("Output/Summary/",basename(newest),"/Tuning.csv")
+    tmp  <- read.csv(file.name)
     # open Control file and find weightings
     DataFile <- read.table('CONTROL.DAT',comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
     ## Find the length freqs weights
     pos1 <- which(grepl('Weights',DataFile[,2]) & grepl('by',DataFile[,3]))
     pos2 <- which(grepl('Basic',DataFile[,2]) & grepl('parameters',DataFile[,3]))
-    pos3 <- which(grepl('3',DataFile[,1]))
+    pos3 <- which(grepl('3',DataFile[,1]) & nchar(DataFile[,1])==1)
     posall <- pos3[pos3>pos1 & pos3<pos2]
     if(length(posall)!=nrow(tmp)) {
       stop("Predetermined weights do not match length compositions")  # Changed!

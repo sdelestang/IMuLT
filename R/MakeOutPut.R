@@ -1381,7 +1381,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       tlb <- lb[lb$area==i,]
       mxY <- ceiling(max(tlb$estM))
       tlb <- lb[lb$sex==c('F','M')[1] & lb$area==i,]
-      suppressWarnings(plot(tlb$Year, tlb$estM, type='o', axes=F, pch=16, cex=0.9,ylab='Biomass >76 (1000s t)', xlab='Season', main=paste('Area ',i), ylim=c(0,mxY), col='red'))
+      suppressWarnings(plot(tlb$Year, tlb$estM, type='o', axes=F, pch=16, cex=0.9,ylab='Biomass >76 (t)', xlab='Season', main=paste('Area ',i), ylim=c(0,mxY), col='red'))
       tlb <- lb[lb$sex==c('F','M')[2] & lb$area==i,]
       suppressWarnings(lines(tlb$Year, tlb$estM, type='o', col='blue', pch=16, cex=0.9))
       axis(1)

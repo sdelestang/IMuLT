@@ -74,7 +74,10 @@ LoadData()
 LoadPars()
 
 FitModel(500, 3000, report = TRUE)
-MakeDiagReport(is95 = FALSE)
+MakeDiagReport(is95 = TRUE)
+
+# To compare multi model runs
+compare_legal_biomass()
 ```
 
 For quick reference anytime:

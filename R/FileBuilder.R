@@ -768,7 +768,7 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
 
     rec <- areas %>% group_by(AreaCode) %>% summarise(area=mean(recruitarea)-1)
-    nsizecomp <- length(unique(rec$area))
+    nsizecomp <- length(unique(rec$area))*length(sexs)
     tmp <- c(tmp, "\n# Recruit by area\n",paste(rec$area,collapse = "\t"),"\n")
 
     rec <- readWorkbook(wb,sheet='Recruitment', startRow = 2)
@@ -943,7 +943,7 @@ for(p in pars){
     tmp <- c(tmp, "\n# Specifications for Fleet legal assignment\n#Sex\tAge\tFleet\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
 
     gauge3 <- gauge[,1:which(colnames(gauge)=='IsConstantLegal')] %>% mutate(Sex=ifelse(Sex=='F',1, ifelse(Sex=='M',2,Sex)))
-    if(sexs==0) gauge3$Sex <- 1 ## Handle if only a one sex model
+    if(length(sexs)==1) gauge3$Sex <- 1 ## Handle if only a one sex model
 
     ## Expand gauge3 if there are common fleets/ages or timesteps
     gauge3 <- gauge3 %>%  tidyr::separate_rows(Fleet, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(Age, sep = ",", convert = TRUE) %>%  tidyr::separate_rows(TimeStep, sep = ",", convert = TRUE) %>% arrange(pos)
@@ -1003,9 +1003,7 @@ for(r in 1:nrow(gauge4)){
 
     tmp <- c(tmp, "\n# Reference selectivity pattern (This is to set a constant Legal definition)\n")
     ## Set Base LegalBiomass to Legal definition of a male in 1992 which is a min CL of 76 mm
-    if(nsex==1){
       conslb <- gauge2[gauge3$pos[gauge3$IsConstantLegal==1],][1,]
-    }
 
     if(nsex==2) {
       conslb <- rbind(conslb,conslb)

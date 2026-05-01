@@ -173,8 +173,14 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   library(tidyr)
   library(dplyr)
   library(magrittr)
+
+  oldwd <- getwd()
+  on.exit(setwd(oldwd), add = TRUE)
+
   files <- list.files()
-  if(max(files=='Output')==1) { setwd(paste(getwd(), "/Output",sep=""))  }
+  if (max(files == 'Output') == 1) {
+    setwd(file.path(getwd(), "Output"))
+  }
 
   write.table(fullrep,'SDReport.RL',sep=' ', quote=F)
   stdrep <- fullrep
@@ -803,7 +809,6 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
           Nout[Ipnt,(6:(5+GeneralSpecs$MaxLen))] <- Report$N[Iarea,Iyear,Istep,Isex,Iage,]
          }
   write(t(round(Nout,1)),OutputFile,append=T,ncol=ncol)
-  setwd(dirname(getwd()))
 
 }
 

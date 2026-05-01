@@ -105,6 +105,7 @@ SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
     ReturnObj$estVec <- estVec
     ReturnObj$lowBnd <- lowBnd
     ReturnObj$uppBnd <- uppBnd
+    ReturnObj$Est <- Est
     return(ReturnObj)
   }  # SinglePhase
 
@@ -118,6 +119,7 @@ SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
       {
         ThePar <- InitialVars[[ParName]]
         PhaseOut <- SinglePhase(ThePar$Initial,ThePar$Bnd,ThePar$Phase,CurrPhase)
+        parameters[[ParName]] <- PhaseOut$Est
         map <- append(map,list(ParName=PhaseOut$map))
         estvec <- c(estvec,PhaseOut$estVec)
         lowBnd <- c(lowBnd,PhaseOut$lowBnd)
@@ -1039,8 +1041,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     )
 
     # Set parameters and mapping
-    RunSpecs <- SetInitialAndPhases(ParOld, parameters, InitialVars,
-                                    CurrPhase = CurrPhase)
+    RunSpecs <- SetInitialAndPhases(ParOld, parameters, InitialVars,CurrPhase = CurrPhase)
+    parameters <- RunSpecs$parameters
 
     ## Identify active parameters
     pnames <- names(unlist(RunSpecs$map)[!is.na(unlist(RunSpecs$map))])
@@ -1288,10 +1290,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         Gradient   = abs(model$gr(best))
       )
 
-      if (max(list.files() == "Output") == 1) {
-        setwd(paste0(getwd(), "/Output"))
-      }
-      save(BigSave, file = "BigSave.lda")
+      save(BigSave, file = "Output/BigSave.lda")
 
       print("making Output.RL")
       WriteOutput(Report, SDrep, fullrep, parameters, pout,

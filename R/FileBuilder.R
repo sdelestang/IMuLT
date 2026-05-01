@@ -133,7 +133,7 @@ lensPlus1 <- c(lens, (lens[2]-lens[1])+tail(lens,1))
 
 ## Make data input of new RL model
 tmp <- list()
-tmp <- c(tmp, "# Lobster Data Set", "\n", "# First year of the assessment")
+tmp <- c(tmp, "# Data Set", "\n", "# First year of the assessment")
 
 #get latest catch and effort data
 dat <- readWorkbook(wb,sheet='Catch', startRow = 2)
@@ -142,7 +142,8 @@ tmp <- c(tmp,"\n", startseason, "\n# Last year of the assessment\n", endseason,"
 
 bin <- areas %>% group_by(AreaCode) %>% summarise(av=floor(mean(burn_in)))
 
-tmp <- c(tmp, "\n# Burn-in\n", paste(bin$av,collapse=' '),
+tmp <- c(tmp, "\n# Burn-in whole model\n", burnin,
+         "\n# Burn-in for F by area\n", paste(bin$av,collapse=' '),
          "\n# Time steps per year\n", max(times$tstep),
          "\n# Number of areas of data included in the file\n", max(areas$AreaCode ),
          "\n# Number of sexes\n",length(unique(sexs)),

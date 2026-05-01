@@ -66,7 +66,7 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
   # Full folder names and short labels for plotting
   full_names <- basename(all_dirs)
   run_labels <- vapply(full_names, function(nm)
-    substr(nm, max(1, nchar(nm) - 5), nchar(nm)),
+    substr(nm, max(1, nchar(nm) - 10), nchar(nm)),
     character(1), USE.NAMES = FALSE)
   if (anyDuplicated(run_labels)) run_labels <- full_names
 

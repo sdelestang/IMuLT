@@ -112,8 +112,8 @@ ReadStarterFile <- function(StarterFile)
 #'   \item MaxLen - Maximum number of size classes across sexes
 #'   \item Nlen - Vector of size classes per sex
 #'   \item TimeStepLen - Matrix of time step proportions (year × step)
-#'   \item BurnIn - Maximum burn-in period across areas
-#'   \item BurnInVec - Vector of burn-in periods by area
+#'   \item BurnIn - Maximum burn-in period across areas > BurnIn - BurnInVec are years with No F but moving to equlibrium population
+#'   \item BurnInVec - Vector of burn-in periods by area that experiance F
 #'   \item Num_Iteration - Iterations for initial size structure
 #'   \item Tune_Years - Years to tune initial conditions over
 #'   \item MidLenBin - Matrix of midpoints of size classes (sex × size)
@@ -141,10 +141,10 @@ ReadGeneralFile <- function(DataFile)
   write(paste("Number of time steps",Nstep),EchoFile,append=T)
   Index <- MatchTable(DataFile,Char1="#",Char2="Number",Char3="of",Char4="areas"); Narea <- as.numeric(DataFile[Index+1,1])
   write(paste("Number of areas",Narea),EchoFile,append=T)
-  Index <- MatchTable(DataFile,Char1="#",Char2="Burn-in"); BurnIn <- max(as.numeric(DataFile[Index+1,1:Narea]), na.rm=T)
-  write(paste("Max length of burn-in",BurnIn),EchoFile,append=T)
-  Index <- MatchTable(DataFile,Char1="#",Char2="Burn-in"); BurnInVec <- as.numeric(DataFile[Index+1,1:Narea]); BurnIn <- max(BurnInVec)
-  write(paste("Area specific length of burn-in",BurnInVec),EchoFile,append=T)
+  Index <- MatchTable(DataFile,Char1="#",Char2="Burn-in",Char3="whole"); BurnIn <- as.numeric(DataFile[Index+1,1])
+  write(paste("Burn-in full model",BurnIn),EchoFile,append=T)
+  Index <- MatchTable(DataFile,Char1="#",Char2="Burn-in",Char3="for"); BurnInVec <- as.numeric(DataFile[Index+1,1:Narea]);
+  write(paste("Area specific length of burn-in for F to be applied",BurnInVec),EchoFile,append=T)
   Index <- MatchTable(DataFile,Char1="#",Char2="Number",Char3="of",Char4="sexes"); Nsex <- as.numeric(DataFile[Index+1,1])
   write(paste("Number of sexes",Nsex),EchoFile,append=T)
   Index <- MatchTable(DataFile,Char1="#",Char2="Number",Char3="of",Char4="ages"); Nage <- as.numeric(DataFile[Index+1,1])

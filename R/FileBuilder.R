@@ -319,8 +319,7 @@ print("Building Control File")
       gauge <- rbind(gauge, gauge2)
     }
     gauge %<>% tidyr::separate_rows(Fleet, sep = ",", convert = TRUE)
-    key_cols <- c("StartSeason", "EndSeason", "Fleet", "Age", "DiscardMortality")
-    gauge %<>% group_by(across(all_of(c("StartSeason", "EndSeason", "Fleet", "Age", "DiscardMortality")))) %>%
+    gauge %<>% group_by(across(all_of(c("StartSeason", "EndSeason", "Fleet", "Age")))) %>%
       filter(n() == 1 | primary == 1) %>% ungroup() %>% dplyr::select(-primary)
 
     dat2 <- matrix(gauge$DiscardMortality[1], nrow=nrow(dat), ncol=length(startseason:endseason))

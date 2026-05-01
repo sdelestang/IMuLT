@@ -309,7 +309,24 @@ print("Building Control File")
     tmp <- c(tmp, "\n# Discard mortality\n#Age\tFleet\ttstep\t",paste(startseason:endseason,collapse = "\t"),'\n')
     dat <- expand.grid(age=(1:ages)-1, fleet=sort(unique(fleets$fleet))-1, step=sort(unique(times$tstep))-1)
     dat %<>% arrange(age,fleet,step)
-    dat2 <- matrix(0.05, nrow=nrow(dat), ncol=length(startseason:endseason))
+
+    # Get discard mortality rate
+    gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>%  dplyr::select(StartSeason,EndSeason,Fleet,Age,DiscardMortality) %>% mutate(StartSeason=ifelse(StartSeason=='X', startseason, StartSeason),EndSeason=ifelse(EndSeason=='X', endseason, EndSeason), Age=ifelse(Age=='X',paste(ages,collapse=','),Age), primary=1)
+    gauge2 <- gauge %>% filter(Fleet=='X')
+    if(nrow(gauge2)>0){
+      gauge %<>% filter(Fleet!='X')
+      gauge2 %<>% mutate(Fleet=ifelse(Fleet=='X', paste(fleets$fleet,collapse=','), Fleet), primary=2)
+      gauge <- rbind(gauge, gauge2)
+    }
+    gauge %<>% tidyr::separate_rows(Fleet, sep = ",", convert = TRUE)
+    key_cols <- c("StartSeason", "EndSeason", "Fleet", "Age", "DiscardMortality")
+    gauge %<>% group_by(across(all_of(c("StartSeason", "EndSeason", "Fleet", "Age", "DiscardMortality")))) %>%
+      filter(n() == 1 | primary == 1) %>% ungroup() %>% dplyr::select(-primary)
+
+    dat2 <- matrix(gauge$DiscardMortality[1], nrow=nrow(dat), ncol=length(startseason:endseason))
+    for(r in seq_len(nrow(gauge))){
+      dat2[dat$age==(as.numeric(gauge$Age[r])-1) & dat$fleet==(as.numeric(gauge$Fleet[r])-1),  (startseason:endseason)%in%(gauge$StartSeason[r]:gauge$EndSeason[r])] <- gauge$DiscardMortality[r]
+        }
     dat <- cbind(dat,dat2)
     for(i in 1:nrow(dat)){ tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
@@ -935,7 +952,7 @@ for(p in pars){
 
     for(i in 1:nrow(gauge)){ tmp <- c(tmp, paste(gauge[i,], collapse = "\t"), "\n")    }
     gauge <- readWorkbook(wb,sheet='Retention', startRow = 2)
-    Pos <- which(colnames(gauge)=='IsConstantLegal')+1
+    Pos <- which(colnames(gauge)=='DiscardMortality')+1
     gauge2 <- gauge[,Pos:ncol(gauge)]
     tmp <- c(tmp, "\n# legal patterns\n", nrow(gauge2),"\n")
     for(i in 1:nrow(gauge2)){ tmp <- c(tmp, paste(round(as.numeric(gauge2[i,]),4), collapse = "\t"),"\n")}

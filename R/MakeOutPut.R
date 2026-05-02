@@ -344,7 +344,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   init <- init[!is.na(init)]
   txt <- paste('Initiation option is ', init,'.\n', sep='')
 
-  ttxt1 <- findNclean(c('#','Burn-in'), lbin1, 1, T); txt2 <- paste('Burn-in years: ', paste(ttxt1, collapse=' '),'.\n', sep='')
+  ttxt1 <- findNclean(c('#','Burn-in', 'whole'), lbin1, 1, T); txt2 <- paste('Initiate model years: ', paste(ttxt1, collapse=' '),'.\n', sep='')
+  ttxt1.1 <- findNclean(c('#','Burn-in', 'for'), lbin1, 1, T); txt2.1 <- paste('Burn-in years: ', paste(ttxt1.1, collapse=' '),'.\n', sep='')
+
   ttxt2 <- findNclean(c('#','Loop', 'counter'), lbin1, 1); txt3 <- paste('Loops to refine initial F: ', ttxt2,'.\n', sep='')
   ttxt3 <- findNclean(c('#','Years','over'), lbin1, 1, T); txt4 <- paste('Number of years to base initial F on: ', paste(ttxt3, collapse=' '),'\n', sep='')
 
@@ -1495,7 +1497,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   txt5 <- "Built by Simon de Lestang and Andre Punt"
 
-  runnotes <- matrix(c(txt,txt2,txt3,txt4,txt5), nrow=5)
+  runnotes <- matrix(c(txt,txt2,txt2.1,txt3,txt4,txt5), nrow=5)
 
   endtime <- as.character(Sys.time())
 

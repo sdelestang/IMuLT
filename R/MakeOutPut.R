@@ -403,16 +403,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   adat %<>% mutate(id3 = paste(id,type))
 
   filename <- filenametopath(rundir,"DataIn.png")
-  plotprep(width=12, height=10, filename=filename, cex=1, verbose=FALSE)
-  parset(plots=c(1,1), mar=c(3, 8, 1, 8))
+  plotprep(width=14, height=10, filename=filename, cex=1, verbose=FALSE)
+  parset(plots=c(1,1), margin=c(0.45, 1.8, 0.15, 1.8))
 
   plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8,
        axes=FALSE, xlab='', ylab='', xlim=range(adat$time, na.rm=TRUE))
-
-  # Horizontal gridlines to help track rows
   abline(h=1:max(adat$yax), col="grey85", lty=1)
-
-  # Re-plot points on top of gridlines
   points(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8)
 
   lab1 <- lab %>% group_by(source, type, id1) %>% summarise(mnpos1=mean(order))

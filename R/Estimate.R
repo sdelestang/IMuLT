@@ -1323,9 +1323,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   Grad   <- abs(model$gr(mout$par))
   badpar <- paste0("[", pnames[Grad == max(Grad)], "]")
   cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
-      "| Convergence:", ifelse(mout$convergence == 0, "Yes", "No"),
-      "(", mout$convergence, ")",
-      "| Max|grad| [par]:", round(max(Grad), 6), badpar,
+      "| Max grad [par]:", round(max(Grad), 6), badpar,
       "| Iter:", mout$iterations,
       "| Eval:", mout$evaluations, "\n")
 }
@@ -1366,6 +1364,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
     cat("  If these have large gradients, use a prior, widen the bound or fix via map.\n\n")
   } else {
-    cat("\n  No parameters at bounds.\n")
+    cat("\n  No parameters at bounds.:) \n\n")
   }
 }

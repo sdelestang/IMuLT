@@ -401,15 +401,26 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   adat$Col <- lab$Col[match(adat$id2, lab$unid)]
   adat$yax <- match(adat$id2,unid)
   adat %<>% mutate(id3 = paste(id,type))
+
   filename <- filenametopath(rundir,"DataIn.png")
-  plotprep(width=10,height=10,filename=filename,cex=1,verbose=FALSE)
-  parset(plots=c(1,1), mar=c(1,1,1,1))
-  plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1, axes=F, xlab='Year.Timestep', ylab='')
-  lab1 <- lab %>% group_by(source, type,id1) %>% summarise(mnpos1=mean(order))
-  mtext(side=4,at=lab1$mnpos1,lab1$source, las=1, cex=1)
-  mtext(side=2,at=lab$order,lab$area, las=1, cex=1)
-  mtext(side=2,line=2,at=lab1$mnpos1,lab1$type, las=1, cex=1)
-  axis(1)
+  plotprep(width=12, height=10, filename=filename, cex=1, verbose=FALSE)
+  parset(plots=c(1,1), mar=c(3, 8, 1, 8))
+
+  plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8,
+       axes=FALSE, xlab='', ylab='', xlim=range(adat$time, na.rm=TRUE))
+
+  # Horizontal gridlines to help track rows
+  abline(h=1:max(adat$yax), col="grey85", lty=1)
+
+  # Re-plot points on top of gridlines
+  points(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8)
+
+  lab1 <- lab %>% group_by(source, type, id1) %>% summarise(mnpos1=mean(order))
+  mtext(side=4, at=lab1$mnpos1, lab1$source, las=1, cex=0.9, font=2)
+  mtext(side=2, at=lab$order, lab$area, las=1, cex=0.8)
+  mtext(side=2, line=3, at=lab1$mnpos1, lab1$type, las=1, cex=0.9, font=2)
+  axis(1, cex.axis=0.9)
+  box()
   caption <- "Data loaded into the model as recorded in the echo file."
   addplot(filen=filename,rundir=rundir,category="Data",caption=caption)
 
@@ -1497,7 +1508,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   txt5 <- "Built by Simon de Lestang and Andre Punt"
 
-  runnotes <- matrix(c(txt,txt2,txt2.1,txt3,txt4,txt5), nrow=5)
+  runnotes <- matrix(c(txt,txt2,txt2.1,txt3,txt4,txt5), nrow=6)
 
   endtime <- as.character(Sys.time())
 

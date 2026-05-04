@@ -1522,7 +1522,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   for(f in 1: length(addfiles))  file.copy(addfiles[f], paste0(rundir,'/',addfiles[f]))
 
 
-  make_html(replist=reportlist,rundir=rundir,width=800,openfile=openfile,
+  make_html(replist=reportlist,rundir=rundir,width=1000,openfile=openfile,
             runnotes=runnotes,verbose=FALSE,packagename="makehtml",
             htmlname="IMuLT")
 

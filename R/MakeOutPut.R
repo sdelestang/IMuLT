@@ -403,8 +403,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   adat %<>% mutate(id3 = paste(id,type))
 
   filename <- filenametopath(rundir,"DataIn.png")
-  plotprep(width=14, height=10, filename=filename, cex=1, verbose=FALSE)
-  parset(plots=c(1,1), margin=c(0.45, 1.8, 0.15, 1.8))
+  plotprep(width=8, height=8, filename=filename, cex=1.2, verbose=FALSE)
+  parset(plots=c(1,1), margin=c(0.45, 1.6, 0.15, 1.6), cex=1.2)
 
   plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8,
        axes=FALSE, xlab='', ylab='', xlim=range(adat$time, na.rm=TRUE))
@@ -1522,7 +1522,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   for(f in 1: length(addfiles))  file.copy(addfiles[f], paste0(rundir,'/',addfiles[f]))
 
 
-  make_html(replist=reportlist,rundir=rundir,width=500,openfile=openfile,
+  make_html(replist=reportlist,rundir=rundir,width=800,openfile=openfile,
             runnotes=runnotes,verbose=FALSE,packagename="makehtml",
             htmlname="IMuLT")
 

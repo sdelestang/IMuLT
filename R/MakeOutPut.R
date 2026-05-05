@@ -161,6 +161,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   dirExists(rundir,verbose=TRUE)  ## This makes it
 
+  # Copy correlation matrix if it exists
+  corfile_src <- filenametopath(ddir, "Output/CorrelationMatrix.csv")
+  if (file.exists(corfile_src)) {
+    file.copy(corfile_src, filenametopath(rundir, "CorrelationMatrix.csv"), overwrite = TRUE)
+  }
+
   analysis <- "IMuLT"
   resfile <- setuphtml(rundir=rundir) # creates resultTable.csv in rundir
 
@@ -949,7 +955,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     #par(mfrow=c(Fdims(length(unique(tdat1$Fleet)))))
 
     tdat2 <- tdat1 %>% filter(Sex==isex) %>% pivot_longer(starts_with("lb"),names_to='albin',values_to = 'prop') %>% mutate(lbin=as.numeric(gsub('lb ','',albin))) %>%  mutate(fname = fleetarea$description[match(Fleet,fleetarea$fleet)]) %>% mutate(source=ifelse(O.P=='O','Observed','Predicted'))
-    print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
+    suppressMessages(print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
             geom_line()+geom_point(size = 0.9) +
             ylab('Proportion') +
             facet_wrap(~fname) +
@@ -958,7 +964,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                   panel.border = element_rect(fill = NA, colour = "grey20"),
                   axis.text.x = element_text(vjust = 0.0, angle = 45))+
             xlab('Length bin (mm)')
-    )
+    ))
     caption <- paste('Sex = ',isex, "Catches by fleet, summed over years and time-steps (weighted by observations - Obs, black vs Exp, red).")
     addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
   }
@@ -987,7 +993,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       filename <- filenametopath(rundir,paste0(isex," ",ifleet,"Fitted_Size_Comp2.png"))
       plotprep(width=9,height=9,filename=filename,cex=0.9,verbose=FALSE)
       parset(plots=c(1,1), margin = c(.5,.5,.5,.2))
-      print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
+      suppressMessages(print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
               geom_line()+geom_point(size = 0.9) +
               ylab('Proportion') +
               facet_wrap(~Year) +
@@ -996,7 +1002,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                     panel.border = element_rect(fill = NA, colour = "grey20"),
                     axis.text.x = element_text(vjust = 0.0, angle = 45))+
               xlab('Length bin (mm)') + labs(color = fname)
-      )
+      ))
       caption <- paste('Sex =',isex, "Fleet =",fname, "Size compositions by fleet, area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
       addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
 
@@ -1013,7 +1019,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       tid$`Mean width (mm)` <- apply(tmat, 1, funcoutMn)
       tid$sd <- apply(tmat, 1, funcoutSd)
       nms <- unique(fleetarea$description[match(tid$Fleet, fleetarea$fleet)])
-      print(ggplot(tid,aes(x=Year,y=`Mean width (mm)`, colour=O.P), )+
+      suppressMessages(print(ggplot(tid,aes(x=Year,y=`Mean width (mm)`, colour=O.P), )+
               ggtitle(paste(isex,nms))+
               scale_color_manual(values=c(1,2))+
               geom_errorbar(data=tid[tid$O.P=='Observed',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), linewidth=0.9)+
@@ -1021,7 +1027,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
               geom_line(linewidth = 1)+geom_point(size=2)+
               theme(panel.background = element_rect(fill = "white",colour = NA),
                     panel.border = element_rect(fill = NA, colour = "grey20"),
-                    axis.text.x = element_text(vjust = 0.0, angle = 0)))
+                    axis.text.x = element_text(vjust = 0.0, angle = 0))))
 
       caption <- paste('Sex =',isex, "Fleet =",ifleet, "Area =", nms, "Median size compositions by fleet/area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
       addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
@@ -1060,11 +1066,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         if(nrow(tdat2)>0){
 
           tmp <- tdat2 %>% filter(abs(diff)>0) %>% mutate(mn=min(lb), mx=max(lb)) %>% group_by(mn, mx) %>% summarise(n=length(mn))
-          suppressWarnings(with(tdat2[tdat2$diff>0,], symbols(yrstep, lb, circles = diff, bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylab='Length Bin', xlab='Fishing Season', bty='l', xlim=c(1970,graphrange[2]),ylim=c(tmp$mn,tmp$mx), main=paste('Sex',isex,', ',fname),las=1)))
+          suppressMessages(suppressWarnings(with(tdat2[tdat2$diff>0,], symbols(yrstep, lb, circles = diff, bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylab='Length Bin', xlab='Fishing Season', bty='l', xlim=c(1970,graphrange[2]),ylim=c(tmp$mn,tmp$mx), main=paste('Sex',isex,', ',fname),las=1))))
           with(tdat2[tdat2$diff<0,], symbols(yrstep, lb, circles = -diff,bg=rgb(0,0,1,0.2), fg=rgb(0,0,1,0.2), inches=scale, add = T))
         }}
     }
-    suppressWarnings(symbols(rep(1,4),seq(1.8,0.6,-0.4),circles=c(1,0.75,0.5,0.25), bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylim=c(0,3), ylab='', xlab='', bty='n', xlim=c(0.5,1.5), axes=F))
+    suppressMessages(suppressWarnings(symbols(rep(1,4),seq(1.8,0.6,-0.4),circles=c(1,0.75,0.5,0.25), bg=rgb(1,0,0,0.2), fg=rgb(1,0,0,0.2), inches=scale, ylim=c(0,3), ylab='', xlab='', bty='n', xlim=c(0.5,1.5), axes=F)))
     text(1,2,paste('Size Composition\nSex',isex), cex=0.8, pos=3)
     text(rep(1.1,4),seq(1.8,0.6,-0.4),c(1,0.75,0.5,0.25), pos=4, cex=0.8)
     text(1,0.1,'Proportional difference', cex=0.8)
@@ -1085,7 +1091,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
       mx <- sqrt(max(lens/1e+6))
       Col <- ifelse(s==1,rgb(1,0,0,0.3),rgb(0,0,1,0.3,0.3))
-      suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+      suppressMessages(suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i))))
       polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[1,]/1e+6)),0,0), col=Col,border=NA)
       abline(v=76, lty=1)
       for(sa in 2:length(unique(tdat2$Age))){
@@ -1110,7 +1116,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       lens <- tdat2[, grepl('Len',colnames(tdat2)) | grepl('a',substr(colnames(tdat2),1,1))]
       mx <- sqrt(max(lens/1e+6))
       Col <- ifelse(s==1,rgb(1,0,0,0.3),rgb(0,0,1,0.3,0.3))
-      suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i)))
+      suppressMessages(suppressWarnings(plot(lbin, sqrt(lens[1,]/1e+6), type='l', cex=0.8, pch=16, axes=F, ylab='Size composition (sqrt-millions)', xlab='Length Bin', ylim=c(0, mx), lty=1, col=Col, main=paste('Area',i))))
       polygon(c(lbin,lbin[c(length(lbin),1)]),  c(as.numeric(sqrt(lens[1,]/1e+6)),0,0), col=Col,border=NA)
       abline(v=76, lty=1)
       for(sa in 2:length(unique(tdat2$Age))){
@@ -1493,6 +1499,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
 
   ## Estimated parameters ####
+  print("Making Parameter Diagnostics")
   pars <- findNclean(c('#','Parameter','Par'), dat, 1, char = T)
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
   nms <- nms[nms!='#' & nms!='']
@@ -1579,7 +1586,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
            caption="Estimated final parameters and gradients.")
 
-  ## Correlation matrix heatmap
+  ## Correlation matrix heatmap ####
   corfile <- filenametopath(rundir, "CorrelationMatrix.csv")
   if (file.exists(corfile)) {
     cormat <- as.matrix(read.csv(corfile, row.names = 1))

@@ -162,7 +162,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   dirExists(rundir,verbose=TRUE)  ## This makes it
 
   # Copy correlation matrix if it exists
-  corfile_src <- file.path(getwd(), CorrelationMatrix.csv")
+  corfile_src <- file.path(getwd(), "CorrelationMatrix.csv")
   print(paste("Looking for correlation file at:", corfile_src))
   print(paste("Exists:", file.exists(corfile_src)))
   if (file.exists(corfile_src)) {

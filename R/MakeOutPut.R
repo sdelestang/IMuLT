@@ -1497,7 +1497,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
-  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD)
+  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD,Initial)
 
 
   ## plot parameters

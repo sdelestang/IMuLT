@@ -1590,8 +1590,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     cor_df$r <- as.vector(cormat)
 
     # Only plot upper triangle
-    cor_df <- cor_df[match(cor_df$Par1, rownames(cormat))
-                     match(cor_df$Par2, colnames(cormat)), ]
+    cor_df <- cor_df[match(cor_df$Par1, rownames(cormat)) < match(cor_df$Par2, colnames(cormat)), ]
 
     p <- ggplot(cor_df, aes(x = Par1, y = Par2, fill = r)) +
       geom_tile() +

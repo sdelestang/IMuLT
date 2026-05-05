@@ -1,6 +1,6 @@
 Package: IMuLT
 Title: Integrated Model using Length Transition (IMuLT)
-Version: 0.1.4
+Version: 1.0.0
 Authors@R: c(
     person("Simon", "de Lestang", email = "simon.delestang@dpird.wa.gov.au", role = c("aut", "cre")),
     person("Andre", "Punt", role = "aut"),person("Klaas", "Hartmann", role = "aut")

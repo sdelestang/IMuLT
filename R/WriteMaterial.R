@@ -223,48 +223,55 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Recruitment patterns by sex and size",OutputFile,append=T)
 
 
-  write("\n#Initiation Option",OutputFile,append=T)
-  write(Data$InitOpt,OutputFile,append=T)
-
+  #write("\n#Initiation Option",OutputFile,append=T)
+  #write(Data$InitOpt,OutputFile,append=T)
 
   write("\n# parameter table",OutputFile,append=T)
-  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound",OutputFile,append=T)
+  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound PriorType PriorMean PriorSD",OutputFile,append=T)
   ParName <- names(pin)
   Ipnt <- 0; Iqnt <- 0
   write("# parameters",ParFileName)
   write("# dummy",ParFileName,append=T)
   write("0",ParFileName,append=T)
   for (ParName in names(pin))
-   {
+  {
     if (ParName != "dummy")
-     {
+    {
       print(ParName)
       ThePar <- InitialVars[[ParName]]
       for (Ipar in 1:length(ThePar$Initial))
-       {
+      {
         Iqnt <- Iqnt + 1
         write(paste("#",ParName,"_",Ipar," ",Iqnt," ",sep=""),ParFileName,append=T)
+
+        # Look up prior info
+        prior_str <- "0 NA NA"
+        if (ParName == "MainPars" && Ipar <= nrow(Data$MparsPrior))
+          prior_str <- paste(Data$MparsPrior[Ipar, 1], Data$MparsPrior[Ipar, 2], Data$MparsPrior[Ipar, 3])
+        if (ParName == "SelPars" && Ipar <= nrow(Data$SelparsPrior))
+          prior_str <- paste(Data$SelparsPrior[Ipar, 1], Data$SelparsPrior[Ipar, 2], Data$SelparsPrior[Ipar, 3])
+        if (ParName == "RecruitPars" && Ipar <= nrow(Data$RecparsPrior))
+          prior_str <- paste(Data$RecparsPrior[Ipar, 1], Data$RecparsPrior[Ipar, 2], Data$RecparsPrior[Ipar, 3])
+
         ## Add to the par out file
         if (ThePar$Phase[Ipar] > 0)
-         {
+        {
           Ipnt <- Ipnt + 1;
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2],sep="")
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",prior_str,sep="")
           write(best[Ipnt],ParFileName,append=T)
-         }
+        }
         else
-         {
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ", ThePar$Initial[Ipar],sep="")
+        {
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ", ThePar$Initial[Ipar]," ",prior_str,sep="")
           write(ThePar$Initial[Ipar],ParFileName,append=T)
-         }
-        ## Now add o the Ouptput file
+        }
+        ## Now add to the Output file
         write(xx,OutputFile,append=T)
-       }
-     } # Parameters within ParName
-    } # ParNames
-   write(paste("#Total estimated parameters:",Ipnt),OutputFile,append=T)
-
+      }
+    } # Parameters within ParName
+  } # ParNames
+  write(paste("#Total estimated parameters:",Ipnt),OutputFile,append=T)
   IvarPnt <- Ipnt + 1
-
   Nyears <- GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn)+1
 
   #### =====================================================================================

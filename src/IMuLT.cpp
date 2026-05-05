@@ -1273,7 +1273,7 @@ template <class Type>
   array<Type> Ninit2(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
 
   Ninit = VirginN(dat, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
-         Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Type(0.0));
+         Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar, Type(0.0));
   //  Get bare bones numbers by area, sex, age and length - one recruitment / move / grow - no F Mort.
 
   // Virgin Biomass from Ninit -  Has M but not F - does not work correctly as changes slightly with burn in below. But is a temporary starting point
@@ -1820,7 +1820,7 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(RecparsPrior); dataset.RecparsPrior = RecparsPrior;
   DATA_IVECTOR(SelparsLink); dataset.SelparsLink = SelparsLink;
   DATA_MATRIX(SelparsPrior); dataset.SelparsPrior = SelparsPrior;
-  DATA_INTEGER(InitOpt); dataset.InitOpt = InitOpt;
+  //DATA_INTEGER(InitOpt); dataset.InitOpt = InitOpt;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;
   DATA_SCALAR(Bias_Ramp_Yr3); dataset.Bias_Ramp_Yr3 = Bias_Ramp_Yr3;
@@ -1909,7 +1909,7 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(RecDevs);
   PARAMETER_VECTOR(Qpars);
   PARAMETER_VECTOR(efpars);
-  PARAMETER_VECTOR(InitPars);
+  //PARAMETER_VECTOR(InitPars);
   PARAMETER_VECTOR(RecSpatDevs);
   PARAMETER_VECTOR(MovePars);
   PARAMETER_VECTOR(GrowthPars);
@@ -1920,8 +1920,8 @@ Type objective_function<Type>::operator() ()
   Type MWhitesPar;
   Type QRedsPar;
   Type SigmaR;
-  vector <Type> LogRinitial(Narea);
-  Type Finitial;
+  //vector <Type> LogRinitial(Narea);
+  //Type Finitial;
 
   //int BurnIn = 0;
   //for(int Iarea=0;Iarea<Narea;Iarea++){ if(BurnIn<BurnInVec(Iarea)) BurnIn=BurnInVec(Iarea); }
@@ -2020,8 +2020,9 @@ Type objective_function<Type>::operator() ()
   MWhitesPar = MainPars(1+Narea+Nage);
   QRedsPar = MainPars(2+Narea+Nage);
   SigmaR = MainPars(3+Narea+Nage);
-  for (int Iarea=0;Iarea<Narea;Iarea++) LogRinitial(Iarea) = MainPars(4+Narea+Nage+Iarea);
-  Finitial = exp(MainPars(4+2*Narea+Nage));
+
+  //for (int Iarea=0;Iarea<Narea;Iarea++) LogRinitial(Iarea) = MainPars(4+Narea+Nage+Iarea);
+  //Finitial = exp(MainPars(4+2*Narea+Nage));
 
   //Pull recruitment fractions out of RecruitPars - but can leave them in original RecruitPars
   if(CalcRecruitFrac==1){
@@ -2209,107 +2210,107 @@ Type objective_function<Type>::operator() ()
 
 
   // Set up initial state (traditional)
-  if (InitOpt==0)
-   {
+  //if (InitOpt==0)
+  // {
     Initial_pen = InitializeN(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
          Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, Ninit,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
          VirginBio, VirginLegalBio, LegalRef, CurrentBio);
-   }
+  // }
 
   // Set up initial state (alternative)
-  Type NtotalCheck; Type Nexpected;
-  if (InitOpt==1)
-   {
-     Ninit = VirginN(dataset, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
-         Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Type(0.0));
-    Ipnt = 0; Initial_pen = 0;
-    for (int Isex=0;Isex<Nsex;Isex++)
-     {
-	  NtotalCheck = 0; Nexpected = 0;
-      for (int Iarea=0;Iarea<Narea;Iarea++)
-       for (int Iage=0;Iage<Nage;Iage++)
-        for (int Isize=0;Isize<Nlen(Isex);Isize++)
-         {  N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(Rbar)*exp(InitPars(Ipnt))  ;
-            Initial_pen += 0.01*InitPars(Ipnt)*InitPars(Ipnt);
-            NtotalCheck += N(Iarea,BurnIn,0,Isex,Iage,Isize)*WeightLen(Isex,Isize);
-            Ipnt += 1; }
+//   Type NtotalCheck; Type Nexpected;
+//   if (InitOpt==1)
+//    {
+//      Ninit = VirginN(dataset, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
+//          Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Type(0.0));
+//     Ipnt = 0; Initial_pen = 0;
+//     for (int Isex=0;Isex<Nsex;Isex++)
+//      {
+// 	  NtotalCheck = 0; Nexpected = 0;
+//       for (int Iarea=0;Iarea<Narea;Iarea++)
+//        for (int Iage=0;Iage<Nage;Iage++)
+//         for (int Isize=0;Isize<Nlen(Isex);Isize++)
+//          {  N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(Rbar)*exp(InitPars(Ipnt))  ;
+//             Initial_pen += 0.01*InitPars(Ipnt)*InitPars(Ipnt);
+//             NtotalCheck += N(Iarea,BurnIn,0,Isex,Iage,Isize)*WeightLen(Isex,Isize);
+//             Ipnt += 1; }
+//
+//  	   for (int Iarea=0;Iarea<Narea;Iarea++)
+// 	    for (int Iage=0;Iage<Nage;Iage++)
+// 	     for (int Isize=0;Isize<Nlen(Isex);Isize++)
+// 	      Nexpected += Ninit(Iarea,Isex,Iage,Isize)*WeightLen(Isex,Isize);
+//
+//       //for (int Iage=0;Iage<=1000;Iage++) Nexpected += 0.5*exp(Rbar)*exp(-1*float(Iage)*M(0,0));
+//       //Initial_pen += (NtotalCheck-Nexpected)*(NtotalCheck-Nexpected);
+//       Initial_pen += WeightInitialN*(log(NtotalCheck)-log(Nexpected))*(log(NtotalCheck)-log(Nexpected));
+//      }
+//    }
 
- 	   for (int Iarea=0;Iarea<Narea;Iarea++)
-	    for (int Iage=0;Iage<Nage;Iage++)
-	     for (int Isize=0;Isize<Nlen(Isex);Isize++)
-	      Nexpected += Ninit(Iarea,Isex,Iage,Isize)*WeightLen(Isex,Isize);
-
-      //for (int Iage=0;Iage<=1000;Iage++) Nexpected += 0.5*exp(Rbar)*exp(-1*float(Iage)*M(0,0));
-      //Initial_pen += (NtotalCheck-Nexpected)*(NtotalCheck-Nexpected);
-      Initial_pen += WeightInitialN*(log(NtotalCheck)-log(Nexpected))*(log(NtotalCheck)-log(Nexpected));
-     }
-   }
-
-  if(InitOpt==2)
-   {
-    Ipnt = 0; Initial_pen = 0;
-    for (int Iarea=0;Iarea<Narea;Iarea++)
-     for (int Isex=0;Isex<Nsex;Isex++)
-      for (int Isize=0;Isize<Nlen(Isex);Isize++)
-       {   N(Iarea,BurnIn-Nage,0,Isex,Nage-1,Isize) = exp(Rbar)*exp(InitPars(Ipnt))/float(Nsex)/float(Narea)/float(Nlen(Isex));
-           if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
-           //Initial_pen += InitPars(Ipnt)*InitPars(Ipnt);
-           Ipnt += 1;  }
-    IsVirgin = 0;
-    for (int Iyear=-Nage;Iyear<0;Iyear++)
-     for (int Istep=0;Istep<Nstep;Istep++)
-      {
-       XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
-      } // year and season
-    }
+  // if(InitOpt==2)
+  //  {
+  //   Ipnt = 0; Initial_pen = 0;
+  //   for (int Iarea=0;Iarea<Narea;Iarea++)
+  //    for (int Isex=0;Isex<Nsex;Isex++)
+  //     for (int Isize=0;Isize<Nlen(Isex);Isize++)
+  //      {   N(Iarea,BurnIn-Nage,0,Isex,Nage-1,Isize) = exp(Rbar)*exp(InitPars(Ipnt))/float(Nsex)/float(Narea)/float(Nlen(Isex));
+  //          if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
+  //          //Initial_pen += InitPars(Ipnt)*InitPars(Ipnt);
+  //          Ipnt += 1;  }
+  //   IsVirgin = 0;
+  //   for (int Iyear=-Nage;Iyear<0;Iyear++)
+  //    for (int Istep=0;Istep<Nstep;Istep++)
+  //     {
+  //      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
+  //     } // year and season
+  //   }
 
   // Set up initial state (alternative)
-  if (InitOpt==3)
-   {
-    Ipnt = 0; Initial_pen = 0;
-    for (int Isex=0;Isex<Nsex;Isex++)
-     for (int Iarea=0;Iarea<Narea;Iarea++)
-      for (int Iage=0;Iage<Nage;Iage++)
-       for (int Isize=0;Isize<Nlen(Isex);Isize++)
-        {
-        N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(LogRinitial(0))*exp(InitPars(Ipnt))  ;
-         Initial_pen += WeightInit3*InitPars(Ipnt)*InitPars(Ipnt);
-         // New weak penalty
-         if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
-         Ipnt += 1;
-        }
-    }
+  // if (InitOpt==3)
+  //  {
+  //   Ipnt = 0; Initial_pen = 0;
+  //   for (int Isex=0;Isex<Nsex;Isex++)
+  //    for (int Iarea=0;Iarea<Narea;Iarea++)
+  //     for (int Iage=0;Iage<Nage;Iage++)
+  //      for (int Isize=0;Isize<Nlen(Isex);Isize++)
+  //       {
+  //       N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(LogRinitial(0))*exp(InitPars(Ipnt))  ;
+  //        Initial_pen += WeightInit3*InitPars(Ipnt)*InitPars(Ipnt);
+  //        // New weak penalty
+  //        if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
+  //        Ipnt += 1;
+  //       }
+  //   }
 
   // Set up initial state (virgin)
-  if (InitOpt==4)
-   {
-    Initial_pen = 0;
-    Ninit = VirginN(dataset, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
-            Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Finitial);
-    for (int Isex=0;Isex<Nsex;Isex++)
-     for (int Iarea=0;Iarea<Narea;Iarea++)
-      for (int Iage=0;Iage<Nage;Iage++)
-       for (int Isize=0;Isize<Nlen(Isex);Isize++)
-        N(Iarea,BurnIn,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize)*exp(LogRinitial(Iarea))/exp(Rbar);
-     }
+  // if (InitOpt==4)
+  //  {
+  //   Initial_pen = 0;
+  //   Ninit = VirginN(dataset, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
+  //           Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar,Finitial);
+  //   for (int Isex=0;Isex<Nsex;Isex++)
+  //    for (int Iarea=0;Iarea<Narea;Iarea++)
+  //     for (int Iage=0;Iage<Nage;Iage++)
+  //      for (int Isize=0;Isize<Nlen(Isex);Isize++)
+  //       N(Iarea,BurnIn,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize)*exp(LogRinitial(Iarea))/exp(Rbar);
+  //    }
 
 
    // Set up initial state (alternative)
-  if (InitOpt==5)
-   {
-    Ipnt = 0; Initial_pen = 0;
-    for (int Isex=0;Isex<Nsex;Isex++)
-     for (int Iarea=0;Iarea<Narea;Iarea++)
-      for (int Iage=0;Iage<Nage;Iage++)
-       for (int Isize=0;Isize<Nlen(Isex);Isize++)
-        {
-         N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(LogRinitial(Iarea))*exp(InitPars(Ipnt))  ;
-         Initial_pen += WeightInit3*InitPars(Ipnt)*InitPars(Ipnt);
-         // New weak penalty
-         if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
-         Ipnt += 1;
-        }
-    }
+  // if (InitOpt==5)
+  //  {
+  //   Ipnt = 0; Initial_pen = 0;
+  //   for (int Isex=0;Isex<Nsex;Isex++)
+  //    for (int Iarea=0;Iarea<Narea;Iarea++)
+  //     for (int Iage=0;Iage<Nage;Iage++)
+  //      for (int Isize=0;Isize<Nlen(Isex);Isize++)
+  //       {
+  //        N(Iarea,BurnIn,0,Isex,Iage,Isize) = exp(LogRinitial(Iarea))*exp(InitPars(Ipnt))  ;
+  //        Initial_pen += WeightInit3*InitPars(Ipnt)*InitPars(Ipnt);
+  //        // New weak penalty
+  //        if (Isize!=0) Initial_pen += 1.0*(InitPars(Ipnt)-InitPars(Ipnt-1))*(InitPars(Ipnt)-InitPars(Ipnt-1));
+  //        Ipnt += 1;
+  //       }
+  //   }
 
 // Project the model forward
 IsVirgin = 0;                                                                        // Need to compute Fs
@@ -2664,10 +2665,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(Select);
     REPORT(RecruitFrac);
     REPORT(RecruitPars);
-    REPORT(NtotalCheck);
-    REPORT(Nexpected);
+    //REPORT(NtotalCheck);
+    //REPORT(Nexpected);
     REPORT(BiasMult);
-    REPORT(LogRinitial);
+    //REPORT(LogRinitial);
     REPORT(VirginBio);
     REPORT(VirginLegalBio);
     REPORT(CurrentBio);

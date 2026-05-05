@@ -430,7 +430,9 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
   MaxPhase=ifelse(mxph==0,1,mxph)
   for (CurrPhase in 1:MaxPhase) {
     MaXeVaL <- ifelse(CurrPhase<MaxPhase, phit, lphit)
-    parameters <- list(MainPars=InitialVars$MainPars$Initial,RecruitPars=InitialVars$RecruitPars$Initial,PuerPowPars=InitialVars$PuerPowPars$Initial,SelPars=InitialVars$SelPars$Initial,RetPars=InitialVars$RetPars$Initial,RecDevs=InitialVars$RecDevs$Initial,Qpars=InitialVars$Qpars$Initial,efpars=InitialVars$efpars$Initial,InitPars=InitialVars$InitPars$Initial,RecSpatDevs=InitialVars$RecSpatDevs$Initial,MovePars=InitialVars$MovePars$Initial,GrowthPars=InitialVars$GrowthPars$Initial,dummy=0)
+    parameters <- list(MainPars=InitialVars$MainPars$Initial,RecruitPars=InitialVars$RecruitPars$Initial,PuerPowPars=InitialVars$PuerPowPars$Initial,SelPars=InitialVars$SelPars$Initial,RetPars=InitialVars$RetPars$Initial,RecDevs=InitialVars$RecDevs$Initial,Qpars=InitialVars$Qpars$Initial,efpars=InitialVars$efpars$Initial,#InitPars=InitialVars$InitPars$Initial,
+                       RecSpatDevs=InitialVars$RecSpatDevs$Initial,MovePars=InitialVars$MovePars$Initial,GrowthPars=InitialVars$GrowthPars$Initial,dummy=0)
+
     RunSpecs <- SetInitialAndPhases(ParOld,parameters,InitialVars,CurrPhase=CurrPhase)  # Set parameters and mapping
     ## Make model
     cat("Making model object that will solve for",sum(!is.na(unlist(RunSpecs$map))) ,"parameters.","Phase =",CurrPhase,"\n")
@@ -1033,7 +1035,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       RecDevs     = InitialVars$RecDevs$Initial,
       Qpars       = InitialVars$Qpars$Initial,
       efpars      = InitialVars$efpars$Initial,
-      InitPars    = InitialVars$InitPars$Initial,
+      #InitPars    = InitialVars$InitPars$Initial,
       RecSpatDevs = InitialVars$RecSpatDevs$Initial,
       MovePars    = InitialVars$MovePars$Initial,
       GrowthPars  = InitialVars$GrowthPars$Initial,

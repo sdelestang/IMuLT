@@ -340,9 +340,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   ### Model Run Comments ####
-  init <- findNclean('Initiation', dat, 0)
-  init <- init[!is.na(init)]
-  txt <- paste('Initiation option is ', init,'.\n', sep='')
+  #init <- findNclean('Initiation', dat, 0)
+  #init <- init[!is.na(init)]
+  #txt <- paste('Initiation option is ', init,'.\n', sep='')
 
   ttxt1 <- findNclean(c('#','Burn-in', 'whole'), lbin1, 1, T); txt2 <- paste('Initiate model years: ', paste(ttxt1, collapse=' '),'.\n', sep='')
   ttxt1.1 <- findNclean(c('#','Burn-in', 'for'), lbin1, 1, T); txt2.1 <- paste('Burn-in years: ', paste(ttxt1.1, collapse=' '),'.\n', sep='')
@@ -1502,9 +1502,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameters",
            caption="Estimated final parameters and gradients.")
 
-  txt5 <- "Built by Simon de Lestang and Andre Punt"
+  txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann"
 
-  runnotes <- matrix(c(txt,txt2,txt2.1,txt3,txt4,txt5), nrow=6)
+  runnotes <- matrix(c(txt2,txt2.1,txt3,txt4,txt5), nrow=5)
 
   endtime <- as.character(Sys.time())
 
@@ -1522,7 +1522,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   for(f in 1: length(addfiles))  file.copy(addfiles[f], paste0(rundir,'/',addfiles[f]))
 
 
-  make_html(replist=reportlist,rundir=rundir,width=1000,openfile=openfile,
+  make_html(replist=reportlist,rundir=rundir,width=800,openfile=openfile,
             runnotes=runnotes,verbose=FALSE,packagename="makehtml",
             htmlname="IMuLT")
 

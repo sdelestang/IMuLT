@@ -794,14 +794,14 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
 
   # Main parameters linking conditions
   Index <- MatchTable(ControlFile,Char1="#",Char2="Basic");
-  npars <- 1+2*GeneralSpecs$Narea+GeneralSpecs$Nage+4
+  npars <- 1*GeneralSpecs$Narea+GeneralSpecs$Nage+4
   MparsLink <- as.numeric(ControlFile[(Index+1):(Index+npars),5])
   MparsPrior <- apply(as.matrix(ControlFile[(Index+1):(Index+npars),6:8]),2,as.numeric)
 
   # Initial conditions
-  Index <- MatchTable(ControlFile,Char1="#",Char2="Initial_dev_option");
-  InitOpt <- as.numeric(ControlFile[Index+1,1])
-  InitParSpec <- as.numeric(ControlFile[Index+2,1])
+  #Index <- MatchTable(ControlFile,Char1="#",Char2="Initial_dev_option");
+  #InitOpt <- as.numeric(ControlFile[Index+1,1])
+  #InitParSpec <- as.numeric(ControlFile[Index+2,1])
 
   # read the data weights
   Index <- MatchTable(ControlFile,Char1="#",Char2="Weights",Char3="on");
@@ -876,8 +876,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$RecSpatYr2 <- RecSpatYr2
   ReturnObj$MparsLink <- MparsLink
   ReturnObj$MparsPrior <- MparsPrior
-  ReturnObj$InitOpt <- InitOpt
-  ReturnObj$InitParSpec <- InitParSpec
+  #ReturnObj$InitOpt <- InitOpt
+  #ReturnObj$InitParSpec <- InitParSpec
   ReturnObj$LambdaCpue <- LambdaCpue
   ReturnObj$LambdaNumbers <- LambdaNumbers
   ReturnObj$LambdaLength <- LambdaLength
@@ -2082,7 +2082,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  # Main parameters
  # R0, M-bar, M-at-age-offset, WjotyesScaleM, RedsScaleQ, SigmaR
  OK <- 1
- NmainPars = 5+(GeneralSpecs$Nage)+2*GeneralSpecs$Narea;                       #// 5 is no virgin M
+ NmainPars = 4+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
  Index <- MatchTable(ControlFile,Char1="#",Char2="Basic",Char3="parameters");
  MainPars <- rep(0,NmainPars)
  MainBnd <- matrix(0,nrow=NmainPars,ncol=2)
@@ -2247,31 +2247,32 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  }
  if(is.na(sum(MovePars))) { warning("\nThere are NA's in Move Pars\n", call. = FALSE); OK <- 0   }
 
- if (ControlSpecs$InitOpt==0) NInitPar <- 1;
- if (ControlSpecs$InitOpt==1||ControlSpecs$InitOpt==3||ControlSpecs$InitOpt==5) NInitPar <- GeneralSpecs$Narea*GeneralSpecs$Nage*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
+ NInitPar <- 1;
+ #if (ControlSpecs$InitOpt==0) NInitPar <- 1;
+ #if (ControlSpecs$InitOpt==1||ControlSpecs$InitOpt==3||ControlSpecs$InitOpt==5) NInitPar <- GeneralSpecs$Narea*GeneralSpecs$Nage*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
  #if (ControlSpecs$InitOpt==0||ControlSpecs$InitOpt==1||ControlSpecs$InitOpt==3||ControlSpecs$InitOpt==5) NInitPar <- GeneralSpecs$Narea*GeneralSpecs$Nage*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
- if (ControlSpecs$InitOpt==2||ControlSpecs$InitOpt==4) NInitPar <- GeneralSpecs$Narea*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
+ #if (ControlSpecs$InitOpt==2||ControlSpecs$InitOpt==4) NInitPar <- GeneralSpecs$Narea*(GeneralSpecs$Nlen[1]+GeneralSpecs$Nlen[2]);
 
 # Phase for log(initial_N)
- if (ControlSpecs$InitOpt %in% c(0,1,2))   {Ipar = (1+6+(GeneralSpecs$Narea+GeneralSpecs$Nage)):(6+(GeneralSpecs$Narea*2+GeneralSpecs$Nage)); MainPhase[Ipar] <- -1; }
+# if (ControlSpecs$InitOpt %in% c(0,1,2))   {Ipar = (1+6+(GeneralSpecs$Narea+GeneralSpecs$Nage)):(6+(GeneralSpecs$Narea*2+GeneralSpecs$Nage)); MainPhase[Ipar] <- -1; }
  # Phase for log(initial F)
- if (ControlSpecs$InitOpt %in% c(0,1,2,3,5))   {MainPhase[length(MainPhase)] <- -1; }
+# if (ControlSpecs$InitOpt %in% c(0,1,2,3,5))   {MainPhase[length(MainPhase)] <- -1; }
 
  #print(NInitPar)
- Index <- MatchTable(ControlFile,Char1="#",Char2="Initial",Char3="size",Char4="parameters");
- InitPars <- rep(0,NInitPar)
- InitParsBnd <- matrix(0,nrow=NInitPar,ncol=2)
- InitParsPhase <- rep(NA,NInitPar)
- for (Ipar in 1:NInitPar)
-   {
-    if (ControlSpecs$InitParSpec==0) { Jpar <- Ipar; } else { Jpar <- 1 }
-    InitPars[Ipar] <- as.numeric(ControlFile[Index+Jpar,3])
-    InitParsBnd[Ipar,1] <- as.numeric(ControlFile[Index+Jpar,1])
-    InitParsBnd[Ipar,2] <- as.numeric(ControlFile[Index+Jpar,2])
-    InitParsPhase[Ipar] <- as.numeric(ControlFile[Index+Jpar,4])
-    if (ControlSpecs$InitOpt==0 || ControlSpecs$InitOpt==4) InitParsPhase[Ipar] <- -1
-   }
- if(is.na(sum(InitPars))) { warning("\nThere are NA's in Initial Pars\n", call. = FALSE); OK <- 0   }
+ #Index <- MatchTable(ControlFile,Char1="#",Char2="Initial",Char3="size",Char4="parameters");
+ #InitPars <- rep(0,NInitPar)
+ #InitParsBnd <- matrix(0,nrow=NInitPar,ncol=2)
+ #InitParsPhase <- rep(NA,NInitPar)
+ #for (Ipar in 1:NInitPar)
+#   {
+#    if (ControlSpecs$InitParSpec==0) { Jpar <- Ipar; } else { Jpar <- 1 }
+#    InitPars[Ipar] <- as.numeric(ControlFile[Index+Jpar,3])
+#    InitParsBnd[Ipar,1] <- as.numeric(ControlFile[Index+Jpar,1])
+#    InitParsBnd[Ipar,2] <- as.numeric(ControlFile[Index+Jpar,2])
+#    InitParsPhase[Ipar] <- as.numeric(ControlFile[Index+Jpar,4])
+#    if (ControlSpecs$InitOpt==0 || ControlSpecs$InitOpt==4) InitParsPhase[Ipar] <- -1
+ #  }
+ #if(is.na(sum(InitPars))) { warning("\nThere are NA's in Initial Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(ControlFile,Char1="#",Char2="Q",Char3="parameters");
  NQ <- max(1,GeneralSpecs$NQpars)
@@ -2335,9 +2336,9 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  ReturnObj$efpars$Initial <- efPars
  ReturnObj$efpars$Bnd <- efBnd
  ReturnObj$efpars$Phase <- efPhase
- ReturnObj$InitPars$Initial <- InitPars
- ReturnObj$InitPars$Bnd <- InitParsBnd
- ReturnObj$InitPars$Phase <- InitParsPhase
+ #ReturnObj$InitPars$Initial <- InitPars
+ #ReturnObj$InitPars$Bnd <- InitParsBnd
+ #ReturnObj$InitPars$Phase <- InitParsPhase
  ReturnObj$MovePars$Initial <- MovePars
  ReturnObj$MovePars$Bnd <- MoveBnd
  ReturnObj$MovePars$Phase <- MovePhase

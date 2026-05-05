@@ -227,7 +227,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   #write(Data$InitOpt,OutputFile,append=T)
 
   write("\n# parameter table",OutputFile,append=T)
-  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound PriorType PriorMean PriorSD",OutputFile,append=T)
+  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound PriorType PriorMean PriorSD Initial",OutputFile,append=T)
   ParName <- names(pin)
   Ipnt <- 0; Iqnt <- 0
   write("# parameters",ParFileName)
@@ -257,7 +257,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         if (ThePar$Phase[Ipar] > 0)
         {
           Ipnt <- Ipnt + 1;
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",prior_str,sep="")
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",prior_str," ",ThePar$Initial[Ipar],sep="")
           write(best[Ipnt],ParFileName,append=T)
         }
         else

@@ -1257,7 +1257,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       }
     }
   }
-  ## Model Outputs
+  #### Model Outputs ####
   ### Relative Legal Biomass by area
   print("Making Legal Biomass")
   lb <- findNclean(c('#Legal','Biomass', 'by'), dat, 2, convert = 2)
@@ -1273,7 +1273,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   colnames(reflev) <- c('target','threshold','limit')
   styr <- findNclean(c('#','First', 'year'), lbin1, 1)
 
-  ## Relative biomass
+  ## Relative biomass ####
   alllb <- lb %>% group_by(year) %>% summarise(est=sum(est), vir=sum(virgin), se=sqrt(sum(se^2))) %>% mutate(rel=est/vir, lwr=(est-se*SclErr)/vir, upr=(est+se*SclErr)/vir) %>% mutate(`B/B0`=rel, lwr=lwr, upr=upr)
   filename <- filenametopath(rundir,paste0("Relative_Legal_Biom.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
@@ -1293,7 +1293,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Annual estimates of all Biomass relative to Virgin."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
-  ## Relative Biomass by area
+  ## Relative Biomass by area ####
   filename <- filenametopath(rundir,paste0("Relative_Legal_Biom_Area.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=c(1,1))
@@ -1350,7 +1350,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Annual estimates (95% CI) of Harvest Rate (assignment of legal based on the management arrangements during each season) in each management Zone."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
-  ### Fishing Mortality
+  ### Fishing Mortality ####
   ## Compute F
   print("Making Fishing Mortality")
   catch <- findNclean('Catches', dat, 2)
@@ -1377,7 +1377,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Estimate Fishing mortality by area (the various fleets are shown in different colours)."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
-  ### Total Mature Biomass
+  ### Total Mature Biomass ####
   print("Making Egg Production")
   ###Mature Biomass sex by area
   lb <- findNclean(c('#Mature','Biomass', 'sex'), dat, 2, convert = 2) %>% filter(Year>=GeneralSpecs$Year1)
@@ -1469,7 +1469,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Estimated Relative Egg Production by model area."
   addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
 
-  ### Natural Mortality
+  ### Natural Mortality ####
   print("Making Natural Mortality")
   nmort <- findNclean(c('Natural','Mortality'), dat, 2)
   names(nmort) <-c('area','age','year','est')
@@ -1492,14 +1492,91 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Estimate Natural mortality by area and year (Density dependent mortality)."
   addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
 
-  ## Estimated parameters
+  ## Estimated parameters ####
   pars <- findNclean(c('#','Parameter','Par'), dat, 1, char = T)
-  nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:10];
+  nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
-  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound)
+  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD)
+
+
+  ## plot parameters
+  ## Parameter distribution plots
+  ## Parameter distribution plots
+  plot_df <- pars %>%
+    mutate(across(c(Estimate, SD, Gradient, lwrBound, uprBound, PriorType, PriorMean, PriorSD, Initial), as.numeric)) %>%
+    filter(!is.na(SD), SD > 0)
+
+  npars_per_page <- 8
+  npar_total <- nrow(plot_df)
+  npages <- ceiling(npar_total / npars_per_page)
+
+  for (ipage in 1:npages) {
+    idx <- ((ipage - 1) * npars_per_page + 1):min(ipage * npars_per_page, npar_total)
+    sub_df <- plot_df[idx, ]
+
+    curve_list <- list()
+    for (i in 1:nrow(sub_df)) {
+      row <- sub_df[i, ]
+      xmin <- row$Estimate - 4 * row$SD
+      xmax <- row$Estimate + 4 * row$SD
+      if (row$PriorType > 0 && !is.na(row$PriorMean)) {
+        xmin <- min(xmin, row$PriorMean - 4 * row$PriorSD)
+        xmax <- max(xmax, row$PriorMean + 4 * row$PriorSD)
+      }
+      xseq <- seq(xmin, xmax, length.out = 200)
+
+      mle_dens <- dnorm(xseq, row$Estimate, row$SD)
+
+      prior_dens <- rep(0, length(xseq))
+      if (row$PriorType == 1)
+        prior_dens <- dnorm(xseq, row$PriorMean, row$PriorSD)
+      if (row$PriorType == 2) {
+        shape <- (row$PriorMean / row$PriorSD)^2
+        rate <- row$PriorMean / row$PriorSD^2
+        prior_dens <- dgamma(pmax(xseq, 0), shape, rate)
+      }
+      if (row$PriorType == 3) {
+        mulog <- log(row$PriorMean) - 0.5 * log(1 + (row$PriorSD / row$PriorMean)^2)
+        sdlog <- sqrt(log(1 + (row$PriorSD / row$PriorMean)^2))
+        prior_dens <- dlnorm(pmax(xseq, 1e-10), mulog, sdlog)
+      }
+
+      curve_list[[i]] <- data.frame(
+        Parameter = row$Parameter,
+        x = rep(xseq, 2),
+        y = c(mle_dens, prior_dens),
+        Type = rep(c("max. likelihood", "prior"), each = length(xseq))
+      )
+    }
+    curve_df <- do.call(rbind, curve_list)
+    curve_df$Parameter <- factor(curve_df$Parameter, levels = sub_df$Parameter)
+    sub_df$Parameter <- factor(sub_df$Parameter, levels = sub_df$Parameter)
+
+    p <- ggplot() +
+      geom_line(data = curve_df, aes(x = x, y = y, colour = Type, linewidth = Type)) +
+      scale_colour_manual(values = c("max. likelihood" = "blue", "prior" = "black")) +
+      scale_linewidth_manual(values = c("max. likelihood" = 0.5, "prior" = 1.2)) +
+      geom_vline(data = sub_df, aes(xintercept = Estimate), colour = "blue", linewidth = 0.4) +
+      geom_point(data = sub_df, aes(x = Initial, y = 0), colour = "red", shape = 17, size = 3) +
+      geom_vline(data = sub_df, aes(xintercept = lwrBound), colour = "orange", linewidth = 0.6) +
+      geom_vline(data = sub_df, aes(xintercept = uprBound), colour = "orange", linewidth = 0.6) +
+      facet_wrap(~ Parameter, scales = "free", ncol = 2) +
+      labs(x = "Parameter value", y = "Density") +
+      theme_bw() +
+      theme(legend.position = "top", strip.text = element_text(size = 9),
+            legend.title = element_blank())
+
+    filename <- filenametopath(rundir, paste0("parameter_distributions_page", ipage, ".png"))
+    plotprep(width = 8, height = 10, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(p))
+    caption <- paste("Parameter distributions page", ipage, "- prior (black), MLE (blue), initial (red), bounds (orange).")
+    addplot(filen = filename, rundir = rundir, category = "Parameters", caption = caption)
+  }
+
   filen <- "Est.Params.csv"  # csv files only
-  addtable(intable=pars,filen=filen,rundir=rundir,category="Parameters",
+  addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
            caption="Estimated final parameters and gradients.")
 
   txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann"

@@ -817,5 +817,27 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
          }
   write(t(round(Nout,1)),OutputFile,append=T,ncol=ncol)
 
+  ## Correlation matrix
+  if (!is.null(SDrep$cov.fixed)) {
+    cormat <- cov2cor(SDrep$cov.fixed)
+    par_names <- names(best)
+    if (is.null(par_names)) par_names <- paste0("Par_", 1:ncol(cormat))
+    rownames(cormat) <- colnames(cormat) <- par_names
+
+    # Write high correlations to Output.RL
+    write("\n# Parameter correlations (|r| > 0.85)", OutputFile, append = T)
+    write("# Par1 Par2 Correlation", OutputFile, append = T)
+    for (i in 1:(nrow(cormat) - 1)) {
+      for (j in (i + 1):ncol(cormat)) {
+        if (abs(cormat[i, j]) > 0.85) {
+          write(paste(par_names[i], par_names[j], round(cormat[i, j], 3)),
+                OutputFile, append = T)
+        }
+      }
+    }
+
+    # Save full matrix for MakeOutput plotting
+    write.csv(round(cormat, 4), "CorrelationMatrix.csv")
+  }
 }
 

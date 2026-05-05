@@ -1579,6 +1579,39 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
            caption="Estimated final parameters and gradients.")
 
+  ## Correlation matrix heatmap
+  corfile <- filenametopath(rundir, "CorrelationMatrix.csv")
+  if (file.exists(corfile)) {
+    cormat <- as.matrix(read.csv(corfile, row.names = 1))
+
+    # Melt for ggplot
+    cor_df <- expand.grid(Par1 = rownames(cormat), Par2 = colnames(cormat),
+                          stringsAsFactors = FALSE)
+    cor_df$r <- as.vector(cormat)
+
+    # Only plot upper triangle
+    cor_df <- cor_df[match(cor_df$Par1, rownames(cormat))
+                     match(cor_df$Par2, colnames(cormat)), ]
+
+    p <- ggplot(cor_df, aes(x = Par1, y = Par2, fill = r)) +
+      geom_tile() +
+      scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                           midpoint = 0, limits = c(-1, 1), name = "r") +
+      geom_text(data = cor_df[abs(cor_df$r) > 0.85, ],
+                aes(label = round(r, 2)), size = 2.5) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6),
+            axis.text.y = element_text(size = 6)) +
+      labs(x = "", y = "")
+
+    filename <- filenametopath(rundir, "parameter_correlations.png")
+    plotprep(width = 10, height = 9, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(p))
+    caption <- "Parameter correlation matrix. Values shown where |r| > 0.85."
+    addplot(filen = filename, rundir = rundir, category = "Parameter Table", caption = caption)
+  }
+
   txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann"
 
   runnotes <- matrix(c(txt2,txt2.1,txt3,txt4,txt5), nrow=5)

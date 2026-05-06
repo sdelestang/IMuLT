@@ -1820,6 +1820,8 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(RecparsPrior); dataset.RecparsPrior = RecparsPrior;
   DATA_IVECTOR(SelparsLink); dataset.SelparsLink = SelparsLink;
   DATA_MATRIX(SelparsPrior); dataset.SelparsPrior = SelparsPrior;
+  DATA_IVECTOR(EffparsLink); dataset.EffparsLink = EffparsLink;
+  DATA_MATRIX(EffparsPrior); dataset.EffparsPrior = EffparsPrior;
   //DATA_INTEGER(InitOpt); dataset.InitOpt = InitOpt;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;
@@ -1983,7 +1985,6 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-
   //// Deal with Selectivity Pars  ///////
   // Adjust  parameters to account for linked parameters
   for(int mp=0;mp<SelparsLink.size();mp++){
@@ -2011,6 +2012,32 @@ Type objective_function<Type>::operator() ()
     }
   }
 
+  //// Deal with Efficiency Pars  ///////
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<EffparsLink.size();mp++){
+    if(EffparsLink(mp)>0) efpars(mp)=efpars(EffparsLink(mp)-1); }
+
+  // Apply priors on Rec Pars if requested
+  Type EffParPriorPen = 0;
+  int nrowEP = EffparsPrior.rows();
+  for (int r=0; r<nrowEP; r++) {
+    // Normal prior
+    if(EffparsPrior(r,0)==1){
+      EffParPriorPen += -dnorm(efpars(r,0), EffparsPrior(r,1), EffparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(EffparsPrior(r,0)==2){
+      ScaleMP = square(EffparsPrior(r,2))/EffparsPrior(r,1);
+      ShapeMP = EffparsPrior(r,1)/ScaleMP;
+      EffParPriorPen += -dgamma(efpars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(EffparsPrior(r,0)==3){
+      Type mulog  = log(EffparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(EffparsPrior(r,2)/EffparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(EffparsPrior(r,2)/EffparsPrior(r,1))));
+      EffParPriorPen += -dnorm(log(efpars(r,0)), mulog, sdlog, true) + log(efpars(r,0));
+    }
+  }
 
   // Split MainPars out into their various groups
   Rbar = MainPars(0);
@@ -2556,8 +2583,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   neglogL += LambdaTag1*sum(TagLike1);
   neglogL += LambdaTag2*sum(TagLike2);
 
-  // add Penalities
-  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen;
+  // add Penalties derived from parameter priors
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen;
 
   // Now do projections
   if (DoProject==1)

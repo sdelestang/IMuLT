@@ -798,6 +798,12 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   MparsLink <- as.numeric(ControlFile[(Index+1):(Index+npars),5])
   MparsPrior <- apply(as.matrix(ControlFile[(Index+1):(Index+npars),6:8]),2,as.numeric)
 
+  # Efficiency parameters linking conditions
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters");
+  npars <- as.numeric(ControlFile[(Index+1),1])
+  EffparsLink <- as.numeric(ControlFile[(Index+2):(Index+npars+1),5])
+  EffparsPrior <- apply(as.matrix(ControlFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
+
   # Initial conditions
   #Index <- MatchTable(ControlFile,Char1="#",Char2="Initial_dev_option");
   #InitOpt <- as.numeric(ControlFile[Index+1,1])
@@ -876,6 +882,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$RecSpatYr2 <- RecSpatYr2
   ReturnObj$MparsLink <- MparsLink
   ReturnObj$MparsPrior <- MparsPrior
+  ReturnObj$EffparsLink <- EffparsLink
+  ReturnObj$EffparsPrior <- EffparsPrior
   #ReturnObj$InitOpt <- InitOpt
   #ReturnObj$InitParSpec <- InitParSpec
   ReturnObj$LambdaCpue <- LambdaCpue

@@ -51,9 +51,10 @@
 #'
 #' @export
 BuildInputFiles <- function(){
-  library(dplyr)
-  library(magrittr)
-  library(openxlsx)
+
+  library(dplyr, quietly = T)
+  library(magrittr, quietly = T)
+  library(openxlsx, quietly = T)
 
   ## Make function that adjusts sex definations loaded through the excel file.
   adjsex <- function(x,nsex,section='CPUE'){
@@ -388,11 +389,11 @@ print("Building Control File")
     off <- 2+length(unique(area$newarea))
     Mpar3 <- mainpar[off:(off+ages-1),] %>% dplyr::select(-name)
     for(i in 1:nrow(Mpar3)){ tmp <- c(tmp, paste(Mpar3[i,],collapse="\t"),"\n") }
-    Mpar4 <- mainpar %>% filter(grepl('white', comment, ignore.case=T)) %>% dplyr::select(-name)
+    Mpar4 <- mainpar %>% filter(grepl('Morph1M', name, ignore.case=T)) %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar4,collapse="\t"), "\n")
-    Mpar5 <- mainpar %>% filter(grepl('reds', comment, ignore.case=T)) %>% dplyr::select(-name)
+    Mpar5 <- mainpar %>% filter(grepl('Morph0Q', name, ignore.case=T)) %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
-    Mpar6 <- mainpar %>% filter(grepl('SigmaR', comment, ignore.case=T)) %>% dplyr::select(-name)
+    Mpar6 <- mainpar %>% filter(grepl('Sigma', name, ignore.case=T)) %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
     # Mpar7 <- mainpar %>% filter(grepl('Rintro', name, ignore.case=T)) %>% dplyr::select(-name)
     # for(i in 1:nrow(Mpar7)){ tmp <- c(tmp, paste(Mpar7[i,],collapse="\t"),"\n") }
@@ -410,8 +411,8 @@ print("Building Control File")
     nqs <- length(unique(fleets$fleet[fleets$group=='comm']))*length(unique(times$tstep))
     for(i in 1:nqs){ tmp <- c(tmp, paste(c(-100,100,Qpar1,-1),collapse="\t"), "\t\t\t# Multiplier for Environmental index - Keep to 1\n")}
 
-    tmp <- c(tmp, "\n# Efficiency parameters (lower, upper, estimate, phase) \n")
-    ecpar1 <- effic[,c('lower','upper','est','Phase')]
+    tmp <- c(tmp, "\n# Efficiency parameters (lower, upper, estimate, phase, link, useprior, prior, priorsd) \n")
+    ecpar1 <- effic[,c('lower','upper','est','Phase','useprior','prior','priorsd')] %>% mutate(link=0) %>% dplyr::select(lower,upper,est,Phase,link,useprior,prior,priorsd)
     nECvec <- max(fleets$effic.creep)
     nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
     tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")

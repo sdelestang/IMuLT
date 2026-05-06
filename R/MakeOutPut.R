@@ -1620,7 +1620,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     addplot(filen = filename, rundir = rundir, category = "Parameter Table", caption = caption)
   }
 
-  txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann"
+  txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann. Relies on packages developed by Malcolm Haddon."
 
   runnotes <- matrix(c(txt2,txt2.1,txt3,txt4,txt5), nrow=5)
 

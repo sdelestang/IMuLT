@@ -1607,8 +1607,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                           stringsAsFactors = FALSE)
     cor_df$r <- as.vector(cormat)
 
+    # Apply numeric ordering
+    cor_df$Par1 <- factor(cor_df$Par1, levels = par_order)
+    cor_df$Par2 <- factor(cor_df$Par2, levels = par_order)
+
     # Only plot upper triangle
-    cor_df <- cor_df[match(cor_df$Par1, rownames(cormat)) < match(cor_df$Par2, colnames(cormat)), ]
+    cor_df <- cor_df[as.numeric(cor_df$Par1) < as.numeric(cor_df$Par2), ]
 
     p <- ggplot(cor_df, aes(x = Par1, y = Par2, fill = r)) +
       geom_tile() +

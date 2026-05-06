@@ -34,10 +34,10 @@ BASIC WORKFLOW:
    MakeDiagReport(is95 = FALSE)
 
 5. Update length composition weightings
-   UpdateLFWeights("Yes")
+   UpdateLFWeights('Yes')
 
 6. If needed update parameters to estimates from previous run
-   UpdatePars("Yes") # or "No"
+   UpdatePars('Yes') # or 'No'
 
 7. Change phases if needed
    AdjustPhase()

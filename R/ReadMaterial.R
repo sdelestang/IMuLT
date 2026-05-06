@@ -130,6 +130,7 @@ ReadStarterFile <- function(StarterFile)
 ReadGeneralFile <- function(DataFile)
  {
   # Read in the data file
+  print("READ IN THE GENERAL FILE")
   Index <- MatchTable(DataFile,Char1="#",Char2="First",Char3="year"); Year1 <- as.numeric(DataFile[Index+1,1])
   Index <- MatchTable(DataFile,Char1="#",Char2="Last",Char3="year"); Year2 <- as.numeric(DataFile[Index+1,1])
   Nyear <- Year2-Year1+1
@@ -178,7 +179,6 @@ ReadGeneralFile <- function(DataFile)
       MidLenBin[Isex,Ilen] <- (LowerLen[Isex,Ilen]+LowerLen[Isex,Ilen+1])/2
   write("Midpoints of the size-classes",EchoFile,append=T)
   write(t(MidLenBin),EchoFile,append=T,ncol=MaxLen+1)
-  print("READ IN THE GENERAL FILE")
   write("READ IN THE GENERAL FILE\n\n",EchoFile,append=T)
 
   ReturnObj <- NULL
@@ -247,6 +247,7 @@ ReadGeneralFile <- function(DataFile)
 #' @keywords internal
 ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
 {
+  print("READ IN THE TAGGING FILE")
   # Tag loss rates
   Index <- MatchTable(TagFile,Char1="#",Char2="IsTagData"); IsTagData <- as.numeric(TagFile[Index+1,1]);
   if(IsTagData==0){
@@ -343,7 +344,6 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
     PropRepSplit[Iyear,Istep,Iarea,]  <- as.numeric(PropnFile[i+2,4:(3+NrepSplit)]);
       }
 
-  print("READ IN THE TAG FILE")
   write("READ IN THE TAG FILE\n\n",EchoFile,append=T)
   }
 ReturnObj <- NULL
@@ -423,7 +423,7 @@ return(ReturnObj)
 #' @keywords internal
 ReadDataFile <- function(DataFile,GeneralSpecs)
 {
-
+  print("READ IN THE DATA FILE")
   # Catch data
   Index <- MatchTable(DataFile,Char1="#",Char2="Catch",Char3="data"); Ncatch  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   Catch <- array(0,dim=c(GeneralSpecs$Nyear+GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep,GeneralSpecs$Nfleet))
@@ -558,7 +558,6 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
    } }
   if (asnum(DataFile[Ipnt+1,3])) { print("Error reading Enviromental data; too many inputs: Stopping"); AAA }
 
-  print("READ IN THE DATA FILE")
   write("READ IN THE DATA FILE\n\n",EchoFile,append=T)
 
   ReturnObj <- NULL
@@ -653,6 +652,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
 #' @keywords internal
 ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
 {
+  print("READ IN THE CONTROL FILE")
   write("READING IN THE CONTROL FILE",EchoFile,append=T)
 
   # Weight-length regression
@@ -860,7 +860,6 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters");
   NefficPar <- as.numeric(ControlFile[Index+1,1])
 
-  print("READ IN THE CONTROL FILE")
   write("READ IN THE CONTROL FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$Fleet_area <- Fleet_area
@@ -943,8 +942,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
 #' @keywords internal
 ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
 {
-  write("READING IN THE REPRODUCTION FILE",EchoFile,append=T)
-
+  print("READ IN THE REPRODUCTION FILE")
   Index <- MatchTable(ReprodFile,Char1="#",Char2="Age",Char4="maturity")+1;
   MatAge <- as.integer(ReprodFile[Index,1:GeneralSpecs$Narea])
   write("Maturity at age",EchoFile,append=T)
@@ -1010,7 +1008,6 @@ ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
       write(t(cbind(MatFemEcho,MatFem[Iage,Iarea,,])),EchoFile,append=T,ncol=GeneralSpecs$MaxLen+3)
     }}
 
-  print("READ IN THE REPRODUCTION FILE")
   write("READ IN THE REPRODUCTION FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$MatFem <- MatFem
@@ -1059,6 +1056,7 @@ ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
 #' @keywords internal
 ReadMoveFile <- function(MoveFile,GeneralSpecs)
 {
+  print("READ IN THE MOVEMENT FILE")
   Index <- MatchTable(MoveFile,Char1="#",Char2="Number",Char3="of",Char4="movement");
   NmovePatterns <- as.numeric(MoveFile[Index+1,1])
   write(paste("Number of movement patterns",NmovePatterns),EchoFile,append=T)
@@ -1109,8 +1107,6 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
       }
   write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
 
-
-  print("READ IN THE MOVEMENT FILE")
   write("READ IN THE MOVEMENT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$NmovePatterns <- NmovePatterns
@@ -1184,6 +1180,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
 #' @keywords internal
 ReadSelexFile <- function(SelexFile,GeneralSpecs)
 {
+  print("READ IN THE SELEX FILE")
   Index <- MatchTable(SelexFile,Char1="#",Char2="Number",Char3="Selex")+1;
   NselPatterns <- as.numeric(SelexFile[Index,1])
   write(paste("Number of selectivity patterns",NselPatterns),EchoFile,append=T)
@@ -1341,7 +1338,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   write("Reference legal pattern",EchoFile,append=T)
   write(LegalRef,EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  Index <- MatchTable(SelexFile,Char1="#",Char2="IsRed",Char3="specifications",Char4="-")+2;
+  Index <- MatchTable(SelexFile,Char1="#",Char2="IsMorph",Char3="specifications",Char4="-")+2;
   IsRed <- array(0,dim=c(GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Narea,GeneralSpecs$Nstep))
   Ipnt <- 0
   for (Isex in 1:GeneralSpecs$Nsex)
@@ -1357,7 +1354,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
           IsRed[Isex,Iage,Iarea,Istep] <- as.numeric(SelexFile[Index+Ipnt,5])
           Ipnt <- Ipnt + 1
         }
-  write("Specifications for IsRed",EchoFile,append=T)
+  write("Specifications for IsMorph0",EchoFile,append=T)
   Nout <- GeneralSpecs$Narea*GeneralSpecs$Nsex*(GeneralSpecs$Nage)*(GeneralSpecs$Nstep)
   OutM <- matrix(0,nrow=Nout,ncol=5)
   Ipnt <- 0
@@ -1372,7 +1369,6 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
         }
   write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
 
-  print("READ IN THE SELEX FILE")
   write("READ IN THE SELEX FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$NselPatterns <- NselPatterns
@@ -1447,6 +1443,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
 #' @keywords internal
 ReadRetenFile <- function(RetenFile,GeneralSpecs)
 {
+  print("READ IN THE RETENTION FILE")
   Index <- MatchTable(RetenFile,Char1="#",Char2="Number",Char3="Retain")+1;
   NretPatterns <- as.numeric(RetenFile[Index,1])
   write(paste("Number of retention patterns",NretPatterns),EchoFile,append=T)
@@ -1510,7 +1507,6 @@ ReadRetenFile <- function(RetenFile,GeneralSpecs)
   write("Fixed retention patterns",EchoFile,append=T)
   write(RetenFI,EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  print("READ IN THE RETAIN FILE")
   write("READ IN THE RETAIN FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj <- NULL
@@ -1585,6 +1581,7 @@ ReadRetenFile <- function(RetenFile,GeneralSpecs)
 #' @keywords internal
 ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
  {
+  print("READ IN THE RECRUIT FILE")
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Number",Char3="of",Char4="sex_area_allocation")+1;
   NrecruitPatternsA <- as.numeric(RecruitFile[Index,1])
   write(paste("Number of recruitment patterns",NrecruitPatternsA),EchoFile,append=T)
@@ -1661,7 +1658,6 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   Bias_Ramp_Yr4 <- as.numeric(RecruitFile[Index,4])-GeneralSpecs$Year1;
 
 
-  print("READ IN THE RECRUIT FILE")
   write("READ IN THE RECRUIT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$NrecruitPatternsA <- NrecruitPatternsA
@@ -1735,6 +1731,7 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
 #' @keywords internal
 ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 {
+  print("READ IN THE GROWTH FILE")
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Number",Char3="of",Char4="growth")+1;
   NgrowthPatterns <- as.numeric(GrowthFile[Index,1])
   write(paste("Number of growth patterns",NgrowthPatterns),EchoFile,append=T)
@@ -1793,7 +1790,6 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   for (Igrow in 1:NfixedGrowth)
     write(TransInp[Igrow,,],EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  print("READ IN THE GROWTH FILE")
   write("READ IN THE GROWTH FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$NgrowthPatterns <- NgrowthPatterns
@@ -1861,6 +1857,7 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #' @keywords internal
 ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
 {
+  print("READ IN THE PROJECTION FILE")
   Index <- MatchTable(ProjFile,Char1="#",Char2="Number",Char3="of",Char4="projection")+1;
   Nproj <- as.numeric(ProjFile[Index,1])
   #print(Nproj)
@@ -1996,8 +1993,6 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
       }
   write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
 
-
-  print("READ IN THE PROJECTION FILE")
   write("READ IN THE PROJECTION FILE\n\n",EchoFile,append=T)
 
   ReturnObj <- NULL

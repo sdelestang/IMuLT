@@ -841,4 +841,5 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
       write("\n# Correlation matrix unavailable (non-positive-definite Hessian)", OutputFile, append = T)
     }
   }
+}
 

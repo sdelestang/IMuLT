@@ -257,6 +257,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
           prior_str <- paste(Data$SelparsPrior[Ipar, 1], Data$SelparsPrior[Ipar, 2], Data$SelparsPrior[Ipar, 3])
         if (ParName == "RecruitPars" && Ipar <= nrow(Data$RecparsPrior))
           prior_str <- paste(Data$RecparsPrior[Ipar, 1], Data$RecparsPrior[Ipar, 2], Data$RecparsPrior[Ipar, 3])
+        if (ParName == "efpars" && Ipar <= nrow(Data$EffparsPrior))
+          prior_str <- paste(Data$EffparsPrior[Ipar, 1], Data$EffparsPrior[Ipar, 2], Data$EffparsPrior[Ipar, 3])
 
         # Get link value for this parameter
         link_val <- 0

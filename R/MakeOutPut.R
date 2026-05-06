@@ -1520,72 +1520,73 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   npars_per_page <- 8
   npar_total <- nrow(plot_df)
-  npages <- ceiling(npar_total / npars_per_page)
+  if (npar_total > 0) {
+    npages <- ceiling(npar_total / npars_per_page)
 
-  for (ipage in 1:npages) {
-    idx <- ((ipage - 1) * npars_per_page + 1):min(ipage * npars_per_page, npar_total)
-    sub_df <- plot_df[idx, ]
+    for (ipage in 1:npages) {
+      idx <- ((ipage - 1) * npars_per_page + 1):min(ipage * npars_per_page, npar_total)
+      sub_df <- plot_df[idx, ]
 
-    curve_list <- list()
-    for (i in 1:nrow(sub_df)) {
-      row <- sub_df[i, ]
-      xmin <- row$Estimate - 4 * row$SD
-      xmax <- row$Estimate + 4 * row$SD
-      if (row$PriorType > 0 && !is.na(row$PriorMean)) {
-        xmin <- min(xmin, row$PriorMean - 4 * row$PriorSD)
-        xmax <- max(xmax, row$PriorMean + 4 * row$PriorSD)
+      curve_list <- list()
+      for (i in 1:nrow(sub_df)) {
+        row <- sub_df[i, ]
+        xmin <- row$Estimate - 4 * row$SD
+        xmax <- row$Estimate + 4 * row$SD
+        if (row$PriorType > 0 && !is.na(row$PriorMean)) {
+          xmin <- min(xmin, row$PriorMean - 4 * row$PriorSD)
+          xmax <- max(xmax, row$PriorMean + 4 * row$PriorSD)
+        }
+        xseq <- seq(xmin, xmax, length.out = 200)
+
+        mle_dens <- dnorm(xseq, row$Estimate, row$SD)
+
+        prior_dens <- rep(0, length(xseq))
+        if (row$PriorType == 1)
+          prior_dens <- dnorm(xseq, row$PriorMean, row$PriorSD)
+        if (row$PriorType == 2) {
+          shape <- (row$PriorMean / row$PriorSD)^2
+          rate <- row$PriorMean / row$PriorSD^2
+          prior_dens <- dgamma(pmax(xseq, 0), shape, rate)
+        }
+        if (row$PriorType == 3) {
+          mulog <- log(row$PriorMean) - 0.5 * log(1 + (row$PriorSD / row$PriorMean)^2)
+          sdlog <- sqrt(log(1 + (row$PriorSD / row$PriorMean)^2))
+          prior_dens <- dlnorm(pmax(xseq, 1e-10), mulog, sdlog)
+        }
+
+        curve_list[[i]] <- data.frame(
+          Parameter = row$Parameter,
+          x = rep(xseq, 2),
+          y = c(mle_dens, prior_dens),
+          Type = rep(c("max. likelihood", "prior"), each = length(xseq))
+        )
       }
-      xseq <- seq(xmin, xmax, length.out = 200)
+      curve_df <- do.call(rbind, curve_list)
+      curve_df$Parameter <- factor(curve_df$Parameter, levels = sub_df$Parameter)
+      sub_df$Parameter <- factor(sub_df$Parameter, levels = sub_df$Parameter)
 
-      mle_dens <- dnorm(xseq, row$Estimate, row$SD)
+      p <- ggplot() +
+        geom_line(data = curve_df, aes(x = x, y = y, colour = Type, linewidth = Type)) +
+        scale_colour_manual(values = c("max. likelihood" = "blue", "prior" = "black")) +
+        scale_linewidth_manual(values = c("max. likelihood" = 0.5, "prior" = 1.2)) +
+        geom_vline(data = sub_df, aes(xintercept = Estimate), colour = "blue", linewidth = 0.4) +
+        geom_point(data = sub_df, aes(x = Initial, y = 0), colour = "red", shape = 17, size = 3) +
+        geom_vline(data = sub_df, aes(xintercept = lwrBound), colour = "orange", linewidth = 0.6) +
+        geom_vline(data = sub_df, aes(xintercept = uprBound), colour = "orange", linewidth = 0.6) +
+        facet_wrap(~ Parameter, scales = "free", ncol = 2) +
+        labs(x = "Parameter value", y = "Density") +
+        theme_bw() +
+        theme(legend.position = "top", strip.text = element_text(size = 9),
+              legend.title = element_blank())
 
-      prior_dens <- rep(0, length(xseq))
-      if (row$PriorType == 1)
-        prior_dens <- dnorm(xseq, row$PriorMean, row$PriorSD)
-      if (row$PriorType == 2) {
-        shape <- (row$PriorMean / row$PriorSD)^2
-        rate <- row$PriorMean / row$PriorSD^2
-        prior_dens <- dgamma(pmax(xseq, 0), shape, rate)
-      }
-      if (row$PriorType == 3) {
-        mulog <- log(row$PriorMean) - 0.5 * log(1 + (row$PriorSD / row$PriorMean)^2)
-        sdlog <- sqrt(log(1 + (row$PriorSD / row$PriorMean)^2))
-        prior_dens <- dlnorm(pmax(xseq, 1e-10), mulog, sdlog)
-      }
-
-      curve_list[[i]] <- data.frame(
-        Parameter = row$Parameter,
-        x = rep(xseq, 2),
-        y = c(mle_dens, prior_dens),
-        Type = rep(c("max. likelihood", "prior"), each = length(xseq))
-      )
+      filename <- filenametopath(rundir, paste0("parameter_distributions_page", ipage, ".png"))
+      plotprep(width = 8, height = 10, filename = filename, cex = 0.9, verbose = FALSE)
+      parset(plots = c(1, 1))
+      suppressWarnings(print(p))
+      caption <- paste("Parameter distributions page", ipage, "- prior (black), MLE (blue), initial (red), bounds (orange).")
+      addplot(filen = filename, rundir = rundir, category = "Parameters", caption = caption)
     }
-    curve_df <- do.call(rbind, curve_list)
-    curve_df$Parameter <- factor(curve_df$Parameter, levels = sub_df$Parameter)
-    sub_df$Parameter <- factor(sub_df$Parameter, levels = sub_df$Parameter)
-
-    p <- ggplot() +
-      geom_line(data = curve_df, aes(x = x, y = y, colour = Type, linewidth = Type)) +
-      scale_colour_manual(values = c("max. likelihood" = "blue", "prior" = "black")) +
-      scale_linewidth_manual(values = c("max. likelihood" = 0.5, "prior" = 1.2)) +
-      geom_vline(data = sub_df, aes(xintercept = Estimate), colour = "blue", linewidth = 0.4) +
-      geom_point(data = sub_df, aes(x = Initial, y = 0), colour = "red", shape = 17, size = 3) +
-      geom_vline(data = sub_df, aes(xintercept = lwrBound), colour = "orange", linewidth = 0.6) +
-      geom_vline(data = sub_df, aes(xintercept = uprBound), colour = "orange", linewidth = 0.6) +
-      facet_wrap(~ Parameter, scales = "free", ncol = 2) +
-      labs(x = "Parameter value", y = "Density") +
-      theme_bw() +
-      theme(legend.position = "top", strip.text = element_text(size = 9),
-            legend.title = element_blank())
-
-    filename <- filenametopath(rundir, paste0("parameter_distributions_page", ipage, ".png"))
-    plotprep(width = 8, height = 10, filename = filename, cex = 0.9, verbose = FALSE)
-    parset(plots = c(1, 1))
-    suppressWarnings(print(p))
-    caption <- paste("Parameter distributions page", ipage, "- prior (black), MLE (blue), initial (red), bounds (orange).")
-    addplot(filen = filename, rundir = rundir, category = "Parameters", caption = caption)
   }
-
   filen <- "Est.Params.csv"
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
            caption="Estimated final parameters and gradients. Link column indicates parameter linking (0 = directly estimated or fixed).")

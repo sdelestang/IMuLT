@@ -1599,7 +1599,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   corfile <- filenametopath(rundir, "CorrelationMatrix.csv")
   if (file.exists(corfile)) {
     cormat <- as.matrix(read.csv(corfile, row.names = 1))
-
+    par_order <- rownames(cormat)
+    par_nums <- as.numeric(gsub("\\D+", "", par_order))
+    par_order <- par_order[order(par_nums)]
     # Melt for ggplot
     cor_df <- expand.grid(Par1 = rownames(cormat), Par2 = colnames(cormat),
                           stringsAsFactors = FALSE)

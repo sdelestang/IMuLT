@@ -1647,7 +1647,7 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
 
    # REcruitment Parameters linking conditions
    Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
-   npars <- GeneralSpecs$Narea+(CalcRecruitFrac*2)
+   npars <- GeneralSpecs$Narea+(NfixedRecruits*2)
    RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
    RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
 

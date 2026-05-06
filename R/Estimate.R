@@ -1007,6 +1007,21 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
+  # Enforce negative phase for linked parameters
+  link_map <- list(MainPars = Data$MparsLink, RecruitPars = Data$RecparsLink,
+                   SelPars = Data$SelparsLink, efpars = Data$EffparsLink)
+  for (pname in names(link_map)) {
+    lv <- link_map[[pname]]
+    if (!is.null(lv)) {
+      for (i in seq_along(lv)) {
+        if (!is.na(lv[i]) && lv[i] > 0 && InitialVars[[pname]]$Phase[i] > 0) {
+          warning(paste(pname, "parameter", i, "is linked but has positive phase - forcing negative"))
+          InitialVars[[pname]]$Phase[i] <- -abs(InitialVars[[pname]]$Phase[i])
+        }
+      }
+    }
+  }
+
   # Initialise trace bookkeeping
   TraceDF      <<- data.frame(eval = numeric(0), nll = numeric(0),
                               stage = character(0),

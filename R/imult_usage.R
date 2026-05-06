@@ -27,15 +27,23 @@ BASIC WORKFLOW:
 3. Choose your model run:
    choose_model()
 
-4. Update parameters and length composition weightings (if needed):
-   UpdatePars('No')
-   UpdateLFWeights('No')
-
-5. Set output options and run model:
+4. Set output options and run model:
    LoadData()
    LoadPars()
    SolveModelNew(500, 2000, report = TRUE)
    MakeDiagReport(is95 = FALSE)
+
+5. Update length composition weightings
+   UpdateLFWeights("Yes")
+
+6. If needed update parameters to estimates from previous run
+   UpdatePars("Yes") # or "No"
+
+7. Change phases if needed
+   AdjustPhase()
+
+8. After running multiple models including diagnostics compare model runs.
+   compare_legal_biomass()
 
 HELPER FUNCTIONS:
 -----------------

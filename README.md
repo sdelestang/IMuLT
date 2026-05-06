@@ -64,11 +64,6 @@ BuildInputFiles()
 # Choose your model run
 choose_model()
 
-# Update parameters, length composition weightings and parameter phases if needed
-UpdatePars("No")
-UpdateLFWeights("No")
-AdjustPhase()
-
 # Run the model
 LoadData()
 LoadPars()
@@ -76,7 +71,18 @@ LoadPars()
 FitModel(500, 3000, report = TRUE)
 MakeDiagReport(is95 = TRUE)
 
-# To compare multi model runs
+## Re-run model after examining diagnotics ##
+
+# Update length composition weightings 
+UpdateLFWeights("Yes")
+
+# If needed update parameters to estimates from previous run
+UpdatePars("Yes") # or "No"
+
+# Change phases if needed
+AdjustPhase()
+
+# After running multiple models including diagnostics compare model runs.
 compare_legal_biomass()
 ```
 
@@ -84,7 +90,6 @@ For quick reference anytime:
 ```r
 imult_usage()  # Displays step-by-step instructions
 ```
-
 
 ## Authors
 

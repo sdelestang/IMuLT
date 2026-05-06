@@ -2705,8 +2705,24 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(MainParPriorPen);
     REPORT(RecParPriorPen);
     REPORT(SelParPriorPen);
+    REPORT(EffParPriorPen);
 
-    }
+    REPORT(MainPars);
+    REPORT(RecruitPars);
+    REPORT(SelPars);
+    REPORT(efpars);
+    REPORT(MovePars);
+
+    REPORT(PuerPowPars);
+    REPORT(RetPars);
+    REPORT(RecDevs);
+    REPORT(Qpars);
+    REPORT(RecSpatDevs);
+    REPORT(MovePars);
+    REPORT(GrowthPars);
+
+
+        }
 
     return neglogL;
 }

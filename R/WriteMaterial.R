@@ -203,6 +203,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Main parameters penalty",Report$MainParPriorPen),OutputFile,append=T)
   write(paste("Recruitment parameters penalty",Report$RecParPriorPen),OutputFile,append=T)
   write(paste("Selectivity parameters penalty",Report$SelParPriorPen),OutputFile,append=T)
+  write(paste("Efficiency parameters penalty",Report$EffParPriorPen),OutputFile,append=T)
 
   write("\n# Likelihood by fleet",OutputFile,append=T)
   write(paste("Cpue likelihood",paste(Report$CpueLikeComp[])),OutputFile,append=T)
@@ -227,23 +228,27 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   #write(Data$InitOpt,OutputFile,append=T)
 
   write("\n# parameter table",OutputFile,append=T)
-  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound PriorType PriorMean PriorSD Initial",OutputFile,append=T)
+  write("# Parameter Par_cnt Estpar_cnt Estimate SD Gradient lwrBound uprBound PriorType PriorMean PriorSD Initial Link",OutputFile,append=T)
   ParName <- names(pin)
   Ipnt <- 0; Iqnt <- 0
   write("# parameters",ParFileName)
   write("# dummy",ParFileName,append=T)
   write("0",ParFileName,append=T)
-  for (ParName in names(pin))
-  {
-    if (ParName != "dummy")
-    {
+  for (ParName in names(pin)) {
+    if (ParName != "dummy") {
       print(ParName)
       ThePar <- InitialVars[[ParName]]
+      link_vec <- switch(ParName,
+                         "MainPars"    = Data$MparsLink,
+                         "RecruitPars" = Data$RecparsLink,
+                         "SelPars"     = Data$SelparsLink,
+                         "efpars"      = Data$EffparsLink,
+                         NULL)
+      Ipnt_block_start <- Ipnt
       for (Ipar in 1:length(ThePar$Initial))
       {
         Iqnt <- Iqnt + 1
         write(paste("#",ParName,"_",Ipar," ",Iqnt," ",sep=""),ParFileName,append=T)
-
         # Look up prior info
         prior_str <- "0 NA NA"
         if (ParName == "MainPars" && Ipar <= nrow(Data$MparsPrior))
@@ -253,16 +258,37 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         if (ParName == "RecruitPars" && Ipar <= nrow(Data$RecparsPrior))
           prior_str <- paste(Data$RecparsPrior[Ipar, 1], Data$RecparsPrior[Ipar, 2], Data$RecparsPrior[Ipar, 3])
 
+        # Get link value for this parameter
+        link_val <- 0
+        if (!is.null(link_vec)) link_val <- link_vec[Ipar]
+
         ## Add to the par out file
         if (ThePar$Phase[Ipar] > 0)
         {
           Ipnt <- Ipnt + 1;
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," " ,Ipnt," ", stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",prior_str," ",ThePar$Initial[Ipar],sep="")
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," ",Ipnt," ",
+                      stdrep[Ipnt,1]," ",stdrep[Ipnt,2]," ",as.vector(grad)[Ipnt]," ",
+                      ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",
+                      prior_str," ",ThePar$Initial[Ipar]," ",link_val,sep="")
           write(best[Ipnt],ParFileName,append=T)
+        }
+        else if (link_val > 0)
+        {
+          # Linked parameter — use REPORT'd value and SE from source
+          rep_val <- Report[[ParName]][Ipar]
+          link_ipnt <- Ipnt_block_start + sum(ThePar$Phase[1:link_val] > 0)
+          link_se <- stdrep[link_ipnt, 2]
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ",
+                      rep_val," ",link_se," NA ",
+                      ThePar$Bnd[Ipar,1]," ",ThePar$Bnd[Ipar,2]," ",
+                      prior_str," ",ThePar$Initial[Ipar]," ",link_val,sep="")
+          write(rep_val,ParFileName,append=T)
         }
         else
         {
-          xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ", ThePar$Initial[Ipar]," ",prior_str,sep="")
+          xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ",
+                      ThePar$Initial[Ipar]," ",prior_str," ",
+                      ThePar$Initial[Ipar]," ",link_val,sep="")
           write(ThePar$Initial[Ipar],ParFileName,append=T)
         }
         ## Now add to the Output file

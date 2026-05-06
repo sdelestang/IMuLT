@@ -1506,7 +1506,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
-  pars %<>% filter(!is.na(Estpar_cnt)) %>% mutate(Estimate=round(as.numeric(Estimate),3)) %>% select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD,Initial)
+  pars %<>% filter(!is.na(Estpar_cnt) | (as.numeric(Link) > 0)) %>%
+    mutate(Estimate=round(as.numeric(Estimate),3)) %>%
+    select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD,Initial,Link)
 
 
   ## plot parameters
@@ -1514,7 +1516,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ## Parameter distribution plots
   plot_df <- pars %>%
     mutate(across(c(Estimate, SD, Gradient, lwrBound, uprBound, PriorType, PriorMean, PriorSD, Initial), as.numeric)) %>%
-    filter(!is.na(SD), SD > 0)
+    filter(!is.na(SD), SD > 0, as.numeric(Link) == 0)
 
   npars_per_page <- 8
   npar_total <- nrow(plot_df)
@@ -1584,9 +1586,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     addplot(filen = filename, rundir = rundir, category = "Parameters", caption = caption)
   }
 
-  filen <- "Est.Params.csv"  # csv files only
+  filen <- "Est.Params.csv"
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
-           caption="Estimated final parameters and gradients.")
+           caption="Estimated final parameters and gradients. Link column indicates parameter linking (0 = directly estimated or fixed).")
 
   ## Correlation matrix heatmap ####
   corfile <- filenametopath(rundir, "CorrelationMatrix.csv")

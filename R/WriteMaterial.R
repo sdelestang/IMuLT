@@ -260,7 +260,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
 
         # Get link value for this parameter
         link_val <- 0
-        if (!is.null(link_vec)) link_val <- link_vec[Ipar]
+        if (!is.null(link_vec) && Ipar <= length(link_vec)) link_val <- link_vec[Ipar]
+        if (is.na(link_val)) link_val <- 0
 
         ## Add to the par out file
         if (ThePar$Phase[Ipar] > 0)

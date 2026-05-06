@@ -905,7 +905,7 @@ for(p in pars){
       Pointers <- Sexegappar_sum$Pointer[match(Yrlinks,Sexegappar_sum$yearlink)]
       Semat[i,] <- Pointers}
 
-    iswhite <- readWorkbook(wb,sheet='IsWhite', startRow = 2)
+    iswhite <- readWorkbook(wb,sheet='IsMorph', startRow = 2)
 
     tmp <- list()
     tmp <- c(tmp, "# Selex specification\n# Number Selex Patterns\n",negappar)
@@ -1033,7 +1033,7 @@ for(r in 1:nrow(gauge4)){
 
     for(r in 1:nrow(conslb)){ tmp <- c(tmp, paste(conslb[r,], collapse = "\t"),"\n")}
 
-    tmp <- c(tmp, "\n\n# IsRed specifications - assignment of unique life stage quality\n")
+    tmp <- c(tmp, "\n\n# IsMorph specifications - assignment of unique life stage quality\n")
     dat <- expand.grid(sex=sexs,age=(1:ages)-1, area=sort(unique(areas$AreaCode ))-1, step=sort(unique(times$tstep))-1, state=1)
     if(nrow(iswhite)>0) {
       for(i in 1:nrow(iswhite)){

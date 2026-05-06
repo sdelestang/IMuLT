@@ -170,9 +170,9 @@
 #' @keywords internal
 WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,TheData,CurrPhase=2,best=rep(-1,1000),grad=rep(-1,1000)){
 
-  library(tidyr)
-  library(dplyr)
-  library(magrittr)
+  library(tidyr, quietly = T)
+  library(dplyr, quietly = T)
+  library(magrittr, quietly = T)
 
   oldwd <- getwd()
   on.exit(setwd(oldwd), add = TRUE)

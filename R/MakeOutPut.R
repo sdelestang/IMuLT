@@ -113,15 +113,15 @@
 #' @export
 MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
-  library(makehtml)
-  library(hplot) # for plotprep and parset; automates the use of png
-  library(dplyr)
-  library(magrittr)
-  library(tidyr)
-  library(ggplot2)
-  library(dplyr)
-  library(reshape2)
-  library(openxlsx)
+  library(makehtml, quietly = T)
+  library(hplot, quietly = T) # for plotprep and parset; automates the use of png
+  library(dplyr, quietly = T)
+  library(magrittr, quietly = T)
+  library(tidyr, quietly = T)
+  library(ggplot2, quietly = T)
+  library(dplyr, quietly = T)
+  library(reshape2, quietly = T)
+  library(openxlsx, quietly = T)
 
   options(dplyr.summarise.inform = FALSE) ## Removes useless dplyr warnings
   starttime <- as.character(Sys.time())
@@ -321,7 +321,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   INP <- as.numeric(dat[11,4])
   RP <-  as.numeric(dat[12,3])
   RSP <-  as.numeric(dat[13,4])
-  dfram <- data.frame(id=c('Initial N','Recruitment', 'Recruitment Smooth'),Value=c(round(INP,1),round(RP,1),round(RSP,1)))
+  Prior_Main <-  as.numeric(dat[14,4])
+  Prior_Rec <-  as.numeric(dat[15,4])
+  Prior_Sel <-  as.numeric(dat[16,4])
+  Prior_Eff <-  as.numeric(dat[17,4])
+  dfram <- data.frame(id=c('Initial Nunbers','Recruitment Deviations', 'Recruitment Devs Smoother','Priors on Main Pars','Priors on Recruit Pars','Priors on Selectivity Pars','Priors on Efficiency Pars'),Value=c(round(INP,1),round(RP,1),round(RSP,1),round(Prior_Main,1),round(Prior_Rec,1),round(Prior_Sel,1),round(Prior_Eff,1)))
   filen <- "Penality.csv"  # csv files only
   addtable(intable=dfram,filen=filen,rundir=rundir,category="Like",
            caption="Penalities added to likelihoods.")

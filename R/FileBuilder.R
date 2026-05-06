@@ -394,16 +394,16 @@ print("Building Control File")
     tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
     Mpar6 <- mainpar %>% filter(grepl('SigmaR', comment, ignore.case=T)) %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
-    Mpar7 <- mainpar %>% filter(grepl('Rintro', name, ignore.case=T)) %>% dplyr::select(-name)
-    for(i in 1:nrow(Mpar7)){ tmp <- c(tmp, paste(Mpar7[i,],collapse="\t"),"\n") }
-    Mpar8 <- mainpar %>% filter(grepl('Initial', name, ignore.case=T)) %>% dplyr::select(-name)
-    tmp <- c(tmp, paste(Mpar8,collapse="\t"), "\n")
+    # Mpar7 <- mainpar %>% filter(grepl('Rintro', name, ignore.case=T)) %>% dplyr::select(-name)
+    # for(i in 1:nrow(Mpar7)){ tmp <- c(tmp, paste(Mpar7[i,],collapse="\t"),"\n") }
+    # Mpar8 <- mainpar %>% filter(grepl('Initial', name, ignore.case=T)) %>% dplyr::select(-name)
+    # tmp <- c(tmp, paste(Mpar8,collapse="\t"), "\n")
 
-    tmp <- c(tmp, "\n# Initial_dev_option\n")
-    tmp <- c(tmp, 0, "\t\t\t\t# 0=convetional; 1=alternative; 2=Something; 3=Something else; 4=Yet another option; 5 as for 3 but with initial values for Rinitial by area\n")
-    tmp <- c(tmp, 1, "\t\t\t\t# Initial value options (0=default; 1=same for all)\n")
-    tmp <- c(tmp, "# Initial size parameters\n")
-    tmp <- c(tmp, paste(-100,100,0,1,collapse='\t'), "\t\t\t# 0=convetional; 1=alternative\n")
+    # tmp <- c(tmp, "\n# Initial_dev_option\n")
+    # tmp <- c(tmp, 0, "\t\t\t\t# 0=convetional; 1=alternative; 2=Something; 3=Something else; 4=Yet another option; 5 as for 3 but with initial values for Rinitial by area\n")
+    # tmp <- c(tmp, 1, "\t\t\t\t# Initial value options (0=default; 1=same for all)\n")
+    # tmp <- c(tmp, "# Initial size parameters\n")
+    # tmp <- c(tmp, paste(-100,100,0,1,collapse='\t'), "\t\t\t# 0=convetional; 1=alternative\n")
 
     tmp <- c(tmp, "\n# Q parameters\n")
     Qpar1 <- 1

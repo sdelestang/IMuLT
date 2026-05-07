@@ -40,7 +40,7 @@ WriteWord <- function(summary_dir = "Output/Summary",
                       run         = NULL,
                       output_file = NULL,
                       img_width   = 6.5,
-                      img_height  = 5,
+                      img_height  = 3.8,
                       title       = NULL) {
 
   # --- Check dependencies ---
@@ -131,12 +131,12 @@ WriteWord <- function(summary_dir = "Output/Summary",
   doc <- body_add_par(doc, title, style = "heading 1")
   doc <- body_add_par(doc, paste("Run:", basename(run_dir)), style = "Normal")
   doc <- body_add_par(doc, paste("Generated:", Sys.time()), style = "Normal")
-  doc <- body_add_break(doc, "page")
+  doc <- body_add_break(doc)
 
   # Table of contents
   doc <- body_add_par(doc, "Contents", style = "heading 1")
   doc <- body_add_toc(doc, level = 2)
-  doc <- body_add_break(doc, "page")
+  doc <- body_add_break(doc)
 
   # --- Loop through categories (in order of appearance) ---
   categories <- unique(res$category)
@@ -176,15 +176,14 @@ WriteWord <- function(summary_dir = "Output/Summary",
           h <- img_height
         }
 
-        doc <- body_add_img(doc, src = fpath, width = w, height = h,
-                            style = "centered")
+        doc <- body_add_img(doc, src = fpath, width = w, height = h)
 
         # Caption below the image
         if (!is.na(row$caption) && nchar(trimws(row$caption)) > 0) {
           doc <- body_add_par(doc, trimws(row$caption), style = "Normal")
         }
 
-        doc <- body_add_par(doc, "", style = "Normal")  # spacer
+        #doc <- body_add_par(doc, "", style = "Normal")  # spacer
 
       } else if (row$type == "table") {
         # --- Insert table from CSV ---
@@ -223,14 +222,14 @@ WriteWord <- function(summary_dir = "Output/Summary",
             doc <- body_add_par(doc, trimws(row$caption), style = "Normal")
           }
 
-          doc <- body_add_par(doc, "", style = "Normal")  # spacer
+          #doc <- body_add_par(doc, "", style = "Normal")  # spacer
         }
       }
     }
 
     # Page break between categories (except after the last one)
     if (i < length(categories)) {
-      doc <- body_add_break(doc, "page")
+      doc <- body_add_break(doc)
     }
   }
 

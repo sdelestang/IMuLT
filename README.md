@@ -82,8 +82,11 @@ UpdatePars("Yes") # or "No"
 # Change phases if needed
 AdjustPhase()
 
-# After running multiple models including diagnostics compare model runs.
+# After running multiple models including diagnostics to compare model runs.
 compare_legal_biomass()
+
+# To Produce a word document of a certain run  
+WriteWord()
 ```
 
 For quick reference anytime:

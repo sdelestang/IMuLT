@@ -26,7 +26,10 @@ Imports:
     viridis,
     ggplot2,
     openxlsx,
-    tcltk,
-    ggplot2
+    tcltk
+Suggests:
+    officer,
+    flextable,
+    png
 LinkingTo: TMB, RcppEigen
 RoxygenNote: 7.3.2

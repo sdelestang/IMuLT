@@ -849,10 +849,13 @@ tk_choice <- function(choices, title = "Select") {
 UpdateLFWeights <- function(todo='No'){
   library(dplyr); library(magrittr)
   if(todo=='Yes'){
-    dirs <- list.dirs("Output/Summary", recursive = FALSE)
-    newest <- dirs[which.max(file.info(dirs)$mtime)]
-    file.name <- paste0("Output/Summary/",basename(newest),"/Tuning.csv")
-    tmp  <- read.csv(file.name)
+    output <- read.table("Output/Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+    # Get the info from Output.RL
+    tmp <- findNclean(c('Length','data','tuning'), output, 1, convert=1) %>% mutate(Multiscale=NA)
+    # dirs <- list.dirs("Output/Summary", recursive = FALSE)
+    # newest <- dirs[which.max(file.info(dirs)$mtime)]
+    # file.name <- paste0("Output/Summary/",basename(newest),"/Tuning.csv")
+    # tmp  <- read.csv(file.name)
     # open Control file and find weightings
     DataFile <- read.table('CONTROL.DAT',comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
     ## Find the length freqs weights

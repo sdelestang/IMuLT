@@ -83,7 +83,7 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
                       col.names = paste0("V", 1:200))
 
     # Legal Biomass by area: returns long format (area, Year, est, se)
-    lb <- .findNclean(c("#Legal", "Biomass", "by"), dat, 2, convert = 2)
+    lb <- findNclean(c("#Legal", "Biomass", "by"), dat, 2, convert = 2)
 
     if (identical(lb, NA) || is.null(lb)) {
       warning("Could not extract Legal Biomass from: ", full_names[i],
@@ -107,7 +107,7 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
     biomass <- as.numeric(lb[, col_est])
 
     # Extract virgin legal biomass (one value per area)
-    virgin_raw <- .findNclean(c("#Virgin", "Legal"), dat, 1)
+    virgin_raw <- findNclean(c("#Virgin", "Legal"), dat, 1)
 
     if (identical(virgin_raw, NA) || is.null(virgin_raw)) {
       if (relative) {
@@ -276,86 +276,3 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
 }
 
 
-# ── Internal: findNclean (from Simon's existing code) ─────────
-
-.findNclean <- function(KeyWord, DataFile, Offset = 1, convert = 0, char = FALSE) {
-
-  hash <- c(which(grepl("#", DataFile[, 1])), nrow(DataFile))
-
-  pos1 <- integer(0)
-  if (length(KeyWord) == 1)
-    pos1 <- which(grepl(KeyWord, DataFile[, 1]))
-  if (length(KeyWord) == 2)
-    pos1 <- which(2 == (grepl(KeyWord[1], DataFile[, 1]) +
-                        grepl(KeyWord[2], DataFile[, 2])))
-  if (length(KeyWord) == 3)
-    pos1 <- which(3 == (grepl(KeyWord[1], DataFile[, 1]) +
-                        grepl(KeyWord[2], DataFile[, 2]) +
-                        grepl(KeyWord[3], DataFile[, 3])))
-  if (length(KeyWord) == 4)
-    pos1 <- which(4 == (grepl(KeyWord[1], DataFile[, 1]) +
-                        grepl(KeyWord[2], DataFile[, 2]) +
-                        grepl(KeyWord[3], DataFile[, 3]) +
-                        grepl(KeyWord[4], DataFile[, 4])))
-
-  if (length(pos1) == 0) return(NA)
-  pos1 <- pos1[1]
-
-  if (!(pos1 + 1) %in% hash) {
-    pos2 <- hash[hash > (pos1 + Offset)][1] - 1
-    adj  <- 0
-  } else {
-    pos2 <- hash[hash > (pos1 + 1 + Offset)][1] - 1
-    adj  <- 1
-  }
-
-  if (is.na(pos2) || pos2 <= pos1) return(NA)
-
-  tmp <- DataFile[(pos1 + Offset):pos2, ]
-  if (!is.data.frame(tmp)) tmp <- data.frame(t(tmp), stringsAsFactors = FALSE)
-  tmp <- tmp[!grepl("#", tmp[, 1], fixed = TRUE), , drop = FALSE]
-  tmp <- tmp[tmp[, 1] != "", , drop = FALSE]
-
-  if (nrow(tmp) == 0) return(NA)
-
-  rname  <- DataFile[(pos1 + adj), ]
-  rname  <- gsub("#", "", rname)
-  rname  <- rname[!is.na(rname) & rname != "" & rname != "NA"]
-  maxcol <- max(which(!is.na(tmp) & tmp != "", arr.ind = TRUE)[, 2])
-  tmp    <- tmp[!is.na(tmp[, 1]), 1:maxcol, drop = FALSE]
-  tmp[tmp == "NaN"] <- 0
-
-  if (!is.null(dim(tmp))) {
-    if (length(rname) != ncol(tmp))
-      rname <- c(rname, paste0("a", 1:200))[1:ncol(tmp)]
-  }
-
-  if (is.null(ncol(tmp))) {
-    return(as.numeric(tmp))
-  } else {
-    convert1 <- 1:ncol(tmp)
-    convert  <- convert1[!convert1 %in% convert]
-    tmp      <- data.frame(tmp, stringsAsFactors = FALSE)
-    chartmp  <- tmp
-
-    if (nrow(tmp) == 1)
-      suppressWarnings(
-        tmp[convert] <- apply(as.matrix(tmp[, convert, drop = FALSE]), 2,
-                              function(q) as.numeric(as.character(q)))
-      )
-    if (nrow(tmp) > 1)
-      suppressWarnings(
-        tmp[, convert] <- data.frame(
-          apply(as.matrix(tmp[, convert, drop = FALSE]), 2,
-                function(q) as.numeric(as.character(q)))
-        )
-      )
-
-    tmp <- tmp[!is.na(tmp[, 1]), !is.na(tmp[1, ]), drop = FALSE]
-
-    if (char) return(chartmp)
-    if (!is.null(dim(tmp)))
-      colnames(tmp) <- rname[1:length(colnames(tmp))]
-    return(tmp)
-  }
-}

@@ -3,6 +3,16 @@
 \name{WriteWord}
 \alias{WriteWord}
 \title{Write IMuLT Output to Word Document}
+\usage{
+WriteWord(
+  summary_dir = "Output/Summary",
+  run = NULL,
+  output_file = NULL,
+  img_width = 6.5,
+  img_height = 5,
+  title = NULL
+)
+}
 \arguments{
 \item{summary_dir}{Path to the summary directory containing run folders.
 Defaults to "Output/Summary".}

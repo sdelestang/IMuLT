@@ -114,52 +114,6 @@ LoadOutputData <- function(is95){
   times <- readWorkbook(wb,sheet='times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
 
-  #mov2 <- findNclean(c('#','Movement'), mov1, 1,0, char=T)
-  # KeyWord <- c('Cpue','data'); DataFile <- echo; Offset<- 1; char=T
-  #KeyWord <- c('#','Parameter','Par') ; char = T; DataFile <- dat; Offset <- 1; convert=0 lb <- findNclean(, dat, 2)
-  findNclean <- function(KeyWord, DataFile, Offset=1, convert=0, char=F){
-    hash <- c(which(grepl('#',DataFile[,1])),nrow(DataFile))
-    if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))
-    if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))
-    if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))
-    if(length(KeyWord)==4) pos1 <- which(4==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])+grepl(KeyWord[4],DataFile[,4])))
-    if(!(pos1+1)%in%hash) {
-      pos2 <- hash[hash>(pos1+Offset)][1]-1
-      adj <- 0 } else {
-        pos2 <- hash[hash>(pos1+1+Offset)][1]-1
-        adj <- 1}
-    if(pos2>pos1){
-      tmp <- DataFile[(pos1+Offset):pos2,]
-      tmp <- tmp[!grepl('#', tmp[,1],fixed = T),]
-      tmp <- tmp[tmp[,1]!='',]
-      if(nrow(tmp)>0){
-        rname <- DataFile[(pos1+adj),]
-        rname <- gsub('#','',rname)
-        rname <- rname[!is.na(rname) & rname!='' & rname!='NA']
-        maxcol <- max(which(!is.na(tmp) & tmp!='', arr.ind = T)[,2])
-        tmp <- tmp[!is.na(tmp[,1]),1:maxcol]
-        tmp[tmp=='NaN'] <- 0
-        #Add tweak here
-        if(!is.null(dim(tmp))) if(length(rname)!=ncol(tmp)) { rname <- c(rname, paste('a',1:200,sep=''))[1:ncol(tmp)]}
-        if(is.null(ncol(tmp))){ return(as.numeric(tmp)) } else {
-          convert1 <- 1:ncol(tmp)
-          convert <- convert1[!convert1%in%convert]
-          tmp <- data.frame(tmp)
-          chartmp <- tmp
-          if(nrow(tmp)==1)  suppressWarnings(tmp[convert] <- (apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
-          if(nrow(tmp)>1)   suppressWarnings(tmp[,convert] <- data.frame(apply(as.matrix(tmp[,convert]),2,function(q) as.numeric(as.character(q)))))
-          tmp <- tmp[!is.na(tmp[,1]),!is.na(tmp[1,])]
-          if(char==T) { return(chartmp) }
-          if(char==F) {if(!is.null(dim(tmp))) colnames(tmp) <- rname[1:length(colnames(tmp))]
-          return(tmp) }}} else { return(NA) } } else { return(NA) }
-  }
-  # find <- function(KeyWord, DataFile, Offset){
-  #   KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
-  #   if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,1]))+Offset
-  #   if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])))+Offset
-  #   if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,1])+grepl(KeyWord[2],DataFile[,2])+grepl(KeyWord[3],DataFile[,3])))+Offset
-  #   return(pos1)}
-
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
     pos1 <- list(NA)

@@ -316,6 +316,14 @@ UpdatePars <- function(todo=' '){
   if(todo==' ') {todo <- dlg_list(c('Yes','No','                '),  title=c('Update Parameters?                    '))$res  }
   ## Get estimated parameters  KeyWord <- locs$id[i]
   if(todo=='Yes'){
+    ## Ensure model final.par exists first
+    par_file <- "Output/model final.par"
+    if (!file.exists(par_file)) {
+      stop("'", par_file, "' not found. The model must be solved first, e.g.:\n",
+           "  FitModel(1000, 2000)\n",
+           "before parameters can be updated.", call. = FALSE)
+    }
+
 find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
     if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,2]))+Offset
@@ -677,6 +685,15 @@ MakeDiagReport <- function(is95=T,folder_name = '',openfile=TRUE) {
 #'
 #' @export
 AdjustPhase <- function(dum=' '){
+
+  ## Check pars and data loaded first.
+  if (!exists("Data", envir = .GlobalEnv)) {
+    stop("Data not loaded. Run LoadData() first.", call. = FALSE)
+  }
+  if (!exists("InitialVars", envir = .GlobalEnv)) {
+    stop("Parameters not loaded. Run LoadData() then LoadPars() first.", call. = FALSE)
+  }
+
   MaxPhase <- 0
   Innames <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RecDevs","RecSpatDevs","efpars","MovePars")
   for(i in 1:length(Innames)) {
@@ -849,29 +866,40 @@ tk_choice <- function(choices, title = "Select") {
 UpdateLFWeights <- function(todo='No'){
   library(dplyr); library(magrittr)
   if(todo=='Yes'){
-    output <- read.table("Output/Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-    # Get the info from Output.RL
-    tmp <- findNclean(c('Length','data','tuning'), output, 1, convert=1) %>% mutate(Multiscale=NA)
-    # dirs <- list.dirs("Output/Summary", recursive = FALSE)
-    # newest <- dirs[which.max(file.info(dirs)$mtime)]
-    # file.name <- paste0("Output/Summary/",basename(newest),"/Tuning.csv")
-    # tmp  <- read.csv(file.name)
-    # open Control file and find weightings
-    DataFile <- read.table('CONTROL.DAT',comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:100)
-    ## Find the length freqs weights
+    ## Check Output.RL exists
+    rl_file <- "Output/Output.RL"
+    if (!file.exists(rl_file)) {
+      message("Output.RL not found. Run FitModel with report = TRUE,..  first, e.g.:\n",
+              "  FitModel(1000, 2000, report = TRUE)\n",
+              "Skipping length-frequency weight update.")
+      return(invisible(NULL))
+    }
+
+    output <- read.table(rl_file, comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:200)
+
+    tmp <- findNclean(c('Length','data','tuning'), output, 1, convert=1)
+
+    if (identical(tmp, NA) || is.null(tmp) || !is.data.frame(tmp)) {
+      message("No Francis tuning data found in Output.RL. Skipping weight update.")
+      return(invisible(NULL))
+    }
+
+    tmp %<>% mutate(Multiscale=NA)
+
+    DataFile <- read.table('CONTROL.DAT', comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:100)
     pos1 <- which(grepl('Weights',DataFile[,2]) & grepl('by',DataFile[,3]))
     pos2 <- which(grepl('Basic',DataFile[,2]) & grepl('parameters',DataFile[,3]))
     pos3 <- which(grepl('3',DataFile[,1]) & nchar(DataFile[,1])==1)
     posall <- pos3[pos3>pos1 & pos3<pos2]
     if(length(posall)!=nrow(tmp)) {
-      stop("Predetermined weights do not match length compositions")  # Changed!
+      stop("Predetermined weights do not match length compositions")
     }
     for(i in 1:length(posall)){
       ttmp <- DataFile[posall[i],1:10]
       Scale <- tmp$Multiscale[(tmp$Fleet-1)==as.numeric(ttmp[,2]) & (tmp$Sex-1)==as.numeric(ttmp[,4])]
       DataFile[posall[i],5] <-  as.numeric(DataFile[posall[i],5]) * as.numeric(Scale)
     }
-    write.table(DataFile, 'CONTROL.DAT',na=" ", sep=" ", row.names = F, col.names = F, quote=F)
+    write.table(DataFile, 'CONTROL.DAT', na=" ", sep=" ", row.names = F, col.names = F, quote=F)
   }
 }
 

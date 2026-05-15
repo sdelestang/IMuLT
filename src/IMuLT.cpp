@@ -2474,13 +2474,14 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
 
    // Simon post-hoc discard calculation
    vector<Type> DiscXX(2);
+   int DiscArea;
    for (int Iyear=0;Iyear<Nyear;Iyear++)
      for (int Istep=0;Istep<Nstep;Istep++)
        for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
        {
-         Iarea = Fleet_area(Ifleet);
+         DiscArea = Fleet_area(Ifleet);
          DiscXX = DiscardByFleet(dataset,N,Z,Hrate,ActSelex,ActReten,ActLegal,
-                                 WeightLen,Iarea,Ifleet,Iyear,Istep,QRedsPar);
+                                 WeightLen,DiscArea,Ifleet,Iyear,Istep,QRedsPar);
          DiscardWt(Iyear,Istep,Ifleet) = DiscXX(0);
          DeadDiscardWt(Iyear,Istep,Ifleet) = DiscXX(1);
        }

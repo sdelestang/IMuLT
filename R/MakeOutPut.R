@@ -694,6 +694,105 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Observed (black) and estimated (red 95% CI grey) commercial catches by Model area on same scale."
   addplot(filen=filename,rundir=rundir,category="Catches",caption=caption)
 
+  #### Discards ####
+  print("Making Model Discard plots")
+
+  # Build discard dataframe from Report arrays (Nyear x Nstep x Nfleet)
+  disc_df <- expand.grid(
+    Fleet = 1:GeneralSpecs$Nfleet,
+    Step  = 1:GeneralSpecs$Nstep,
+    Year  = (1:GeneralSpecs$Nyear) + GeneralSpecs$Year1 - 1
+  )
+  disc_df$DiscardWt     <- as.vector(Report$DiscardWt)
+  disc_df$DeadDiscardWt <- as.vector(Report$DeadDiscardWt)
+  disc_df$Area <- fleetarea$newarea[disc_df$Fleet]
+  disc_df$AreaName <- fleetarea$areaname[disc_df$Fleet]
+
+  # ── Global: Total Discards & Dead Discards ──
+  disc_total <- disc_df %>%
+    group_by(Year) %>%
+    summarise(Discard = sum(DiscardWt)/1000, DeadDiscard = sum(DeadDiscardWt)/1000)
+
+  filename <- filenametopath(rundir,"Total Discards.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=Fdims(1))
+  ymx <- pretty(c(0, max(disc_total$Discard)))
+  ymn <- ymx[1]; ymx <- max(ymx)
+  with(disc_total, plot(Year, Discard, type='o', pch=16, cex=0.7,
+                        ylim=c(ymn, ymx), axes=F, ylab='Discard Weight (t)',
+                        xlab='Fishing Season', lty=1, main='Total Discards', col=1))
+  with(disc_total, lines(Year, DeadDiscard, type='o', pch=16, cex=0.7, col=2, lty=1))
+  axis(1, seq(min(disc_total$Year), max(disc_total$Year), 2))
+  axis(2, seq(ymn, ymx, length=5), las=1)
+  legend("topright", legend=c("Total Discards","Dead Discards"),
+         col=c(1,2), lwd=2, pch=16, bty="n", cex=0.85)
+  caption <- "Total discards (black) and dead discards (red) by fishing season."
+  addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
+
+  # ── Stacked bar: Discards by Area ──
+  disc_area <- disc_df %>%
+    group_by(Year, AreaName) %>%
+    summarise(DiscardT = sum(DiscardWt)/1000, .groups="drop")
+
+  filename <- filenametopath(rundir,"Discards by Area stacked.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(disc_area, aes(fill=AreaName, y=DiscardT, x=Year)) +
+          viridis::scale_fill_viridis(discrete = T) +
+          geom_bar(position="stack", stat="identity") +
+          ylab('Discard Weight (t)') +
+          theme(panel.background = element_rect(fill = "white", colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20"),
+                axis.text.x = element_text(vjust = 0.0, angle = 45)))
+  caption <- "Total discards by location."
+  addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
+
+  # ── By Area: Discards & Dead Discards faceted ──
+  disc_area2 <- disc_df %>%
+    group_by(Year, AreaName) %>%
+    summarise(Discard = sum(DiscardWt)/1000,
+              DeadDiscard = sum(DeadDiscardWt)/1000, .groups="drop") %>%
+    pivot_longer(cols=c(Discard, DeadDiscard), names_to='Type', values_to='Weight_t')
+
+  filename <- filenametopath(rundir,"Discards by Area.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(disc_area2, aes(x=Year, y=Weight_t, colour=Type)) +
+          geom_line() + geom_point() +
+          facet_wrap(~AreaName) +
+          scale_color_manual(values=c("red","black"),
+                             labels=c("Dead Discards","Total Discards")) +
+          ylab('Discard Weight (t)') +
+          theme(panel.background = element_rect(fill = "white", colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20"),
+                axis.text.x = element_text(vjust = 0.0, angle = 45)))
+  caption <- "Total discards (black) and dead discards (red) by area."
+  addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
+
+  # ── By Fleet: Discards & Dead Discards faceted ──
+  disc_fleet <- disc_df %>%
+    group_by(Year, Fleet) %>%
+    summarise(Discard = sum(DiscardWt)/1000,
+              DeadDiscard = sum(DeadDiscardWt)/1000, .groups="drop") %>%
+    mutate(FleetName = paste("Fleet", Fleet)) %>%
+    pivot_longer(cols=c(Discard, DeadDiscard), names_to='Type', values_to='Weight_t')
+
+  filename <- filenametopath(rundir,"Discards by Fleet.png")
+  plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(disc_fleet, aes(x=Year, y=Weight_t, colour=Type)) +
+          geom_line() + geom_point() +
+          facet_wrap(~FleetName) +
+          scale_color_manual(values=c("red","black"),
+                             labels=c("Dead Discards","Total Discards")) +
+          ylab('Discard Weight (t)') +
+          theme(panel.background = element_rect(fill = "white", colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20"),
+                axis.text.x = element_text(vjust = 0.0, angle = 45)))
+  caption <- "Total discards (black) and dead discards (red) by fleet."
+  addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
+
+
   #### Index data ####
   print("Making Model fit to Abundance Indices")
   tdat <- findNclean(c('Index','data'), dat, 2)

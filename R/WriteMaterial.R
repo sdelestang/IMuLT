@@ -750,6 +750,21 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
    }
 
   #### =====================================================================================
+
+  write("\n# Discards",OutputFile,append=T)
+  write("# Year Step Fleet Discard_Wt DeadDiscard_Wt",OutputFile,append=T)
+  for (Iyear in 1:GeneralSpecs$Nyear)
+    for (Istep in 1:GeneralSpecs$Nstep)
+      for (Ifleet in 1:GeneralSpecs$Nfleet)
+      {
+        Summ <- c(Iyear+GeneralSpecs$Year1-1, Istep, Ifleet,
+                  round(Report$DiscardWt[Iyear,Istep,Ifleet],5),
+                  round(Report$DeadDiscardWt[Iyear,Istep,Ifleet],5))
+        write(Summ,OutputFile,append=T,ncol=5)
+      }
+
+  #### =====================================================================================
+
   write("\n#Recruitment",OutputFile,append=T)
 
   write("#Recruitment patterns by timestep, area and sex ",OutputFile,append=T)

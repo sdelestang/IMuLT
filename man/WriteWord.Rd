@@ -9,7 +9,7 @@ WriteWord(
   run = NULL,
   output_file = NULL,
   img_width = 6.5,
-  img_height = 5,
+  img_height = 3.8,
   title = NULL
 )
 }

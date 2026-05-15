@@ -3,6 +3,9 @@
 \name{findNclean}
 \alias{findNclean}
 \title{Find and Extract a Data Block from a Control or Data File}
+\usage{
+findNclean(KeyWord, DataFile, Offset = 1, convert = 0, char = FALSE)
+}
 \arguments{
 \item{KeyWord}{Character vector of length 1--4. Each element is matched
 (via \code{\link[base]{grepl}}) against the corresponding column of

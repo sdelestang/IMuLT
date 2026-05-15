@@ -5,6 +5,7 @@
 \title{Compare Legal Biomass Across IMuLT Model Runs}
 \usage{
 compare_legal_biomass(
+  Vers = NULL,
   summary_dir = "Output/Summary",
   by_area = FALSE,
   relative = FALSE,
@@ -14,6 +15,11 @@ compare_legal_biomass(
 )
 }
 \arguments{
+\item{Vers}{Character vector or \code{NULL}. Specific version folder names
+to compare (matched case-insensitively against subfolders in
+\code{summary_dir}). If \code{NULL}, all subfolders containing Output.RL
+are used. A warning is issued if not all specified versions are found.}
+
 \item{summary_dir}{Character. Path to the Summary folder containing
 model run subfolders. Default \code{"Output/Summary"}.}
 
@@ -23,8 +29,9 @@ If \code{FALSE}, sum across areas and plot total biomass. Default \code{FALSE}.}
 \item{relative}{Logical. If \code{TRUE}, plot biomass relative to virgin
 (B/B0). If \code{FALSE}, plot absolute biomass. Default \code{FALSE}.}
 
-\item{runs}{Character vector or \code{NULL}. Specific subfolder names to
-include. If \code{NULL}, all subfolders containing Output.RL are used.}
+\item{runs}{Character vector or \code{NULL}. Additional filter on subfolder
+names (exact match on \code{basename}). Applied after \code{Vers} filtering.
+If \code{NULL}, no additional filtering is applied.}
 
 \item{scale}{Numeric. Divisor for absolute biomass (e.g. 1000 for tonnes).
 Ignored when \code{relative = TRUE}. Default 1.}
@@ -42,10 +49,15 @@ by area from each Output.RL file, and produces comparison plots.
 }
 \examples{
 \dontrun{
-compare_legal_biomass("Output/Summary")
-compare_legal_biomass("Output/Summary", relative = TRUE)
-compare_legal_biomass("Output/Summary", by_area = TRUE)
-compare_legal_biomass("Output/Summary", by_area = TRUE, relative = TRUE)
+# All runs in Summary folder
+compare_legal_biomass()
+
+# Specific versions
+compare_legal_biomass(Vers = c("Base_v1", "Base_v2"))
+
+# Relative biomass by area for selected versions
+compare_legal_biomass(Vers = c("Base_v1", "Base_v2"),
+                      by_area = TRUE, relative = TRUE)
 }
 
 }

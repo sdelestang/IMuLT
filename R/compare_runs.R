@@ -3,14 +3,19 @@
 #' Scans a summary folder for model run subfolders, extracts Legal Biomass
 #' by area from each Output.RL file, and produces comparison plots.
 #'
+#' @param Vers Character vector or \code{NULL}. Specific version folder names
+#'   to compare (matched case-insensitively against subfolders in
+#'   \code{summary_dir}). If \code{NULL}, all subfolders containing Output.RL
+#'   are used. A warning is issued if not all specified versions are found.
 #' @param summary_dir Character. Path to the Summary folder containing
 #'   model run subfolders. Default \code{"Output/Summary"}.
 #' @param by_area Logical. If \code{TRUE}, plot separate panels per area.
 #'   If \code{FALSE}, sum across areas and plot total biomass. Default \code{FALSE}.
 #' @param relative Logical. If \code{TRUE}, plot biomass relative to virgin
 #'   (B/B0). If \code{FALSE}, plot absolute biomass. Default \code{FALSE}.
-#' @param runs Character vector or \code{NULL}. Specific subfolder names to
-#'   include. If \code{NULL}, all subfolders containing Output.RL are used.
+#' @param runs Character vector or \code{NULL}. Additional filter on subfolder
+#'   names (exact match on \code{basename}). Applied after \code{Vers} filtering.
+#'   If \code{NULL}, no additional filtering is applied.
 #' @param scale Numeric. Divisor for absolute biomass (e.g. 1000 for tonnes).
 #'   Ignored when \code{relative = TRUE}. Default 1.
 #' @param ylab Character or \code{NULL}. Y-axis label. If \code{NULL}, chosen
@@ -21,10 +26,15 @@
 #'
 #' @examples
 #' \dontrun{
-#' compare_legal_biomass("Output/Summary")
-#' compare_legal_biomass("Output/Summary", relative = TRUE)
-#' compare_legal_biomass("Output/Summary", by_area = TRUE)
-#' compare_legal_biomass("Output/Summary", by_area = TRUE, relative = TRUE)
+#' # All runs in Summary folder
+#' compare_legal_biomass()
+#'
+#' # Specific versions
+#' compare_legal_biomass(Vers = c("Base_v1", "Base_v2"))
+#'
+#' # Relative biomass by area for selected versions
+#' compare_legal_biomass(Vers = c("Base_v1", "Base_v2"),
+#'                       by_area = TRUE, relative = TRUE)
 #' }
 #'
 #' @export

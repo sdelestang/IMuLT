@@ -13,6 +13,7 @@ A package to load, control and run the stock assessment model IMuLT.
 
 Authors:
 \itemize{
+  \item Simon de Lestang \email{simon.delestang@dpird.wa.gov.au}
   \item Andre Punt
   \item Klaas Hartmann
 }

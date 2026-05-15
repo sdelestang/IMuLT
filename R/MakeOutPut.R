@@ -696,20 +696,13 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   #### Discards ####
   print("Making Model Discard plots")
-
-  # Build discard dataframe from Report arrays (Nyear x Nstep x Nfleet)
-  disc_df <- expand.grid(
-    Fleet = 1:GeneralSpecs$Nfleet,
-    Step  = 1:GeneralSpecs$Nstep,
-    Year  = (1:GeneralSpecs$Nyear) + GeneralSpecs$Year1 - 1
-  )
-  disc_df$DiscardWt     <- as.vector(Report$DiscardWt)
-  disc_df$DeadDiscardWt <- as.vector(Report$DeadDiscardWt)
-  disc_df$Area <- fleetarea$newarea[disc_df$Fleet]
-  disc_df$AreaName <- fleetarea$areaname[disc_df$Fleet]
+  disc_raw <- findNclean('#Discards', dat, 0)
+  colnames(disc_raw) <- c("Year","Step","Fleet","DiscardWt","DeadDiscardWt")
+  disc_raw$Area <- fleetarea$newarea[disc_raw$Fleet]
+  disc_raw$AreaName <- fleetarea$areaname[disc_raw$Fleet]
 
   # ── Global: Total Discards & Dead Discards ──
-  disc_total <- disc_df %>%
+  disc_total <- disc_raw %>%
     group_by(Year) %>%
     summarise(Discard = sum(DiscardWt)/1000, DeadDiscard = sum(DeadDiscardWt)/1000)
 
@@ -730,7 +723,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   # ── Stacked bar: Discards by Area ──
-  disc_area <- disc_df %>%
+  disc_area <- disc_raw %>%
     group_by(Year, AreaName) %>%
     summarise(DiscardT = sum(DiscardWt)/1000, .groups="drop")
 
@@ -748,7 +741,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   # ── By Area: Discards & Dead Discards faceted ──
-  disc_area2 <- disc_df %>%
+  disc_area2 <- disc_raw %>%
     group_by(Year, AreaName) %>%
     summarise(Discard = sum(DiscardWt)/1000,
               DeadDiscard = sum(DeadDiscardWt)/1000, .groups="drop") %>%
@@ -770,7 +763,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   # ── By Fleet: Discards & Dead Discards faceted ──
-  disc_fleet <- disc_df %>%
+  disc_fleet <- disc_raw %>%
     group_by(Year, Fleet) %>%
     summarise(Discard = sum(DiscardWt)/1000,
               DeadDiscard = sum(DeadDiscardWt)/1000, .groups="drop") %>%
@@ -791,7 +784,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                 axis.text.x = element_text(vjust = 0.0, angle = 45)))
   caption <- "Total discards (black) and dead discards (red) by fleet."
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
-
 
   #### Index data ####
   print("Making Model fit to Abundance Indices")

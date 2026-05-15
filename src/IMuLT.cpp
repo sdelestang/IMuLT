@@ -1410,6 +1410,51 @@ template <class Type>
 }
 
 // ========================================================================================================================
+//  Discard weight calculation
+template <class Type>
+vector<Type> DiscardByFleet(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
+                            matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
+                            matrix<Type> &WeightLen,
+                            int Iarea, int Ifleet, int Iyear, int Istep, Type QRedsPar) {
+
+  vector<Type> XX(2);
+  array<Type> selexF(dat.Nsex,dat.Nage,dat.MaxLen);
+  array<Type> retainF(dat.Nsex,dat.Nage,dat.MaxLen);
+  int SelPointer, RetPointer, LegalPointer;
+  Type Z2, DiscWt, ScaleRedQ;
+
+  for (int Isex=0;Isex<dat.Nsex;Isex++) {
+    for (int Iage=0;Iage<dat.Nage;Iage++) {
+      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+      SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
+        selexF(Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+        retainF(Isex,Iage,Ilen) = ActReten(RetPointer,Ilen) * ActLegal(LegalPointer,Ilen);
+      }
+    }
+  }
+
+  XX.setZero();
+  for (int Isex=0;Isex<dat.Nsex;Isex++)
+    for (int Iage=0;Iage<dat.Nage;Iage++)
+      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+      {
+        Z2 = (1-exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize))) /
+          Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize);
+        DiscWt = selexF(Isex,Iage,Isize) * (1.0 - retainF(Isex,Iage,Isize)) *
+          Hrate(dat.BurnIn+Iyear,Istep,Ifleet) *
+          N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * Z2 *
+          WeightLen(Isex,Isize);
+        XX(0) += DiscWt;
+        XX(1) += dat.Phi(Ifleet,Iage,Iyear,Istep) * DiscWt;
+      }
+
+      return(XX);
+}
+
+// ========================================================================================================================
 
 template <class Type>
  Type CatchLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,array<Type> &Hrate,
@@ -2118,6 +2163,8 @@ Type objective_function<Type>::operator() ()
   matrix<Type> SHarvestRate76(Nyear,Nzone);                                                 // Harvest rate by year and zone of all lobster > 76 mm
   matrix<Type> HrateYA(Nyear,Narea);                                                       // Store summed HR by year and area
   array<Type> CatchCheck(Nyear+MaxProjYr,Nstep,Nfleet);                                              // Check
+  array<Type> DiscardWt(Nyear,Nstep,Nfleet);       DiscardWt.setZero();
+  array<Type> DeadDiscardWt(Nyear,Nstep,Nfleet);    DeadDiscardWt.setZero();
   matrix<Type> ActSelex(NselPatterns,MaxLen);
   matrix<Type> ActReten(NretPatterns,MaxLen);
   matrix<Type> ActLegal(NlegalPatterns,MaxLen);
@@ -2378,7 +2425,7 @@ for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
   } // Year
 
 
-//  // Tagging data
+// Tagging data
 if(thedata.IsTagData==1){
   RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();  TagLike1.setZero();  TagLike2.setZero();
 
@@ -2425,6 +2472,18 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
                if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
            }}}}
 
+   // Simon post-hoc discard calculation
+   vector<Type> DiscXX(2);
+   for (int Iyear=0;Iyear<Nyear;Iyear++)
+     for (int Istep=0;Istep<Nstep;Istep++)
+       for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
+       {
+         Iarea = Fleet_area(Ifleet);
+         DiscXX = DiscardByFleet(dataset,N,Z,Hrate,ActSelex,ActReten,ActLegal,
+                                 WeightLen,Iarea,Ifleet,Iyear,Istep,QRedsPar);
+         DiscardWt(Iyear,Istep,Ifleet) = DiscXX(0);
+         DeadDiscardWt(Iyear,Istep,Ifleet) = DiscXX(1);
+       }
 
    // Simon's Cumulative catch reduced by average M based on time caught
   CumCatch.setZero();
@@ -2626,7 +2685,8 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
 
     REPORT(N);
     REPORT(CatchCheck);
-
+    REPORT(DiscardWt);
+    REPORT(DeadDiscardWt);
   	REPORT(ActSelex);
     REPORT(ActLegal);
   	REPORT(ActReten);

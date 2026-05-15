@@ -831,7 +831,7 @@ print("Building Control File")
     #### Retainment file ####
     print("Building Retain/Discard File")
 
-    hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, area, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.02)*0.02)
+    hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, area, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.01)*0.01)
     hglist <- sort(unique(c(hgrad$propfl,1)))
     hgrad99 <- hgrad %>% filter(area==99)
 
@@ -845,7 +845,7 @@ print("Building Control File")
     dat <- cbind(dat,dat2)
     dat %<>% arrange(sex, age, fleet, step)
     tmp <- list()
-    tmp <- c(tmp, "# Retain specification (This represents the proportion of LEGAL lobster retained - (1-high-graded due to low value))\n\n# Number Retain Patterns\n",length(hglist),"\n")
+    tmp <- c(tmp, "# Retain specification (This represents the proportion of LEGAL animals retained - (1-high-graded due to low value))\n\n# Number Retain Patterns\n",length(hglist),"\n")
     tmp <- c(tmp, "# Pattern\tType\tSex\tExtra\tPointer","\n")
     for(i in 1:length(hglist)){ tmp <- c(tmp," ",paste(c((i-1),1,-1,0,i-1),collapse = " "),"\n")}
 
@@ -853,7 +853,7 @@ print("Building Control File")
 
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = " "),"\n")}
 
-    tmp <- c(tmp, "\n# retention - Proportion of LEGAL lobster retained - NOT high-graded\n",length(hglist),"\n")
+    tmp <- c(tmp, "\n# retention - Proportion of LEGAL animals retained - NOT high-graded. (values have been rounded to 1%)\n",length(hglist),"\n")
     for(i in 1:length(hglist)){ tmp <- c(tmp,paste(rep(hglist[i],length(lens)),collapse = " "),"\n")}
 
     tmp <- c(tmp, "\n# Retention parameters\n# Lower\tUpper\tEstimate\tPhase\n")

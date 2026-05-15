@@ -28,7 +28,7 @@
 #' }
 #'
 #' @export
-compare_legal_biomass <- function(summary_dir = "Output/Summary",
+compare_legal_biomass <- function(Vers=NULL, summary_dir = "Output/Summary",
                                   by_area = FALSE,
                                   relative = FALSE,
                                   runs = NULL,
@@ -42,6 +42,16 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
     stop("Summary directory not found: ", summary_dir, call. = FALSE)
 
   all_dirs <- list.dirs(summary_dir, full.names = TRUE, recursive = FALSE)
+
+  if(!is.null(Vers)) {
+    VersLong <- paste0("Output/Summary/",Vers)
+    Matches <- match(tolower(VersLong), tolower(all_dirs)); Matches <- Matches[!is.na(Matches)]
+    if (length(Matches) == 0){
+      stop("None of the specified runs found in ", summary_dir, call. = FALSE)}
+    if (length(Matches) != length(Vers)){
+      warning(paste0("Only ",length(Matches), " of your ",length(Vers)," specified runs were found in ", summary_dir,'\nEntered: ',paste(Vers[Matches], collapse=' '),'\nAvailable: ',paste(gsub("Output/Summary/", "",all_dirs), collapse=' ')))}
+    all_dirs <- all_dirs[Matches]
+      }
 
   if (!is.null(runs)) {
     all_dirs <- all_dirs[basename(all_dirs) %in% runs]
@@ -206,7 +216,7 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
   }
 
   legend("topright", legend = runs, col = cols, lwd = 2.5,
-         bty = "n", cex = 0.85)
+         bty = "n", cex = 0.85, ncol = ceiling(n_runs / 5))
 }
 
 
@@ -262,7 +272,7 @@ compare_legal_biomass <- function(summary_dir = "Output/Summary",
       mar = c(0, 0, 0, 0), new = TRUE)
   plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
   legend("bottom", legend = runs, col = cols, lwd = 2.5,
-         horiz = TRUE, bty = "n", cex = 0.85)
+         horiz = FALSE, ncol = min(n_runs, 5), bty = "n", cex = 0.85)
 }
 
 

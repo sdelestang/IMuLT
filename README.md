@@ -8,19 +8,19 @@ IMuLT requires several packages, including some only available from GitHub:
 
 Install directly from GitHub using devtools:
 ```r
-# Install devtools if you don't have it
-install.packages("devtools")
+# Install pak if you don't have it
+install.packages("pak")
 
 # Install a CRAN dependancy
 install.packages("TMB")
 
 # Install GitHub dependancies
-devtools::install_github("https://github.com/haddonm/makehtml")
-devtools::install_github("https://github.com/haddonm/codeutils")
-devtools::install_github("https://github.com/haddonm/hplot")
+pak::pak("https://github.com/haddonm/makehtml")
+pak::pak("https://github.com/haddonm/codeutils")
+pak::pak("https://github.com/haddonm/hplot")
 
 # Install IMuLT (This can take a while (~1 minute) as the model must be compiled)
-devtools::install_github("sdelestang/IMuLT")
+pak::pak("sdelestang/IMuLT")
 ```
 
 ## Required Dependencies

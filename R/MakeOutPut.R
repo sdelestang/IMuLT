@@ -696,7 +696,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   #### Discards ####
   print("Making Model Discard plots")
-  disc_raw <- findNclean('#Discards', dat, 0)
+  disc_raw <- findNclean(c('#','Discards'), dat, 0)
   colnames(disc_raw) <- c("Year","Step","Fleet","DiscardWt","DeadDiscardWt")
   disc_raw$Area <- fleetarea$newarea[disc_raw$Fleet]
   disc_raw$AreaName <- fleetarea$areaname[disc_raw$Fleet]

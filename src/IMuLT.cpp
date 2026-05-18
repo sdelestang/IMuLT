@@ -820,13 +820,15 @@ template <class Type>
    for (int Yef=1;Yef<Lenefseries;Yef++){
      if(Yef<(dat.Nyear))  {
        efcnt = efcnt+1;
-       if(efcnt==(thedata.EffCrLag(Nef)-1)){
+       Tmppar = efpars(parcnt);                                         // read current par
+       CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100)); // apply it
+       if(efcnt==thedata.EffCrLag(Nef)){                                // THEN check lag
          efcnt = 0;
-         parcnt = parcnt + 1;   }
-       Tmppar = efpars(parcnt);
-       CpueEcreep(Yef,Nef) =  CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100));
-       } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
-   }}
+         parcnt = parcnt + 1;
+       }
+     } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
+   }
+   }
 
  for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)
   {

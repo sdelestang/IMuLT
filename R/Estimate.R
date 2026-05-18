@@ -875,35 +875,37 @@ UpdateLFWeights <- function(todo='No'){
       return(invisible(NULL))
     }
 
+    ## Function to calculate the slope
+    lmslope <- function(x,y)  return(coefficients(lm(y~x-1)))
+
     output <- read.table(rl_file, comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:200)
+    tdat <- findNclean(c('Obs/Pred','Fleet'), output, 1, convert=1) %>% filter(`Obs/Pred`=='P')
+    tdat <- tdat[,1:7]
+    DataFile   <- read.table('CONTROL.DAT', comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:200)
+    didtune <- findNclean(c('#','Weights','by','fleet'), DataFile, 3)
+    tdat$ScaleNsamp <- didtune[match(tdat$Fleet,(didtune$Fleet+1)),5]
+    tdat %<>% mutate(ScaleNsamp=ifelse(is.na(ScaleNsamp),1,ScaleNsamp)) %>% group_by(Sex, Fleet) %>% summarise(Multiscale=lmslope(ScaleNsamp,EffN))
 
-    tmp <- findNclean(c('Length','data','tuning'), output, 1, convert=1)
-
-    if (identical(tmp, NA) || is.null(tmp) || !is.data.frame(tmp)) {
+    if (identical(tdat, NA) || is.null(tdat) || !is.data.frame(tdat)) {
       message("No Francis tuning data found in Output.RL. Skipping weight update.")
       return(invisible(NULL))
     }
 
-    tmp %<>% mutate(Multiscale=NA)
-
-    DataFile <- read.table('CONTROL.DAT', comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:100)
     pos1 <- which(grepl('Weights',DataFile[,2]) & grepl('by',DataFile[,3]))
     pos2 <- which(grepl('Basic',DataFile[,2]) & grepl('parameters',DataFile[,3]))
     pos3 <- which(grepl('3',DataFile[,1]) & nchar(DataFile[,1])==1)
     posall <- pos3[pos3>pos1 & pos3<pos2]
-    if(length(posall)!=nrow(tmp)) {
+    if(length(posall)!=nrow(tdat)) {
       stop("Predetermined weights do not match length compositions")
     }
     for (i in 1:length(posall)) {
       ttmp <- DataFile[posall[i], 1:10]
-      Scale <- tmp$Francis_Multiplier[(as.numeric(tmp$Fleet) - 1) == as.numeric(ttmp[, 2]) & (as.numeric(tmp$Sex) - 1) == as.numeric(ttmp[, 4])]
+      Scale <- as.numeric(tdat$Multiscale[(as.numeric(tdat$Fleet) - 1) == as.numeric(ttmp[, 2]) & (as.numeric(tdat$Sex) - 1) == as.numeric(ttmp[, 4])])
       DataFile[posall[i], 5] <- as.numeric(DataFile[posall[i], 5]) * as.numeric(Scale)
     }
-
     write.table(DataFile, 'CONTROL.DAT', na=" ", sep=" ", row.names = F, col.names = F, quote=F)
   }
 }
-
 
 
 # ── Helper: build the live-trace plot ─────────────────────────────────────────

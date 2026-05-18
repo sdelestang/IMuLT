@@ -809,23 +809,23 @@ template <class Type>
  CpueEcreep.setZero();
 
  // Make efficiency creep matrix from parameters with time lags
- int Lenefseries = CpueEcreep.rows();
- int Nefseries = CpueEcreep.cols();
+ int Lenefseries = CpueEcreep.rows();  // N years
+ int Nefseries = CpueEcreep.cols();    // Number of unique Lags times
  int efcnt = -1; int parcnt = -1;
  Type Tmppar;  // store temporary parameter
  for (int Nef=0;Nef<Nefseries;Nef++){
    CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep)
    parcnt = parcnt + 1;
-   efcnt = -1;
+   efcnt = 0;
    for (int Yef=1;Yef<Lenefseries;Yef++){
      if(Yef<(dat.Nyear))  {
        efcnt = efcnt+1;
-       if(efcnt==thedata.EffCrLag(Nef)){
-         efcnt = -1;
+       if(efcnt==(thedata.EffCrLag(Nef)-1)){
+         efcnt = 0;
          parcnt = parcnt + 1;   }
        Tmppar = efpars(parcnt);
        CpueEcreep(Yef,Nef) =  CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100));
-       } else {CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
+       } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
    }}
 
  for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)

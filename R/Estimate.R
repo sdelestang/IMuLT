@@ -894,11 +894,12 @@ UpdateLFWeights <- function(todo='No'){
     if(length(posall)!=nrow(tmp)) {
       stop("Predetermined weights do not match length compositions")
     }
-    for(i in 1:length(posall)){
-      ttmp <- DataFile[posall[i],1:10]
-      Scale <- tmp$Multiscale[(tmp$Fleet-1)==as.numeric(ttmp[,2]) & (tmp$Sex-1)==as.numeric(ttmp[,4])]
-      DataFile[posall[i],5] <-  as.numeric(DataFile[posall[i],5]) * as.numeric(Scale)
+    for (i in 1:length(posall)) {
+      ttmp <- DataFile[posall[i], 1:10]
+      Scale <- tmp$Francis_Multiplier[(as.numeric(tmp$Fleet) - 1) == as.numeric(ttmp[, 2]) & (as.numeric(tmp$Sex) - 1) == as.numeric(ttmp[, 4])]
+      DataFile[posall[i], 5] <- as.numeric(DataFile[posall[i], 5]) * as.numeric(Scale)
     }
+
     write.table(DataFile, 'CONTROL.DAT', na=" ", sep=" ", row.names = F, col.names = F, quote=F)
   }
 }

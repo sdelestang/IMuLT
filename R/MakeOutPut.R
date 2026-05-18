@@ -477,53 +477,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         }
       }}}
 
-  ####  Egg Production ####
-  egg <- findNclean(c('Egg','Production'), echo, 3)
-  egg <- egg[1:(which(is.na(egg[,20]))[1]-1),]
-  names(egg) <- c('age','area','season', paste0('lb',1:(ncol(egg)-3)))
-  tail(egg)
-
-  library(ggplot2)
-  library(dplyr)
-  library(tidyr)
-
-  # Pivot to long format
-  egg <- egg %>% tidyr::pivot_longer(cols = starts_with("lb"), names_to = "lbin", values_to = "value") %>% mutate(lbin = as.numeric(gsub("lb", "", lbin)))
-  # Create a signature for each year's curve shape (per area/age)
-  curve_sig <- egg %>% group_by(area, age, season) %>%
-    summarise(sig = paste(round(value, 6), collapse = "_"), .groups = "drop")
-  # Find distinct curves and their year ranges
-  curve_groups <- curve_sig %>%
-    group_by(area, age, sig) %>%
-    summarise(yr1 = min(season), yr2 = max(season), .groups = "drop") %>%
-    mutate(label = paste0("Age ", age, " (", yr1, "-", yr2, ")"))
-
-  # Join labels back to long data
-  df_plot <- egg %>% left_join(curve_sig, by = c("area", "age", "season")) %>%
-    left_join(curve_groups %>% select(area, age, sig, label), by = c("area", "age", "sig")) %>% mutate(value=value/1e+6)
-
-  for(a in unique(df_plot$area)) {
-    filename <- filenametopath(rundir,paste("Area",a,"Egg Production.png"))
-    plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
-    parset(plots=c(1,1))
-    p <- df_plot %>%
-      filter(area == a) %>%
-      ggplot(aes(x = lbin, y = value, colour = label, group = label)) +
-      geom_line() +
-      labs(x = "Length bin", y = "Egg production (Millions)",
-           colour = NULL, title = paste("Area", a)) +
-      theme_bw() +
-      theme(legend.position = "inside",
-            legend.position.inside = c(0.7, 0.3),
-            legend.text = element_text(size = 8),
-            legend.background = element_rect(fill = alpha("white", 0.7)))
-    suppressWarnings(print(p))
-    caption <- paste("Egg production curves by area", a,". This is a combination of maturity, multiple spawning and fecundity and used to estimate egg production by area.")
-    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
-  }
-
-
-  #### Growth ####
+ #### Growth ####
   print("Making Growth Curves")
   #  grow <- findNclean(c('#Growth','Curves'), dat, 2)
   #  head(grow)
@@ -1531,6 +1485,46 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   caption <- "Estimated Relative Egg Production by model area."
   addplot(filen=filename,rundir=rundir,category="Egg_Production",caption=caption)
+
+  ####  Egg Production ####
+  egg <- findNclean(c('Egg','Production'), echo, 3)
+  egg <- egg[1:(which(is.na(egg[,20]))[1]-1),]
+  names(egg) <- c('age','area','season', paste0('lb',1:(ncol(egg)-3)))
+
+  # Pivot to long format
+  egg <- egg %>% tidyr::pivot_longer(cols = starts_with("lb"), names_to = "lbin", values_to = "value") %>% mutate(lbin = as.numeric(gsub("lb", "", lbin)))
+  # Create a signature for each year's curve shape (per area/age)
+  curve_sig <- egg %>% group_by(area, age, season) %>%
+    summarise(sig = paste(round(value, 6), collapse = "_"), .groups = "drop")
+  # Find distinct curves and their year ranges
+  curve_groups <- curve_sig %>%
+    group_by(area, age, sig) %>%
+    summarise(yr1 = min(season), yr2 = max(season), .groups = "drop") %>%
+    mutate(label = paste0("Age ", age, " (", yr1, "-", yr2, ")"))
+
+  # Join labels back to long data
+  df_plot <- egg %>% left_join(curve_sig, by = c("area", "age", "season")) %>%
+    left_join(curve_groups %>% select(area, age, sig, label), by = c("area", "age", "sig")) %>% mutate(value=value/1e+6)
+
+  for(a in unique(df_plot$area)) {
+    filename <- filenametopath(rundir,paste("Area",a,"Egg Production.png"))
+    plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
+    parset(plots=c(1,1))
+    p <- df_plot %>%
+      filter(area == a) %>%
+      ggplot(aes(x = lbin, y = value, colour = label, group = label)) +
+      geom_line() +
+      labs(x = "Length bin", y = "Egg production (Millions)",
+           colour = NULL, title = paste("Area", a)) +
+      theme_bw() +
+      theme(legend.position = "inside",
+            legend.position.inside = c(0.7, 0.3),
+            legend.text = element_text(size = 8),
+            legend.background = element_rect(fill = alpha("white", 0.7)))
+    suppressWarnings(print(p))
+    caption <- paste("Egg production curves by area", a,". This is a combination of maturity, multiple spawning and fecundity and used to estimate egg production by area.")
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+  }
 
   ### Natural Mortality ####
   print("Making Natural Mortality")

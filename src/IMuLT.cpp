@@ -2147,7 +2147,7 @@ Type objective_function<Type>::operator() ()
   matrix<Type> LegalBioAll(BurnIn+Nyear+MaxProjYr,Narea);                                  // Legal biomass
   array<Type> LegalBioAllbySex(BurnIn+Nyear+MaxProjYr,Narea,Nsex);                         // Legal biomass by sex T step 1
   array<Type> MatureBioAllbySex(BurnIn+Nyear+MaxProjYr,Narea,Nsex);                         // Legal biomass by sex T step 1
-  matrix<Type> LegalBio76(Nyear,Narea);                                                    // Legal biomass of all lobster > 76 mm
+  //matrix<Type> LegalBio76(Nyear,Narea);                                                    // Legal biomass of all lobster > 76 mm
   array<Type> CumCatch(Nyear,Narea,Nstep);
   //array<Type> CatchYSA(Nyear,Nstep,Narea);
   matrix<Type> CatchYA(Nyear,Narea);
@@ -2729,7 +2729,7 @@ if(thedata.IsTagData==1){
    // REPORT(HarvestRateArea);
    // REPORT(HarvestRateZn);
    // REPORT(SHarvestRate76);
-    REPORT(LegalBio76);
+   // REPORT(LegalBio76);
     REPORT(LegalBioAllbySex);
     REPORT(MatureBioAllbySex);
     REPORT(CumCatch);

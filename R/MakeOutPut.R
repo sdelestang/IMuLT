@@ -510,7 +510,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
     for (a in 1:Narea) {
       for (s in 1:Nsex) {
-
+        sexlabels <- c("Female", "Male")
+        if(Nsex==1) sexlabels <- c("Male", "Male")
         key           <- paste0("a", a, "_s", s)
         pattern_years <- unique_years[[key]]
 
@@ -548,7 +549,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             lo_len       = mean_len - sd_len,
             hi_len       = mean_len + sd_len,
             area         = factor(a),
-            sex          = factor(s, labels = c("Female", "Male")[s]),
+            sex          = factor(s, labels = sexlabels[s]),
             pattern_year = factor(py)
           )
         }

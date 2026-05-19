@@ -1523,7 +1523,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             legend.background = element_rect(fill = alpha("white", 0.7)))
     suppressWarnings(print(p))
     caption <- paste("Egg production curves by area", a,". This is a combination of maturity, multiple spawning and fecundity and used to estimate egg production by area.")
-    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retention",caption=caption)
   }
 
   ### Natural Mortality ####

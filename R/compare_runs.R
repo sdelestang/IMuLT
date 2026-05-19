@@ -15,6 +15,9 @@
 #'   (B/B0). If \code{FALSE}, plot absolute biomass. Default \code{FALSE}.
 #' @param runs Character vector or \code{NULL}. Additional filter on subfolder
 #'   names (exact match on \code{basename}). Applied after \code{Vers} filtering.
+#' @param startyr Numeric or \code{NULL}. If specified, only years
+#'   \code{>= startyr} are plotted, which is useful for trimming burn-in
+#'   years. If \code{NULL} (the default), all years are included.
 #'   If \code{NULL}, no additional filtering is applied.
 #' @param scale Numeric. Divisor for absolute biomass (e.g. 1000 for tonnes).
 #'   Ignored when \code{relative = TRUE}. Default 1.
@@ -43,6 +46,7 @@ compare_legal_biomass <- function(Vers=NULL, summary_dir = "Output/Summary",
                                   relative = FALSE,
                                   runs = NULL,
                                   scale = 1,
+                                  startyr = NULL,
                                   ylab = NULL) {
 
   if (is.null(ylab)) ylab <- if (relative) "B/B0" else "Legal Biomass (t)"
@@ -172,6 +176,8 @@ compare_legal_biomass <- function(Vers=NULL, summary_dir = "Output/Summary",
 
   result <- do.call(rbind, all_data)
   rownames(result) <- NULL
+
+  if (!is.null(startyr)) result <- result[result$Year >= startyr, ]
 
   # ── Plot ────────────────────────────────────────────────────
   if (by_area) {

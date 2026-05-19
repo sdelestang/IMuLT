@@ -11,6 +11,7 @@ compare_legal_biomass(
   relative = FALSE,
   runs = NULL,
   scale = 1,
+  startyr = NULL,
   ylab = NULL
 )
 }
@@ -30,11 +31,15 @@ If \code{FALSE}, sum across areas and plot total biomass. Default \code{FALSE}.}
 (B/B0). If \code{FALSE}, plot absolute biomass. Default \code{FALSE}.}
 
 \item{runs}{Character vector or \code{NULL}. Additional filter on subfolder
-names (exact match on \code{basename}). Applied after \code{Vers} filtering.
-If \code{NULL}, no additional filtering is applied.}
+names (exact match on \code{basename}). Applied after \code{Vers} filtering.}
 
 \item{scale}{Numeric. Divisor for absolute biomass (e.g. 1000 for tonnes).
 Ignored when \code{relative = TRUE}. Default 1.}
+
+\item{startyr}{Numeric or \code{NULL}. If specified, only years
+\code{>= startyr} are plotted, which is useful for trimming burn-in
+years. If \code{NULL} (the default), all years are included.
+If \code{NULL}, no additional filtering is applied.}
 
 \item{ylab}{Character or \code{NULL}. Y-axis label. If \code{NULL}, chosen
 automatically based on \code{relative}.}

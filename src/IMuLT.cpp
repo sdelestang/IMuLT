@@ -2149,20 +2149,20 @@ Type objective_function<Type>::operator() ()
   array<Type> MatureBioAllbySex(BurnIn+Nyear+MaxProjYr,Narea,Nsex);                         // Legal biomass by sex T step 1
   matrix<Type> LegalBio76(Nyear,Narea);                                                    // Legal biomass of all lobster > 76 mm
   array<Type> CumCatch(Nyear,Narea,Nstep);
-  array<Type> CatchYSA(Nyear,Nstep,Narea);
+  //array<Type> CatchYSA(Nyear,Nstep,Narea);
   matrix<Type> CatchYA(Nyear,Narea);
   array<Type> HRint(Nyear,Nstep,Narea);
-  array<Type> wHRint(Nyear,Nstep,Narea);
-  array<Type> LegalBioTS(Nyear,Narea,Nstep);                                               // Legal biomass
-  array<Type> LegalBio76TS(Nyear,Narea,Nstep);                                             // Legal biomass of all lobster > 76 mm
+  //array<Type> wHRint(Nyear,Nstep,Narea);
+  //array<Type> LegalBioTS(Nyear,Narea,Nstep);                                               // Legal biomass
+  //array<Type> LegalBio76TS(Nyear,Narea,Nstep);                                             // Legal biomass of all lobster > 76 mm
   matrix<Type> sLegalBio(Nyear,Narea);                                                     // Legal biomass
-  matrix<Type> sLegalBio76(Nyear,Narea);                                                   // Legal biomass of all lobster > 76 mm
+  //matrix<Type> sLegalBio76(Nyear,Narea);                                                   // Legal biomass of all lobster > 76 mm
   matrix<Type> HarvestRate(Nyear,Nzone);                                                   // Harvest rate by year and zone from Hrate
-  matrix<Type> SHarvestRate(Nyear,Nzone);                                                   // Harvest rate by year and zone from Hrate
-  matrix<Type> HarvestRateArea(Nyear,Narea);                                               // Harvest rate by year and area from Lbio
-  matrix<Type> HarvestRateZn(Nyear,Nzone);                                                 // Harvest rate by year and zone from Lbio
+ // matrix<Type> SHarvestRate(Nyear,Nzone);                                                   // Harvest rate by year and zone from Hrate
+  //matrix<Type> HarvestRateArea(Nyear,Narea);                                               // Harvest rate by year and area from Lbio
+  //matrix<Type> HarvestRateZn(Nyear,Nzone);                                                 // Harvest rate by year and zone from Lbio
   matrix<Type> HarvestRate76(Nyear,Nzone);                                                 // Harvest rate by year and zone of all lobster > 76 mm
-  matrix<Type> SHarvestRate76(Nyear,Nzone);                                                 // Harvest rate by year and zone of all lobster > 76 mm
+ // matrix<Type> SHarvestRate76(Nyear,Nzone);                                                 // Harvest rate by year and zone of all lobster > 76 mm
   matrix<Type> HrateYA(Nyear,Narea);                                                       // Store summed HR by year and area
   array<Type> CatchCheck(Nyear+MaxProjYr,Nstep,Nfleet);                                              // Check
   array<Type> DiscardWt(Nyear,Nstep,Nfleet);       DiscardWt.setZero();
@@ -2437,30 +2437,31 @@ if(thedata.IsTagData==1){
 }
 
 // Legal Biomass by Year, Area, time step at the end of a time step
-int Ipoint;int Ipoint76;
-LegalBioTS.setZero();LegalBio76TS.setZero();
-for (int Iyear=0;Iyear<Nyear;Iyear++) {
-  for (int Iarea=0;Iarea<Narea;Iarea++) {
-    for (int Istep=0;Istep<Nstep;Istep++) {
-      for (int Isex=0;Isex<Nsex;Isex++) {
-        for (int Iage=0;Iage<Nage;Iage++) {
-          for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
-            Ipoint = LegalPnt(Isex,Iage,Iarea,Iyear,Istep);
-            LegalBioTS(Iyear,Iarea,Istep) += LegalFI(Ipoint,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-            LegalBio76TS(Iyear,Iarea,Istep) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-          }}}}}}
-
-  // Average Legal Biomass by Year and Area - average by the length of the time step
-  LegalBio.setZero();LegalBio76.setZero();
-  for (int Iyear=0;Iyear<Nyear;Iyear++) {
-    for (int Iarea=0;Iarea<Narea;Iarea++) {
-      for (int Istep=0;Istep<Nstep;Istep++) {
-        LegalBio(Iyear,Iarea)   += (LegalBioTS(Iyear,Iarea,Istep) * TimeStepLen(Iyear,Istep));
-        LegalBio76(Iyear,Iarea) += (LegalBio76TS(Iyear,Iarea,Istep) * TimeStepLen(Iyear,Istep));
-          }}}
+// int Ipoint;int Ipoint76;
+// LegalBioTS.setZero();LegalBio76TS.setZero();
+// for (int Iyear=0;Iyear<Nyear;Iyear++) {
+//   for (int Iarea=0;Iarea<Narea;Iarea++) {
+//     for (int Istep=0;Istep<Nstep;Istep++) {
+//       for (int Isex=0;Isex<Nsex;Isex++) {
+//         for (int Iage=0;Iage<Nage;Iage++) {
+//           for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
+//             Ipoint = LegalPnt(Isex,Iage,Iarea,Iyear,Istep);
+//             LegalBioTS(Iyear,Iarea,Istep) += LegalFI(Ipoint,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+//             LegalBio76TS(Iyear,Iarea,Istep) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,Istep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+//           }}}}}}
+//
+//   // Average Legal Biomass by Year and Area - average by the length of the time step
+//   LegalBio.setZero();LegalBio76.setZero();
+//   for (int Iyear=0;Iyear<Nyear;Iyear++) {
+//     for (int Iarea=0;Iarea<Narea;Iarea++) {
+//       for (int Istep=0;Istep<Nstep;Istep++) {
+//         //LegalBio(Iyear,Iarea)   += (LegalBioTS(Iyear,Iarea,Istep) * TimeStepLen(Iyear,Istep));
+//         LegalBio76(Iyear,Iarea) += (LegalBio76TS(Iyear,Iarea,Istep) * TimeStepLen(Iyear,Istep));
+//           }}}
 
 
    // Legal Biomass at predetermined time-step. Including Burn In.
+   //// This is used as an output * //// ----------------------------------------------------------------------------------
    int YearAdjusted;
    LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
    for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){
@@ -2505,61 +2506,64 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     }}
 
  // Simons Legal Biomass Legal bio + cumulative catch then averaged over the season weighted by time step length
-  sLegalBio.setZero();
-  sLegalBio76.setZero();
-  for (int Iyear=0;Iyear<Nyear;Iyear++){
-    for (int Iarea=0;Iarea<Narea;Iarea++)  {
-      for (int Istep=0;Istep<Nstep;Istep++)   {
-        sLegalBio(Iyear,Iarea) += (LegalBioTS(Iyear,Iarea,Istep) + CumCatch(Iyear,Iarea,Istep)) * TimeStepLen(Iyear,Istep);           // Add Legal biomass with the cumulative catch to date
-        sLegalBio76(Iyear,Iarea) += (LegalBio76TS(Iyear,Iarea,Istep) + CumCatch(Iyear,Iarea,Istep)) * TimeStepLen(Iyear,Istep);
-      }
-     // sLegalBio(Iyear,Iarea) /= float(Nstep);
-     // sLegalBio76(Iyear,Iarea) /= float(Nstep);
-    }}
+  // sLegalBio.setZero();
+  // sLegalBio76.setZero();
+  // for (int Iyear=0;Iyear<Nyear;Iyear++){
+  //   for (int Iarea=0;Iarea<Narea;Iarea++)  {
+  //     for (int Istep=0;Istep<Nstep;Istep++)   {
+  //       sLegalBio(Iyear,Iarea) += (LegalBioTS(Iyear,Iarea,Istep) + CumCatch(Iyear,Iarea,Istep)) * TimeStepLen(Iyear,Istep);           // Add Legal biomass with the cumulative catch to date
+  //       sLegalBio76(Iyear,Iarea) += (LegalBio76TS(Iyear,Iarea,Istep) + CumCatch(Iyear,Iarea,Istep)) * TimeStepLen(Iyear,Istep);
+  //     }
+  //    // sLegalBio(Iyear,Iarea) /= float(Nstep);
+  //    // sLegalBio76(Iyear,Iarea) /= float(Nstep);
+  //   }}
 
 
   // Harvest rate //
   // Get catches by area and not fleet to match biomass
-  for (int Iyear=0;Iyear<Nyear;Iyear++)   {
-    for (int Istep=0;Istep<Nstep;Istep++){
-      for (int Ifleet=0;Ifleet<Nfleet;Ifleet++){
-        for (int Iarea=0;Iarea<Narea;Iarea++){
-          if (Area_fleet(Iarea,Ifleet) == 1) {
-                CatchYSA(Iyear,Istep,Iarea) += Catch(Iyear,Istep,Ifleet);   // get total catch by year, time step area
-          }}}}}
+  //// This is used as an output * //// ----------------------------------------------------------------------------------
+  // for (int Iyear=0;Iyear<Nyear;Iyear++)   {
+  //   for (int Istep=0;Istep<Nstep;Istep++){
+  //     for (int Ifleet=0;Ifleet<Nfleet;Ifleet++){
+  //       for (int Iarea=0;Iarea<Narea;Iarea++){
+  //         if (Area_fleet(Iarea,Ifleet) == 1) {
+  //               CatchYSA(Iyear,Istep,Iarea) += Catch(Iyear,Istep,Ifleet);   // get total catch by year, time step area
+  //         }}}}}
 
-   for (int Iyear=0;Iyear<Nyear;Iyear++)   {
-     for (int Istep=0;Istep<Nstep;Istep++){
-         for (int Iarea=0;Iarea<Narea;Iarea++){
-           HRint(Iyear,Istep,Iarea) = (1e-17+CatchYSA(Iyear,Istep,Iarea))/LegalBioTS(Iyear,Iarea,Istep);
-           wHRint(Iyear,Istep,Iarea) = HRint(Iyear,Istep,Iarea) * (1e-17+CatchYSA(Iyear,Istep,Iarea)); }}}
+   // for (int Iyear=0;Iyear<Nyear;Iyear++)   {
+   //   for (int Istep=0;Istep<Nstep;Istep++){
+   //       for (int Iarea=0;Iarea<Narea;Iarea++){
+   //         HRint(Iyear,Istep,Iarea) = (1e-17+CatchYSA(Iyear,Istep,Iarea))/LegalBioTS(Iyear,Iarea,Istep);
+   //         wHRint(Iyear,Istep,Iarea) = HRint(Iyear,Istep,Iarea) * (1e-17+CatchYSA(Iyear,Istep,Iarea)); }}}
 
-   Type cumCatchYSA;   Type HR1;
-   for (int Iyear=0;Iyear<Nyear;Iyear++)   {
-     for (int Iarea=0;Iarea<Narea;Iarea++){
-       cumCatchYSA = 0; HR1 = 0;
-       for (int Istep=0;Istep<Nstep;Istep++){
-         cumCatchYSA += (1e-17+CatchYSA(Iyear,Istep,Iarea));
-         HR1 += wHRint(Iyear,Istep,Iarea);                                     // Weight the time step HR by catch landed
-       }
-       HarvestRateArea(Iyear,Iarea)= HR1/cumCatchYSA;                                // Remove weighting
-     }}
+   // Type cumCatchYSA;   Type HR1;
+   // for (int Iyear=0;Iyear<Nyear;Iyear++)   {
+   //   for (int Iarea=0;Iarea<Narea;Iarea++){
+   //     cumCatchYSA = 0; HR1 = 0;
+   //     for (int Istep=0;Istep<Nstep;Istep++){
+   //       cumCatchYSA += (1e-17+CatchYSA(Iyear,Istep,Iarea));
+   //       HR1 += wHRint(Iyear,Istep,Iarea);                                     // Weight the time step HR by catch landed
+   //     }
+   //     HarvestRateArea(Iyear,Iarea)= HR1/cumCatchYSA;                                // Remove weighting
+   //   }}
 
   // Calculate Harvest Rate by zone
-  for (int Iyear=0;Iyear<Nyear;Iyear++){
-    for (int Izone=0;Izone<Nzone;Izone++)   {
-      for (int IareaP=0;IareaP<NareasPerZone(Izone);IareaP++)   {
-        Iarea = AreasPerZone(Izone,IareaP);
-        if (Iarea >= 0) {
-      cumCatchYSA = 0; HR1 = 0;
-      for (int Istep=0;Istep<Nstep;Istep++){
-        cumCatchYSA += (1e-17+CatchYSA(Iyear,Istep,Iarea));
-        HR1 += wHRint(Iyear,Istep,Iarea);                                     // Weight the time step HR by catch landed
-      }}}
-      HarvestRateZn(Iyear,Izone)= HR1/cumCatchYSA;                                // Remove weighting
-    }}
+  // for (int Iyear=0;Iyear<Nyear;Iyear++){
+  //   for (int Izone=0;Izone<Nzone;Izone++)   {
+  //     for (int IareaP=0;IareaP<NareasPerZone(Izone);IareaP++)   {
+  //       Iarea = AreasPerZone(Izone,IareaP);
+  //       if (Iarea >= 0) {
+  //     cumCatchYSA = 0; HR1 = 0;
+  //     for (int Istep=0;Istep<Nstep;Istep++){
+  //       cumCatchYSA += (1e-17+CatchYSA(Iyear,Istep,Iarea));
+  //       HR1 += wHRint(Iyear,Istep,Iarea);                                     // Weight the time step HR by catch landed
+  //     }}}
+  //     HarvestRateZn(Iyear,Izone)= HR1/cumCatchYSA;                                // Remove weighting
+  //   }}
 
 
+  // Harvest rate //
+  //// This is used as an output * //// ----------------------------------------------------------------------------------
   // Harvest Rate 2 off Hrate used in the catch equation
   // Sum Hrate across time steps and record by area (also do for catch to weight averaging)
   HrateYA.setZero();
@@ -2587,26 +2591,26 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
 
 
    // Harvest rate 3
-   Type TotalLB, TotalLB76, CatchLB;
-   for (int Iyear=0;Iyear<Nyear;Iyear++)    {
-     for (int Izone=0;Izone<Nzone;Izone++)      {
-       TotalLB = 0;TotalLB76 = 0; CatchLB = 0;
-       for (int IareaP=0;IareaP<NareasPerZone(Izone);IareaP++)        {
-         Iarea = AreasPerZone(Izone,IareaP);
-         if (Iarea >= 0)  {
-           TotalLB += sLegalBio(Iyear,Iarea);
-           TotalLB76 += sLegalBio76(Iyear,Iarea);
-           for (int Istep=0;Istep<Nstep;Istep++){
-             for (int Ifleet=0;Ifleet<Nfleet;Ifleet++){
-               if (Area_fleet(Iarea,Ifleet) == 1) {  CatchLB += Catch(Iyear,Istep,Ifleet);}
-             }
-           }
-         }
-       }
-       SHarvestRate(Iyear,Izone) = CatchLB/TotalLB;
-       SHarvestRate76(Iyear,Izone) = CatchLB/TotalLB76;
-     }
-   }
+   // Type TotalLB, TotalLB76, CatchLB;
+   // for (int Iyear=0;Iyear<Nyear;Iyear++)    {
+   //   for (int Izone=0;Izone<Nzone;Izone++)      {
+   //     TotalLB = 0;TotalLB76 = 0; CatchLB = 0;
+   //     for (int IareaP=0;IareaP<NareasPerZone(Izone);IareaP++)        {
+   //       Iarea = AreasPerZone(Izone,IareaP);
+   //       if (Iarea >= 0)  {
+   //         TotalLB += sLegalBio(Iyear,Iarea);
+   //         TotalLB76 += sLegalBio76(Iyear,Iarea);
+   //         for (int Istep=0;Istep<Nstep;Istep++){
+   //           for (int Ifleet=0;Ifleet<Nfleet;Ifleet++){
+   //             if (Area_fleet(Iarea,Ifleet) == 1) {  CatchLB += Catch(Iyear,Istep,Ifleet);}
+   //           }
+   //         }
+   //       }
+   //     }
+   //     SHarvestRate(Iyear,Izone) = CatchLB/TotalLB;
+   //     SHarvestRate76(Iyear,Izone) = CatchLB/TotalLB76;
+   //   }
+   // }
 
   Rec_Penal = 0;
   Rec_Penal_SumZero = 0;   // Keep estimated recruit devs summing to Zero
@@ -2718,13 +2722,13 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
   	REPORT(Rec_Penal_Smooth);
   	REPORT(Ninit);
     REPORT(PuerulusByArea);
-    REPORT(sLegalBio);
+   // REPORT(sLegalBio);
     REPORT(sLegalBio76);
     REPORT(HarvestRate);
-    REPORT(SHarvestRate);
-    REPORT(HarvestRateArea);
-    REPORT(HarvestRateZn);
-    REPORT(SHarvestRate76);
+   // REPORT(SHarvestRate);
+   // REPORT(HarvestRateArea);
+   // REPORT(HarvestRateZn);
+   // REPORT(SHarvestRate76);
     REPORT(LegalBio76);
     REPORT(LegalBioAllbySex);
     REPORT(MatureBioAllbySex);
@@ -2741,10 +2745,10 @@ for (int Iyear=0;Iyear<Nyear;Iyear++) {
     REPORT(TagLike2);
     REPORT(LegalBio);
     REPORT(LegalBioAll);
-    REPORT(CatchYSA);
-    REPORT(LegalBioTS);
+   // REPORT(CatchYSA);
+   // REPORT(LegalBioTS);
     REPORT(HRint);
-    REPORT(wHRint);
+   // REPORT(wHRint);
     REPORT(HrateYA);
     REPORT(ActRecruitAreaSexDist);
     REPORT(ActRecruitLenDist);

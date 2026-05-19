@@ -415,25 +415,25 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(t(tmp),ncol=4,OutputFile,append=T)
 
 
-  write("\n#Biomass >76 by area (se?)",OutputFile,append=T)
-  Years <- 1:(Nyears+1)+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1
-  if('sLegalBio76'%in%rownames(stdrep)){
-    tmp <- as.data.frame(stdrep[rownames(stdrep)=='sLegalBio76',]) %>% mutate(year=GeneralSpecs$Year1) %>% filter(Estimate>0)
-    tmp$year <- tmp$year+(0:((nrow(tmp)/GeneralSpecs$Narea)-1))
-    tmp$area <- rep(1:GeneralSpecs$Narea, each=nrow(tmp)/GeneralSpecs$Narea)
-    tmp %<>% dplyr::select(year, area, est=Estimate,se='Std. Error')
-    write("#Year area est se",OutputFile,append=T)
-    write(t(tmp),ncol=4,OutputFile,append=T)
-  } else {
-    tmp <- as.data.frame((Report$sLegalBio76))
-    tmp$year <- (GeneralSpecs$Year1)
-    tmp <- tmp[tmp[,1]>0,]
-    tmp$year <- tmp$year+(0:(nrow(tmp)-1))
-    colnames(tmp) <- c(1:GeneralSpecs$Narea, 'year')
-    tmp %<>% pivot_longer(!year,names_to = 'area')
-    write("#Year area est",OutputFile,append=T)
-    write(t(tmp),ncol=3,OutputFile,append=T)
-  }
+  # write("\n#Biomass >76 by area (se?)",OutputFile,append=T)
+  # Years <- 1:(Nyears+1)+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1
+  # if('sLegalBio76'%in%rownames(stdrep)){
+  #   tmp <- as.data.frame(stdrep[rownames(stdrep)=='sLegalBio76',]) %>% mutate(year=GeneralSpecs$Year1) %>% filter(Estimate>0)
+  #   tmp$year <- tmp$year+(0:((nrow(tmp)/GeneralSpecs$Narea)-1))
+  #   tmp$area <- rep(1:GeneralSpecs$Narea, each=nrow(tmp)/GeneralSpecs$Narea)
+  #   tmp %<>% dplyr::select(year, area, est=Estimate,se='Std. Error')
+  #   write("#Year area est se",OutputFile,append=T)
+  #   write(t(tmp),ncol=4,OutputFile,append=T)
+  # } else {
+  #   tmp <- as.data.frame((Report$sLegalBio76))
+  #   tmp$year <- (GeneralSpecs$Year1)
+  #   tmp <- tmp[tmp[,1]>0,]
+  #   tmp$year <- tmp$year+(0:(nrow(tmp)-1))
+  #   colnames(tmp) <- c(1:GeneralSpecs$Narea, 'year')
+  #   tmp %<>% pivot_longer(!year,names_to = 'area')
+  #   write("#Year area est",OutputFile,append=T)
+  #   write(t(tmp),ncol=3,OutputFile,append=T)
+  # }
 
   write("\n#Extended Legal Biomass by area (1+SD?)",OutputFile,append=T)
   for (Iarea in 1:GeneralSpecs$Narea)

@@ -1339,31 +1339,64 @@ template <class Type>
    for (int Istep=0;Istep<dat.Nstep;Istep++)
     Initial_pen += 1000000*square(Fvals(Ifleet,dat.Num_Iteration-2,Istep)-Fvals(Ifleet,dat.Num_Iteration-1,Istep));
 
-  // Really poor initial condition
+  // ── Compute Virgin Biomass from a dedicated no-F burn-in ──────
+  // Project from unfished equilibrium through the full burn-in with F=0
+  // so that virgin biomass reflects the model's actual process sequence
   N.setZero();
   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   for (int Isex=0;Isex<dat.Nsex;Isex++)
-    for (int Iage=0;Iage<dat.Nage;Iage++)
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
-  // One year zero catch projection
-  for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
-   for (int Istep=0;Istep<dat.Nstep;Istep++)
-    XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
-                        ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                        VirginBio, CurrentBio);
+        for (int Iyear=-dat.BurnIn;Iyear<0;Iyear++)
+          for (int Istep=0;Istep<dat.Nstep;Istep++)
+            XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
+                             Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
+                             ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
+                             RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
+                             VirginBio, CurrentBio);
 
-  // Multiyear projection with F (but to year 0)
+  // Virgin biomass from end of no-F burn-in at the designated biology time step
+  VirginBio.setZero(); VirginLegalBio.setZero();
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++){
+    for (int Isex=0;Isex<dat.Nsex;Isex++){
+      for (int Iage=0;Iage<dat.Nage;Iage++){
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
+          VirginBio(Iarea) += N(Iarea,dat.BurnIn,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
+          VirginLegalBio(Iarea) += LegalRef(Isex,Isize) * N(Iarea,dat.BurnIn,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
+        }}}}
+
+  // ── Now do the final burn-in with area-specific F ─────────────
+  N.setZero();
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
+
+        // One year zero catch projection
+        for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
+          for (int Istep=0;Istep<dat.Nstep;Istep++)
+            XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
+                             Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
+                             ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
+                             RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
+                             VirginBio, CurrentBio);
+
+  // Multiyear projection with area-specific F
   for (int Iyear=-dat.BurnIn+1;Iyear<0;Iyear++){
-   for (int Istep=0;Istep<dat.Nstep;Istep++){
-     for (int Iarea=0;Iarea<dat.Narea;Iarea++){                          // Simon add.  Allow for turning F to Zero in burnin so we can have multiple burn_in times
-       for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++) {
-         if (dat.Area_fleet(Iarea,Ifleet)==1){
-           Feqn4(Ifleet,Istep) = Feqn2(Ifleet,Istep);                    // Always set Feqn4 to Feqn2 as default
-           if(-dat.BurnInVec(Iarea)>Iyear) Feqn4(Ifleet,Istep) = 0; }}}  // Set Feqn4 to Zero is before Burn_in wants to start
-     XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn4,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                         VirginBio, CurrentBio);}}
+    for (int Istep=0;Istep<dat.Nstep;Istep++){
+      for (int Iarea=0;Iarea<dat.Narea;Iarea++){
+        for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++) {
+          if (dat.Area_fleet(Iarea,Ifleet)==1){
+            Feqn4(Ifleet,Istep) = Feqn2(Ifleet,Istep);
+            if(-dat.BurnInVec(Iarea)>Iyear) Feqn4(Ifleet,Istep) = 0; }}}
+      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
+                       Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn4,
+                       ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
+                       RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
+                       VirginBio, CurrentBio);}}
 
  return(Initial_pen);
 

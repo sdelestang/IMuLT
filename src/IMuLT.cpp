@@ -2155,7 +2155,7 @@ Type objective_function<Type>::operator() ()
   //array<Type> wHRint(Nyear,Nstep,Narea);
   //array<Type> LegalBioTS(Nyear,Narea,Nstep);                                               // Legal biomass
   //array<Type> LegalBio76TS(Nyear,Narea,Nstep);                                             // Legal biomass of all lobster > 76 mm
-  matrix<Type> sLegalBio(Nyear,Narea);                                                     // Legal biomass
+  //matrix<Type> sLegalBio(Nyear,Narea);                                                     // Legal biomass
   //matrix<Type> sLegalBio76(Nyear,Narea);                                                   // Legal biomass of all lobster > 76 mm
   matrix<Type> HarvestRate(Nyear,Nzone);                                                   // Harvest rate by year and zone from Hrate
  // matrix<Type> SHarvestRate(Nyear,Nzone);                                                   // Harvest rate by year and zone from Hrate
@@ -2723,7 +2723,7 @@ if(thedata.IsTagData==1){
   	REPORT(Ninit);
     REPORT(PuerulusByArea);
    // REPORT(sLegalBio);
-    REPORT(sLegalBio76);
+   // REPORT(sLegalBio76);
     REPORT(HarvestRate);
    // REPORT(SHarvestRate);
    // REPORT(HarvestRateArea);

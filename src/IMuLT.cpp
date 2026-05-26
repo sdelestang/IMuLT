@@ -2002,6 +2002,7 @@ Type objective_function<Type>::operator() ()
   Type MWhitesPar;
   Type QRedsPar;
   Type SigmaR;
+  int Link;
   //vector <Type> LogRinitial(Narea);
   //Type Finitial;
 
@@ -2010,9 +2011,14 @@ Type objective_function<Type>::operator() ()
   //dataset.BurnIn=BurnIn;
 
   ////// Deal with mainpars ///////
-  // Adjust main parameters to account for linked parameters
+  // Adjust main parameters to account for linked parameters and linked offset
   for(int mp=0;mp<MparsLink.size();mp++){
-    if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1); }
+    if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1);
+    if(MparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * MparsLink(mp);
+      MainPars(mp) += MainPars(Link-1);
+      }
+      }
 
   // Apply priors on Main Pars if requested
   Type MainParPriorPen = 0;
@@ -2041,7 +2047,12 @@ Type objective_function<Type>::operator() ()
   //// Deal with Recruitment Pars  ///////
   // Adjust parameters to account for linked parameters
   for(int mp=0;mp<RecparsLink.size();mp++){
-    if(RecparsLink(mp)>0) RecruitPars(mp)=RecruitPars(RecparsLink(mp)-1); }
+    if(RecparsLink(mp)>0) RecruitPars(mp)=RecruitPars(RecparsLink(mp)-1);
+    if(RecparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * RecparsLink(mp);
+      RecruitPars(mp) += RecruitPars(Link-1);
+    }
+    }
 
   // Apply priors on Rec Pars if requested
   Type RecParPriorPen = 0;
@@ -2068,7 +2079,12 @@ Type objective_function<Type>::operator() ()
   //// Deal with Selectivity Pars  ///////
   // Adjust  parameters to account for linked parameters
   for(int mp=0;mp<SelparsLink.size();mp++){
-    if(SelparsLink(mp)>0) SelPars(mp)=SelPars(SelparsLink(mp)-1); }
+    if(SelparsLink(mp)>0) SelPars(mp)=SelPars(SelparsLink(mp)-1);
+    if(SelparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * SelparsLink(mp);
+      SelPars(mp) += SelPars(Link-1);
+    }
+    }
 
   // Apply priors on Select Pars if requested
   Type SelParPriorPen = 0;
@@ -2095,7 +2111,12 @@ Type objective_function<Type>::operator() ()
   //// Deal with Efficiency Pars  ///////
   // Adjust parameters to account for linked parameters
   for(int mp=0;mp<EffparsLink.size();mp++){
-    if(EffparsLink(mp)>0) efpars(mp)=efpars(EffparsLink(mp)-1); }
+    if(EffparsLink(mp)>0) efpars(mp)=efpars(EffparsLink(mp)-1);
+    if(EffparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * EffparsLink(mp);
+      efpars(mp) += efpars(Link-1);
+    }
+    }
 
   // Apply priors on Rec Pars if requested
   Type EffParPriorPen = 0;
@@ -2118,6 +2139,39 @@ Type objective_function<Type>::operator() ()
       EffParPriorPen += -dnorm(log(efpars(r,0)), mulog, sdlog, true) + log(efpars(r,0));
     }
   }
+
+  //// Deal with Migrate Pars  ///////
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<MoveparsLink.size();mp++){
+    if(MoveparsLink(mp)>0) MovePars(mp)=MovePars(MoveparsLink(mp)-1);
+    if(MoveparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * MoveparsLink(mp);
+      MovePars(mp) += MovePars(Link-1);
+    }
+  }
+
+  // Apply priors on Rec Pars if requested
+  Type MoveParPriorPen = 0;
+  int nrowMP = MoveparsPrior.rows();
+  for (int r=0; r<nrowMP; r++) {
+    // Normal prior
+    if(MoveparsPrior(r,0)==1){
+      MoveParPriorPen += -dnorm(MovePars(r,0), MoveparsPrior(r,1), MoveparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(MoveparsPrior(r,0)==2){
+      ScaleMP = square(MoveparsPrior(r,2))/MoveparsPrior(r,1);
+      ShapeMP = MoveparsPrior(r,1)/ScaleMP;
+      MoveParPriorPen += -dgamma(MovePars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(MoveparsPrior(r,0)==3){
+      Type mulog  = log(MoveparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(MoveparsPrior(r,2)/MoveparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(MoveparsPrior(r,2)/MoveparsPrior(r,1))));
+      MoveParPriorPen += -dnorm(log(MovePars(r,0)), mulog, sdlog, true) + log(MovePars(r,0));
+    }
+  }
+
 
   // Split MainPars out into their various groups
   Rbar = MainPars(0);

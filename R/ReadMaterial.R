@@ -1107,12 +1107,19 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
       }
   write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
 
+  # Movement parameters linking conditions
+  Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+2;
+  MoveparsLink <- as.numeric(MoveFile[(Index):(Index+NmovePatterns-1),5])
+  MoveparsPrior <- apply(as.matrix(MoveFile[(Index):(Index+NmovePatterns-1),6:8]),2,as.numeric)
+
   write("READ IN THE MOVEMENT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$NmovePatterns <- NmovePatterns
   ReturnObj$MoveSpec <- MoveSpec
   ReturnObj$MovePnt <- MovePnt
   ReturnObj$NmovePars <- NmovePars
+  ReturnObj$MoveparsLink <- MovparsLink
+  ReturnObj$MoveparsPrior <- MoveparsPrior
   return(ReturnObj)
  }
 
@@ -1234,7 +1241,7 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   # Selectivity parameters linking conditions
   Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+2;
   SelparsLink <- as.numeric(SelexFile[(Index):(Index+NselPars-1),5])
-  SelparsPrior <- apply(as.matrix(SelexFile[(Index):(Index++NselPars-1),6:8]),2,as.numeric)
+  SelparsPrior <- apply(as.matrix(SelexFile[(Index):(Index+NselPars-1),6:8]),2,as.numeric)
 
   # Fixed selectivity
   Index <- MatchTable(SelexFile,Char1="#",Char2="selectivity",Char3=NULL)+1;

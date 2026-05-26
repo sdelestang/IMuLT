@@ -647,7 +647,7 @@ print("Building Control File")
       dat2[dat$age==(migrate999$Age[i]-1) & dat$area==(migrate999$Source[i]-1) & dat$step==(migrate999$tstep[i]-1),] <- i
     }
     migrateNOT999 <- migrate %>% filter(Season<=100)
-    if(nrow(migrateNOT999>0)){
+    if(nrow(migrateNOT999)>0){
       nyears <- ncol(dat2)
       parpoint <- max(dat2)+1
       for(i in 1:nrow(migrateNOT999)){
@@ -678,15 +678,24 @@ print("Building Control File")
     tmp <- c(tmp, "# Movement section\n# Number of movement patterns\n",nrow(migrate999)+1,"\n")
     tmp <- c(tmp, "# Pattern\tType\tDest\tExtra\t(Type 0: none; 1 constant [prespecified or estimated; 1 parameter]; 2 knife-eded-specific [pre-specified or estimated; 2 parameters])\n")
     tmp <- c(tmp,"\t",paste(c(0,0,0,0),collapse = "\t"),"\n")
-    if(nrow(migrate999)>0) for(i in 1:nrow(migrate999)){ tmp <- c(tmp,"\t",paste(c(i,1,migrate999$Dest[i]-1,0),collapse = "\t"),"\n")}
+    if(nrow(migrate999)>0) {
+      for(i in 1:nrow(migrate999)) {
+      tmp <- c(tmp,"\t",paste(c(i,1,migrate999$Dest[i]-1,0),collapse = "\t"),"\n")}}
 
     tmp <- c(tmp, "# Movement specifications\n")
     tmp <- c(tmp, "#Age\tArea\tTStep\t", paste(startseason:endseason,collapse = "\t"),"\n")
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
 
-    tmp <- c(tmp, "# Movement parameters\n# Lower\tUpper\tEstimate\tPhase\t\tSource to Dest & Age\n")
-    Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase)
-    if(nrow(Mpar)>0) {for(i in 1:nrow(Mpar)){ tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}}
+    tmp <- c(tmp, "# Movement parameters\n# Lower\tUpper\tEstimate\tPhase\tLink\tUsePrior\tPrior_mn\tPrior_sd\tSource to Dest & Age\n")
+    Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd)
+    if(nrow(Mpar)>0) {
+      for(i in 1:nrow(Mpar)){
+      tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}
+    }
+    if(nrow(Mpar)==0) {
+      Mpar <- c(1,1,1,-1,0,0,1,1)
+      tmp <- c(tmp,paste(Mpar,collapse = "\t"),paste("\t\t # No movement"))
+          }
 
     tmp <- c(tmp, "\n# Final check\n123456")
 

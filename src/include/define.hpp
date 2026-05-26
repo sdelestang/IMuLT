@@ -86,6 +86,8 @@ struct dataSet{
   matrix <Type> SelparsPrior;
   vector <int> EffparsLink;
   matrix <Type> EffparsPrior;
+  vector <int> MoveparsLink;
+  matrix <Type> MoveparsPrior;
   // int InitOpt;
   Type Bias_Ramp_Yr1;
   Type Bias_Ramp_Yr2;

@@ -1118,7 +1118,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
   ReturnObj$MoveSpec <- MoveSpec
   ReturnObj$MovePnt <- MovePnt
   ReturnObj$NmovePars <- NmovePars
-  ReturnObj$MoveparsLink <- MovparsLink
+  ReturnObj$MoveparsLink <- MoveparsLink
   ReturnObj$MoveparsPrior <- MoveparsPrior
   return(ReturnObj)
  }

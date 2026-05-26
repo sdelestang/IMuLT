@@ -1902,7 +1902,8 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(SelparsPrior); dataset.SelparsPrior = SelparsPrior;
   DATA_IVECTOR(EffparsLink); dataset.EffparsLink = EffparsLink;
   DATA_MATRIX(EffparsPrior); dataset.EffparsPrior = EffparsPrior;
-  //DATA_INTEGER(InitOpt); dataset.InitOpt = InitOpt;
+  DATA_IVECTOR(MoveparsLink); dataset.MoveparsLink = MoveparsLink;
+  DATA_MATRIX(MoveparsPrior); dataset.MoveparsPrior = MoveparsPrior;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;
   DATA_SCALAR(Bias_Ramp_Yr3); dataset.Bias_Ramp_Yr3 = Bias_Ramp_Yr3;

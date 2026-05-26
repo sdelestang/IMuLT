@@ -2152,7 +2152,7 @@ Type objective_function<Type>::operator() ()
 
   // Apply priors on Rec Pars if requested
   Type MoveParPriorPen = 0;
-  int nrowMP = MoveparsPrior.rows();
+  nrowMP = MoveparsPrior.rows();
   for (int r=0; r<nrowMP; r++) {
     // Normal prior
     if(MoveparsPrior(r,0)==1){

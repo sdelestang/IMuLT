@@ -1110,7 +1110,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
   # Movement parameters linking conditions
   Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+2;
   MoveparsLink <- as.numeric(MoveFile[(Index):(Index+NmovePatterns-1),5])
-  MoveparsPrior <- apply(as.matrix(MoveFile[(Index):(Index+NmovePatterns-1),6:8]),2,as.numeric)
+  MoveparsPrior <- matrix(apply(as.matrix(MoveFile[(Index):(Index+NmovePatterns-1),6:8]),2,as.numeric), ncol=3)
 
   write("READ IN THE MOVEMENT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL

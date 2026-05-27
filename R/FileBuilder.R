@@ -415,7 +415,7 @@ print("Building Control File")
     nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
     tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")
     for(nv in 1:nECvec){
-      for(np in (1:nECpar)[nv]){
+      for(np in 1:nECpar[nv]){
         tmp <- c(tmp, paste(ecpar1[nv,],collapse="\t"), paste("\t\t\t# Efficiency creep par - Pointer", effic$pointer[nv]," One par every",effic$temporal.cover[nv],"years.\n")   )}}
 
     tmp <- c(tmp, "\n# variance specification parameters (1=Egg Production; 2=Egg Production x area;3=Recruitment x area; 4=Legal Biomass x area;5=Harvest Rate;6=Catch rates;7=Fishing efficiency;8=Unspecified;9=Unspecified;10=Unspecified)\n")

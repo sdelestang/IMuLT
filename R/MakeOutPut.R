@@ -1571,7 +1571,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         Link_num < 0 ~ round(Estimate[match(abs(Link_num), GroupIdx)] + Estimate, 3),
         TRUE ~ NA_real_)) %>%
     ungroup() %>%
-    mutate(across(everything(), ~ ifelse(is.na(.), "", .))) %>%
+    mutate(Resolved = replace_na(as.character(Resolved), "_"),
+           Gradient = replace_na(as.character(Gradient), "_"),
+           SD = replace_na(as.character(SD), "_")) %>%
     select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)
 
@@ -1651,6 +1653,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       addplot(filen = filename, rundir = rundir, category = "Parameters", caption = caption)
     }
   }
+
   filen <- "Est.Params.csv"
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
            caption="Estimated final parameters and gradients. Link column indicates parameter linking (0 = directly estimated or fixed).")

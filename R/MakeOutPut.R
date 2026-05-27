@@ -1558,11 +1558,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
 
-  pars %<>% filter(!is.na(Estpar_cnt) | (as.numeric(Link) > 0)) %>%
-    mutate(Estimate = round(as.numeric(Estimate), 3),
+  pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) > 0)) %>%
+    mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
            Group = sub("_[0-9]+$", "", Parameter),
            GroupIdx = as.numeric(sub(".*_", "", Parameter)),
-           Link_num = as.numeric(Link)) %>%
+           Link_num = suppressWarnings(as.numeric(Link))) %>%
     group_by(Group) %>%
     mutate(
       Var = row_number(),
@@ -1571,9 +1571,10 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         Link_num < 0 ~ round(Estimate[match(abs(Link_num), GroupIdx)] + Estimate, 3),
         TRUE ~ NA_real_)) %>%
     ungroup() %>%
-    mutate(Resolved = replace_na(as.character(Resolved), "_"),
-           Gradient = replace_na(as.character(Gradient), "_"),
-           SD = replace_na(as.character(SD), "_")) %>%
+    mutate(Gradient = round(suppressWarnings(as.numeric(Gradient)), 6),
+           Resolved = replace_na(as.character(Resolved), " "),
+           Gradient = replace_na(as.character(Gradient), " "),
+           SD = replace_na(as.character(SD), " ")) %>%
     select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)
 

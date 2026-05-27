@@ -1558,17 +1558,21 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
 
-  # Store full estimate vector for resolving link offsets
-  all_estimates <- as.numeric(pars$Estimate)
-
   pars %<>% filter(!is.na(Estpar_cnt) | (as.numeric(Link) > 0)) %>%
     mutate(Estimate = round(as.numeric(Estimate), 3),
-           Link_num = as.numeric(Link),
-           Resolved = case_when(
-             Link_num > 0 ~ round(all_estimates[pmax(abs(Link_num), 1L)], 3),
-             Link_num < 0 ~ round(all_estimates[pmax(abs(Link_num), 1L)] + Estimate, 3),
-             TRUE ~ NA_real_)) %>%
-    select(Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
+           Group = sub("_[0-9]+$", "", Parameter),
+           GroupIdx = as.numeric(sub(".*_", "", Parameter)),
+           Link_num = as.numeric(Link)) %>%
+    group_by(Group) %>%
+    mutate(
+      Var = row_number(),
+      Resolved = case_when(
+        Link_num > 0 ~ round(Estimate[match(Link_num, GroupIdx)], 3),
+        Link_num < 0 ~ round(Estimate[match(abs(Link_num), GroupIdx)] + Estimate, 3),
+        TRUE ~ NA_real_)) %>%
+    ungroup() %>%
+    mutate(across(everything(), ~ ifelse(is.na(.), "", .))) %>%
+    select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)
 
   ## plot parameters

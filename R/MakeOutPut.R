@@ -1572,9 +1572,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         TRUE ~ NA_real_)) %>%
     ungroup() %>%
     mutate(Gradient = round(suppressWarnings(as.numeric(Gradient)), 6),
-           Resolved = replace_na(as.character(Resolved), " "),
-           Gradient = replace_na(as.character(Gradient), " "),
-           SD = replace_na(as.character(SD), " ")) %>%
+           Resolved = replace_na(as.character(Resolved), "-"),
+           Gradient = replace_na(as.character(Gradient), "-"),
+           SD = replace_na(as.character(SD), "-")) %>%
     select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)
 

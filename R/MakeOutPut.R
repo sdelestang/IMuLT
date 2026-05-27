@@ -1564,7 +1564,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     mutate(Estimate = round(as.numeric(Estimate), 3),
            Link_num = as.numeric(Link),
            Resolved = case_when(
-             Link_num > 0 ~ round(all_estimates[Link_num], 3),
+             Link_num > 0 ~ round(all_estimates[abs(Link_num)], 3),
              Link_num < 0 ~ round(all_estimates[abs(Link_num)] + Estimate, 3),
              TRUE ~ NA_real_)) %>%
     select(Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,

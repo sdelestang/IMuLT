@@ -2346,9 +2346,6 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  ReturnObj$efpars$Initial <- efPars
  ReturnObj$efpars$Bnd <- efBnd
  ReturnObj$efpars$Phase <- efPhase
- #ReturnObj$InitPars$Initial <- InitPars
- #ReturnObj$InitPars$Bnd <- InitParsBnd
- #ReturnObj$InitPars$Phase <- InitParsPhase
  ReturnObj$MovePars$Initial <- MovePars
  ReturnObj$MovePars$Bnd <- MoveBnd
  ReturnObj$MovePars$Phase <- MovePhase

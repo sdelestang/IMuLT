@@ -1556,10 +1556,19 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
-  pars %<>% filter(!is.na(Estpar_cnt) | (as.numeric(Link) > 0)) %>%
-    mutate(Estimate=round(as.numeric(Estimate),3)) %>%
-    select(Parameter,Estimate,SD,Gradient,lwrBound,uprBound,PriorType,PriorMean,PriorSD,Initial,Link)
 
+  # Store full estimate vector for resolving link offsets
+  all_estimates <- as.numeric(pars$Estimate)
+
+  pars %<>% filter(!is.na(Estpar_cnt) | (as.numeric(Link) > 0)) %>%
+    mutate(Estimate = round(as.numeric(Estimate), 3),
+           Link_num = as.numeric(Link),
+           Resolved = case_when(
+             Link_num > 0 ~ round(all_estimates[Link_num], 3),
+             Link_num < 0 ~ round(all_estimates[abs(Link_num)] + Estimate, 3),
+             TRUE ~ NA_real_)) %>%
+    select(Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
+           PriorType, PriorMean, PriorSD, Initial, Link)
 
   ## plot parameters
   ## Parameter distribution plots

@@ -113,15 +113,16 @@
 #' @export
 MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
-  library(makehtml, quietly = T)
-  library(hplot, quietly = T) # for plotprep and parset; automates the use of png
-  library(dplyr, quietly = T)
-  library(magrittr, quietly = T)
-  library(tidyr, quietly = T)
-  library(ggplot2, quietly = T)
-  library(dplyr, quietly = T)
-  library(reshape2, quietly = T)
-  library(openxlsx, quietly = T)
+  suppressPackageStartupMessages({
+    library(makehtml)
+    library(hplot)
+    library(dplyr)
+    library(magrittr)
+    library(tidyr)
+    library(ggplot2)
+    library(reshape2)
+    library(openxlsx)
+  })
 
   options(dplyr.summarise.inform = FALSE) ## Removes useless dplyr warnings
   starttime <- as.character(Sys.time())
@@ -1564,8 +1565,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     mutate(Estimate = round(as.numeric(Estimate), 3),
            Link_num = as.numeric(Link),
            Resolved = case_when(
-             Link_num > 0 ~ round(all_estimates[abs(Link_num)], 3),
-             Link_num < 0 ~ round(all_estimates[abs(Link_num)] + Estimate, 3),
+             Link_num > 0 ~ round(all_estimates[pmax(abs(Link_num), 1L)], 3),
+             Link_num < 0 ~ round(all_estimates[pmax(abs(Link_num), 1L)] + Estimate, 3),
              TRUE ~ NA_real_)) %>%
     select(Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)

@@ -269,30 +269,12 @@ print("Building Control File")
 
     tmp <- list()
     tmp <- c(tmp, "# Fishery\n\n# weight-at-length (W=aL^b) (kg) \n")
-    biol <- readWorkbook(wb,sheet='lengthweight', startRow = 2)
-    female.wat <- round(biol$a[biol$sex=='female']*lens^biol$b[biol$sex=='female'] ,3)
-    male.wat <- round(biol$a[biol$sex=='male']*lens^biol$b[biol$sex=='male'] ,3)
+    biol <- readWorkbook(wb,sheet='Biologicals', startRow = 2) %>% filter(Type==4)
+    female.wat <- round(biol$par_a[biol$Sex=='F']*lens^biol$par_b[biol$Sex=='F'] ,3)
+    male.wat <- round(biol$par_a[biol$Sex=='M']*lens^biol$par_b[biol$Sex=='M'] ,3)
     if(length(female.wat)>0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n", paste(female.wat,collapse = "\t"),"\n") }
     if(length(female.wat)==0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n") }
     if(length(female.wat)>0 & length(male.wat)==0){ tmp <- c(tmp, paste(female.wat,collapse = "\t"),"\n") }
-
-    # tmp <- c(tmp, "\n# Maturity at length by area \n")
-    # matdat <- readWorkbook(wb,sheet='maturity', startRow = 2)
-    #
-    # code <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
-    # for(i in 1:nrow(code)){ code[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='mature'][i])/matdat$b[matdat$cat=='mature'][i])),3)}
-    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
-    #
-    # tmp <- c(tmp, "\n# Maturity age by area \n")
-    # mages <- matdat$age[!is.na(matdat$age)]
-    # tmp <- c(tmp, paste(mages, collapse = "\t"),"\n")
-    #
-    # tmp <- c(tmp, "\n# Egg production (by area)\n")
-    # fecundity <- matdat$a[matdat$cat=='fecundity']*lens^matdat$b[matdat$cat=='fecundity']
-    # code2 <- matrix(0, nrow=max(area$newarea), ncol=length(lens))
-    # for(i in 1:nrow(code)){ code2[i,] <- round(1/(1+exp((lens-matdat$a[matdat$cat=='dspawn'][i])/matdat$b[matdat$cat=='dspawn'][i])),3)}
-    # for(i in 1:nrow(code)){ code[i,] <- round(  (code[i,]+code2[i,])*fecundity,1)}
-    # for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",0,'\n')
 
@@ -360,8 +342,8 @@ print("Building Control File")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='larvae'], "\t\t# Weight on larval data\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag1'], "\t\t# Weight on Tag1 data\n")
     tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag2'], "\t\t# Weight on Tag2 data\n")
-    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialN'], "\t\t# Weight on initial numbers\n")
-    tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialPen'], "\t\t# Weight on initial penalty (InitOpt=3 or 5)\n")
+    # tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialN'], "\t\t# Weight on initial numbers\n")
+    # tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialPen'], "\t\t# Weight on initial penalty (InitOpt=3 or 5)\n")
 
     wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
     wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
@@ -513,7 +495,7 @@ print("Building Control File")
 
     #### Reproduction file ####
     print("Building Reproduction File")
-    repo <- readWorkbook(wb,sheet='Maturity', startRow = 2) %>% mutate(Sex=adjsex(Sex,nsex,section='Reproduction')) %>% rowwise() %>% mutate(Years=paste(Startseason, Endseason, sep='-'))
+    repo <- readWorkbook(wb,sheet='Biologicals', startRow = 2) %>% mutate(Sex=adjsex(Sex,nsex,section='Reproduction')) %>% rowwise() %>% mutate(Years=paste(Startseason, Endseason, sep='-'))
     nrepo <- repo %>% group_by(Type) %>% summarise(num=length(Sex))
     nstm <- nrow(repo)
 

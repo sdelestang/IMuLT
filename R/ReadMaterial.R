@@ -667,33 +667,6 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   write("Weight-length regressions",EchoFile,append=T)
   write(t(WeightLen),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  # Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="at")+1;
-  # Maturity <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
-  # for (Iarea in 1:GeneralSpecs$Narea)
-  # {
-  #   for (Jlen in 1:GeneralSpecs$Nlen[1]) Maturity[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
-  #   if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading maturity-at-length; too many inputs: Stopping"); AAA }
-  #   Index <- Index + 1
-  # }
-  # write("Maturity at length",EchoFile,append=T)
-  # write(t(Maturity),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
-
-  # Index <- MatchTable(ControlFile,Char1="#",Char2="Maturity",Char3="age")+1;
-  # MatAge <- as.numeric(ControlFile[Index,1:GeneralSpecs$Narea])
-  # write("Maturity at age",EchoFile,append=T)
-  # write(MatAge,EchoFile,append=T,ncol=GeneralSpecs$Narea)
-
-  # Index <- MatchTable(ControlFile,Char1="#",Char2="Egg",Char3="production")+1;
-  # MatFem <- matrix(0,GeneralSpecs$Narea,GeneralSpecs$MaxLen)
-  # for (Iarea in 1:GeneralSpecs$Narea)
-  # {
-  #   for (Jlen in 1:GeneralSpecs$Nlen[1]) MatFem[Iarea,Jlen] <- as.numeric(ControlFile[Index,Jlen])
-  #   if (!is.na(ControlFile[Index,GeneralSpecs$Nlen[1]+1])) { print("Error reading eggs-at-length; too many inputs: Stopping"); AAA }
-  #   Index <- Index + 1
-  # }
-  # write("Egg Production",EchoFile,append=T)
-  # write(t(MatFem),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
-
   Index <- MatchTable(ControlFile,Char1="#",Char2="Egg",Char3="time")+1;
   MatTimeStep <- as.numeric(ControlFile[Index,1])
 
@@ -804,10 +777,6 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   EffparsLink <- as.numeric(ControlFile[(Index+2):(Index+npars+1),5])
   EffparsPrior <- apply(as.matrix(ControlFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
 
-  # Initial conditions
-  #Index <- MatchTable(ControlFile,Char1="#",Char2="Initial_dev_option");
-  #InitOpt <- as.numeric(ControlFile[Index+1,1])
-  #InitParSpec <- as.numeric(ControlFile[Index+2,1])
 
   # read the data weights
   Index <- MatchTable(ControlFile,Char1="#",Char2="Weights",Char3="on");
@@ -817,8 +786,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   LambdaLarval <- as.numeric(ControlFile[Index+4,1])
   LambdaTag1 <- as.numeric(ControlFile[Index+5,1])
   LambdaTag2 <- as.numeric(ControlFile[Index+6,1])
-  WeightInitialN <- as.numeric(ControlFile[Index+7,1])
-  WeightInit3 <- as.numeric(ControlFile[Index+8,1])
+  # WeightInitialN <- as.numeric(ControlFile[Index+7,1])
+  # WeightInit3 <- as.numeric(ControlFile[Index+8,1])
 
   LambdaCpue2 <- rep(1.0,Data$NcpueDataSeries)
   LambdaNumbers2 <- rep(1.0,Data$NcatchDataSeries)
@@ -894,8 +863,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$LambdaCpue2 <- LambdaCpue2
   ReturnObj$LambdaNumbers2 <- LambdaNumbers2
   ReturnObj$LambdaLength2 <- LambdaLength2
-  ReturnObj$WeightInitialN <- WeightInitialN
-  ReturnObj$WeightInit3 <- WeightInit3
+  # ReturnObj$WeightInitialN <- WeightInitialN
+  # ReturnObj$WeightInit3 <- WeightInit3
   ReturnObj$NvarTypes <- NvarTypes
   ReturnObj$VarTypes <- VarTypes
   return(ReturnObj)

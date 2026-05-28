@@ -1928,8 +1928,8 @@ Type objective_function<Type>::operator() ()
   DATA_SCALAR(LambdaTag2); thedata.LambdaTag2 = LambdaTag2;
   DATA_VECTOR(LambdaCpue2); thedata.LambdaCpue2 = LambdaCpue2;
   DATA_VECTOR(LambdaNumbers2); thedata.LambdaNumbers2 = LambdaNumbers2;
-  DATA_SCALAR(WeightInitialN); thedata.WeightInitialN = WeightInitialN;
-  DATA_SCALAR(WeightInit3); thedata.WeightInit3 = WeightInit3;
+  // DATA_SCALAR(WeightInitialN); thedata.WeightInitialN = WeightInitialN;
+  // DATA_SCALAR(WeightInit3); thedata.WeightInit3 = WeightInit3;
   DATA_ARRAY(LambdaLength2); thedata.LambdaLength2 = LambdaLength2;
   DATA_INTEGER(NcpueDataSeries); thedata.NcpueDataSeries = NcpueDataSeries;
   DATA_IVECTOR(FixSigmaCpue); thedata.FixSigmaCpue = FixSigmaCpue;

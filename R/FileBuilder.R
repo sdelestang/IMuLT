@@ -68,11 +68,17 @@ BuildInputFiles <- function(){
     return(as.numeric(xout))
   }
 
-  Files <- list.files(pattern = "ModelStructure")
-  if(length(Files)>0){
+  safe_loadWorkbook <- function(file) {
+    tryCatch(
+      suppressWarnings(loadWorkbook(file = file)),
+      error = function(e) {
+        stop("'", file, "' appears to be open in Excel. Close it first and retry.", call. = FALSE)
+      }
+    )
+  }
 
   ## Open up file with all info
-  wb <- loadWorkbook(file="ModelStructure.xlsx")
+  wb <- safe_loadWorkbook("ModelStructure.xlsx")
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
@@ -907,6 +913,8 @@ for(p in pars){
     SFleets <- as.numeric(gsub('fleet','',colnames(fleetyr)))
     Sseasons <- egap$season[egap$season%in%startseason:endseason]
 
+    if(!length(unique(Selid$Fleet))==length(SFleets)) warning(paste0("Number of fleets in Fleet tab (",length(unique(Selid$Fleet)),") do not match the columns of fleets in the Retention tab (",length(SFleets),")"))
+
     for(i in 1:nrow(Selid)){
       Yrlinks <- fleetyr[,(SFleets-1)==Selid$Fleet[i]]
       Sexegappar_sum <- egappar_sum %>% filter(Sex==Selid$Sex[i])
@@ -1136,6 +1144,6 @@ for(r in 1:nrow(gauge4)){
 
     write.table(tmp, paste(floc,'/PROJECTIONS.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
 
-  } else {print("ModelStructure.xlsx is not located in the current file")}
-
 }
+
+

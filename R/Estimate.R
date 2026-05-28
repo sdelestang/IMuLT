@@ -368,7 +368,7 @@ find <- function(KeyWord, DataFile, Offset){
 #'
 #' @return NULL. Creates output files as side effects:
 #' \itemize{
-#'   \item Output/model [phase].par - Parameter values after each phase
+#'   \item Output/model \[phase\].par - Parameter values after each phase
 #'   \item Output/model final.par - Final converged parameters
 #'   \item Output/BigSave.lda - Complete model object (if report=TRUE)
 #'   \item Output/Output.RL - Formatted results for diagnostics (if report=TRUE)
@@ -515,27 +515,36 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
   }
 
 
-
 #' Load Initial Parameter Values for Model Estimation
 #'
 #' Reads initial parameter values, bounds, and estimation phases from all
-#' model input files and prepares them for the optimization routine. This
-#' function must be called before running the model estimation.
+#' model input files and prepares them for the optimisation routine. This
+#' function must be called before running the model estimation. Prints a
+#' parameter summary table to the console showing counts of estimated,
+#' linked, and offset parameters per group, followed by a detailed listing
+#' of any linked parameters to aid in diagnosing mis-specified links.
 #'
 #' @param aask Character string for testing mode. Use 'test' to display a
-#'   console summary of parameter inputs. Default is '' (no testing output).
+#'   dialog box prompting the user to check the console. Default is ''
+#'   (no dialog).
 #'
-#' @return NULL. Creates global objects InitialVars and parameters in the
-#'   parent environment. Sets global variables MaxPhase, ParOld, and CurrPhase.
+#' @return NULL (invisible). Creates global objects \code{InitialVars} and
+#'   \code{parameters} in the parent environment. Sets global variables
+#'   \code{MaxPhase}, \code{ParOld}, and \code{CurrPhase}.
 #'
 #' @details
 #' The function:
 #' \itemize{
 #'   \item Reads parameter specifications from all .DAT input files
-#'   \item Checks data integrity with isnafunc()
-#'   \item Initializes parameter list with proper structure for TMB
+#'   \item Checks data integrity with \code{isnafunc2()}
+#'   \item Initialises parameter list with proper structure for TMB
 #'   \item Handles special cases (e.g., single area models)
 #'   \item Records which parameters are active for output tracking
+#'   \item Prints a summary table of parameter groups with columns for
+#'     Total, Estimated, Phases, Linked (positive links = copy), and
+#'     Offset (negative links = additive offset)
+#'   \item Lists each linked parameter individually, showing source and
+#'     target within the group, to help catch mis-specified link indices
 #' }
 #'
 #' Parameter groups loaded include:
@@ -552,7 +561,7 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
 #' choose_model()
 #' LoadPars()
 #'
-#' # Test mode with console output
+#' # Test mode with dialog prompt
 #' LoadPars(aask = 'test')
 #' }
 #'
@@ -562,18 +571,62 @@ SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, rep
 #'
 #' @export
 LoadPars <- function(aask=''){
-  #for(i in 1:length(Data)){    isnafunc(Data[[i]],i)   }
   outtmp <- isnafunc2()
   if(!is.null(outtmp[[1]]))   { warning("\nThere are some NA's in your data: ", paste(outtmp[[1]], collapse = ', '), '\n', call. = FALSE) }
   InitialVars <<- ReadInitialValues(ControlFile,SelexFile,RetainFile,RecruitFile,GrowthFile,MoveFile,GeneralSpecs,ControlSpecs,SelexSpecs,RetenSpecs,GrowthSpecs,MoveSpecs)
   if(aask=='test')dlg_message("Check Console for summary of parameter inputs")
-  if(Data$Narea==1){## need to trick SetInitialAndPhases because only one area
+  if(Data$Narea==1){
     InitialVars$RecSpatDevs$Initial <<- 0
     InitialVars$RecSpatDevs$Bnd <<- c(-15,15)
     InitialVars$RecSpatDevs$Phase <<- -1
   }
-  Parssolved(InitialVars) ## Records which parameters were used to solve the model for output file
-  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,GrowthPars=NULL,dummy=0)
+  Parssolved(InitialVars)
+
+  ## Parameter link summary
+  par_info <- list(
+    MainPars    = list(phase = InitialVars$MainPars$Phase,      link = Data$MparsLink),
+    RecruitPars = list(phase = InitialVars$RecruitPars$Phase,   link = Data$RecparsLink),
+    PuerPowPars = list(phase = InitialVars$PuerPowPars$Phase,   link = NULL),
+    SelPars     = list(phase = InitialVars$SelPars$Phase,       link = Data$SelparsLink),
+    #RetPars     = list(phase = InitialVars$RetPars$Phase,       link = NULL),
+    RecDevs     = list(phase = InitialVars$RecDevs$Phase,       link = NULL),
+    EffPars     = list(phase = InitialVars$efpars$Phase,        link = Data$EffparsLink),
+    RecSpatDevs = list(phase = InitialVars$RecSpatDevs$Phase,   link = NULL),
+    MovePars    = list(phase = InitialVars$MovePars$Phase,      link = Data$MoveparsLink)#,
+    #GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = NULL)
+  )
+  par_summary <- do.call(rbind, lapply(names(par_info), function(grp) {
+    ph <- par_info[[grp]]$phase
+    lk <- par_info[[grp]]$link
+    if(is.null(ph)) return(NULL)
+    if(is.null(lk)) lk <- rep(0, length(ph))
+    n_est    <- sum(ph > 0)
+    ph_used  <- paste(sort(unique(ph[ph > 0])), collapse = ",")
+    if(ph_used == "") ph_used <- "-"
+    n_linked <- sum(lk > 0)
+    n_offset <- sum(lk < 0)
+    data.frame(Group = grp, Total = length(ph), Estimated = n_est,
+               Phases = ph_used,
+               Linked = ifelse(n_linked == 0, "-", n_linked),
+               Offset = ifelse(n_offset == 0, "-", n_offset),
+               stringsAsFactors = FALSE)
+  }))
+  cat("\n--- Parameter Summary ---\n")
+  print(par_summary, row.names = FALSE, right = FALSE)
+  for(grp in names(par_info)) {
+    lk <- par_info[[grp]]$link
+    if(is.null(lk)) next
+    idx <- which(lk != 0)
+    if(length(idx) > 0) {
+      for(j in idx) {
+        ltype <- ifelse(lk[j] > 0, "copy", "offset")
+        cat(sprintf("  %s_%d -> %s_%d (%s)\n", grp, j, grp, abs(lk[j]), ltype))
+      }
+    }
+  }
+  cat("------------------------\n\n")
+
+  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,dummy=0)
   (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
 }
 

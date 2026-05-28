@@ -32,7 +32,7 @@ SD report and saves BigSave.lda and Output.RL files. Default is FALSE
 \value{
 NULL. Creates output files as side effects:
 \itemize{
-\item Output/model \link{phase}.par - Parameter values after each phase
+\item Output/model [phase].par - Parameter values after each phase
 \item Output/model final.par - Final converged parameters
 \item Output/BigSave.lda - Complete model object (if report=TRUE)
 \item Output/Output.RL - Formatted results for diagnostics (if report=TRUE)

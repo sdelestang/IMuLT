@@ -864,7 +864,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   ## Correlation matrix
   if (!is.null(SDrep$cov.fixed)) {
     cormat <- tryCatch(cov2cor(SDrep$cov.fixed), error = function(e) NULL)
-    if (!is.null(cormat) && !any(is.na(cormat))) {
+    if (!is.null(cormat) && !any(is.na(cormat)) && dim(cormat)[1]>1) {
       par_names <- names(best)
       if (is.null(par_names)) par_names <- paste0("Par_", 1:ncol(cormat))
       rownames(cormat) <- colnames(cormat) <- par_names

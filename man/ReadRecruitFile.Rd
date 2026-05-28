@@ -47,7 +47,7 @@ This function handles three main components of recruitment specification:
 distributed across sexes and spatial areas. Two allocation types are supported:
 \itemize{
 \item Type 0: Estimates sex ratio plus independent area proportions (Narea parameters)
-\item Type 1: Estimates sex × area proportions independently (Nsex × \link{Narea-1} parameters)
+\item Type 1: Estimates sex × area proportions independently (Nsex × \code{\link{Narea-1}} parameters)
 }
 
 \strong{Length Distribution (Pattern B)}: Defines the size distribution of recruits

@@ -33,7 +33,7 @@
 #' }
 #'
 #' @return NULL (invisibly). Creates a new directory containing all model input files.
-#'   The directory name follows the pattern: [nAreas]Area[nAges]AgeRun[startYY]_[endYY]
+#'   The directory name follows the pattern: [`nAreas`]Area[`nAges`]AgeRun[`startYY`]_[`endYY`]
 #'
 #' @examples
 #' \dontrun{

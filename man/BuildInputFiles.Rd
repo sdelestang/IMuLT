@@ -8,7 +8,7 @@ BuildInputFiles()
 }
 \value{
 NULL (invisibly). Creates a new directory containing all model input files.
-The directory name follows the pattern: \link{nAreas}Area\link{nAges}AgeRun\link{startYY}_\link{endYY}
+The directory name follows the pattern: \code{\link{nAreas}}Area\code{\link{nAges}}AgeRun\code{\link{startYY}}_\code{\link{endYY}}
 }
 \description{
 Creates all required input files (.DAT files) for running the IMuLT stock assessment

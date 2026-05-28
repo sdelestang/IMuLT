@@ -8,25 +8,35 @@ LoadPars(aask = "")
 }
 \arguments{
 \item{aask}{Character string for testing mode. Use 'test' to display a
-console summary of parameter inputs. Default is '' (no testing output).}
+dialog box prompting the user to check the console. Default is ''
+(no dialog).}
 }
 \value{
-NULL. Creates global objects InitialVars and parameters in the
-parent environment. Sets global variables MaxPhase, ParOld, and CurrPhase.
+NULL (invisible). Creates global objects \code{InitialVars} and
+\code{parameters} in the parent environment. Sets global variables
+\code{MaxPhase}, \code{ParOld}, and \code{CurrPhase}.
 }
 \description{
 Reads initial parameter values, bounds, and estimation phases from all
-model input files and prepares them for the optimization routine. This
-function must be called before running the model estimation.
+model input files and prepares them for the optimisation routine. This
+function must be called before running the model estimation. Prints a
+parameter summary table to the console showing counts of estimated,
+linked, and offset parameters per group, followed by a detailed listing
+of any linked parameters to aid in diagnosing mis-specified links.
 }
 \details{
 The function:
 \itemize{
 \item Reads parameter specifications from all .DAT input files
-\item Checks data integrity with isnafunc()
-\item Initializes parameter list with proper structure for TMB
+\item Checks data integrity with \code{isnafunc2()}
+\item Initialises parameter list with proper structure for TMB
 \item Handles special cases (e.g., single area models)
 \item Records which parameters are active for output tracking
+\item Prints a summary table of parameter groups with columns for
+Total, Estimated, Phases, Linked (positive links = copy), and
+Offset (negative links = additive offset)
+\item Lists each linked parameter individually, showing source and
+target within the group, to help catch mis-specified link indices
 }
 
 Parameter groups loaded include:
@@ -44,7 +54,7 @@ working directory.
 choose_model()
 LoadPars()
 
-# Test mode with console output
+# Test mode with dialog prompt
 LoadPars(aask = 'test')
 }
 

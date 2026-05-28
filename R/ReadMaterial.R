@@ -1567,7 +1567,7 @@ ReadRetenFile <- function(RetenFile,GeneralSpecs)
 #' distributed across sexes and spatial areas. Two allocation types are supported:
 #' \itemize{
 #'   \item Type 0: Estimates sex ratio plus independent area proportions (Narea parameters)
-#'   \item Type 1: Estimates sex × area proportions independently (Nsex × [Narea-1] parameters)
+#'   \item Type 1: Estimates sex × area proportions independently (Nsex × [`Narea-1`] parameters)
 #' }
 #'
 #' **Length Distribution (Pattern B)**: Defines the size distribution of recruits
@@ -1720,7 +1720,7 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
 #' be estimated) and pre-specified transition matrices.
 #'
 #' **Pre-specified transition matrices** (TransInp) are length × length matrices where
-#' element [i,j] represents the probability of an individual in size class i molting
+#' element [`i,j`] represents the probability of an individual in size class i molting
 #' to size class j. Each row should sum to 1.0. These matrices can differ by sex,
 #' allowing sex-specific growth patterns.
 #'
@@ -1832,7 +1832,7 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #'   \item LegalFleetPntFut - Array of future legal size pattern pointers
 #'     (sex × age × fleet × projection_year × step)
 #'   \item Phi - Extended discard mortality array including projection years
-#'     (fleet × age × [assessment_years + projection_years] × step)
+#'     (fleet × age × [`assessment_years + projection_years`] × step)
 #' }
 #'
 #' @details
@@ -2431,7 +2431,7 @@ Parssolved <- function(InitialVars){
     }}
   if(!exists('parsolve')) {parsolve <- NA}
   write.table(parsolve,'Output/Parameters_solved.txt',quote = F, sep='\t',row.names = F)
-  print(parsolve)
+ # print(parsolve)
 }
 
 #' Copy Data to Clipboard for Excel Pasting

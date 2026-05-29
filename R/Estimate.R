@@ -245,11 +245,10 @@ csemod <- function(x){
 #' @export
 choose_model <- function(pattern = 'Run') {
   x <- list.files(pattern = pattern)
-
-  mod <- as.numeric(dlg_input(c('Choose a model:',
-                                paste(1:length(x), x, sep = " : ")),
-                              1)$res)
-
+  prompt_text <- paste(c('Choose a model:',
+                         paste(1:length(x), x, sep = " : ")),
+                       collapse = "\n")
+  mod <- as.numeric(dlg_input(prompt_text, 1)$res)
   if (!length(mod)) {
     cat(paste("OK, the default model is", x[1], "\n"))
     selected <- x[1]
@@ -257,9 +256,8 @@ choose_model <- function(pattern = 'Run') {
     cat(paste("Model", x[mod], "has been chosen"), "\n")
     selected <- x[mod]
   }
-
   setwd(file.path(getwd(), selected))
-  invisible(selected)  # Returns but doesn't auto-print
+  invisible(selected)
 }
 
 #' Update Model Input Files with Estimated Parameters

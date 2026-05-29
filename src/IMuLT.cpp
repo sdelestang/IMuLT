@@ -2268,8 +2268,8 @@ Type objective_function<Type>::operator() ()
   vector<Type> ActRecDev(BurnIn+Nyear+MaxProjYr+1);                                        // Recruitment deviations
   vector<Type> VirginBio(Narea);                                                           // Virgin biomass used to produce M
   vector<Type> VirginLegalBio(Narea);
-  array<Type> VirginNvec(Narea, Nsex, Nage, MaxNlen);        // numbers by area, sex, age, size
-  array<Type> VirginBioAtLen(Narea, Nsex, MaxNlen);           // biomass summed over age by area, sex, size
+  array<Type> VirginNvec(Narea, Nsex, Nage, MaxLen);        // numbers by area, sex, age, size
+  array<Type> VirginBioAtLen(Narea, Nsex, MaxLen);           // biomass summed over age by area, sex, size
  // vector<Type> AvM(BurnIn+Nyear+MaxProjYr+1);                                                           // Average M each year
   vector<Type> CurrentBio(Narea);                                                         // Current biomass used to produce M
 

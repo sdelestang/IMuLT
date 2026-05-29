@@ -480,6 +480,26 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Virgin Legal Biomass by area",OutputFile,append=T)
   write(Report$VirginLegalBio,ncol=1,OutputFile,append=T)
 
+  write("\n#Virgin Biomass by area, sex and size",OutputFile,append=T)
+  write("#Area, Sex, Size",OutputFile,append=T)
+  for(Iarea in 1:Data$Narea){
+    for(Isex in 1:Data$Nsex){
+      tmp <- Report$VirginBioAtLen[Iarea,Isex,]
+      write(paste(Iarea, Isex, seq_along(tmp), round(tmp,4)),OutputFile,append=T)
+    }
+  }
+
+  write("\n#Virgin N by area, sex, age and size",OutputFile,append=T)
+  write("#Area, Sex, Age, Size",OutputFile,append=T)
+  for(Iarea in 1:Data$Narea){
+    for(Isex in 1:Data$Nsex){
+      for(Iage in 1:Data$Nage){
+        tmp <- Report$VirginN[Iarea,Isex,Iage,]
+        write(paste(Iarea, Isex, Iage, seq_along(tmp), round(tmp,4)),OutputFile,append=T)
+      }
+    }
+  }
+
   write("\n#Harvest rate by zone (1+SD?)",OutputFile,append=T)
   for (Iarea in 1:ControlSpecs$Nzone)
    {

@@ -1263,7 +1263,8 @@ template <class Type>
                          array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
                          matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &VirginLegalBio, matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
+                         vector<Type> &VirginBio, vector<Type> &VirginLegalBio, array<Type> &VirginN, array<Type> &VirginBioAtLen,
+                         matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
 
   Type Initial_pen;
   int IsVirgin;                                                           // Set to 1 for unfished state
@@ -1358,13 +1359,15 @@ template <class Type>
                              VirginBio, CurrentBio);
 
   // Virgin biomass from end of no-F burn-in at the designated biology time step
-  VirginBio.setZero(); VirginLegalBio.setZero();
+  VirginBio.setZero(); VirginLegalBio.setZero();VirginN.setZero(); VirginBioAtLen.setZero();
   for (int Iarea=0;Iarea<dat.Narea;Iarea++){
     for (int Isex=0;Isex<dat.Nsex;Isex++){
       for (int Iage=0;Iage<dat.Nage;Iage++){
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
           VirginBio(Iarea) += N(Iarea,dat.BurnIn,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
           VirginLegalBio(Iarea) += LegalRef(Isex,Isize) * N(Iarea,dat.BurnIn,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
+          VirginN(Iarea,Isex,Iage,Isize) = N(Iarea,0,0,Isex,Iage,Isize);
+          VirginBioAtLen(Iarea,Isex,Isize) += N(Iarea,0,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
         }}}}
 
   // ── Now do the final burn-in with area-specific F ─────────────
@@ -2265,6 +2268,8 @@ Type objective_function<Type>::operator() ()
   vector<Type> ActRecDev(BurnIn+Nyear+MaxProjYr+1);                                        // Recruitment deviations
   vector<Type> VirginBio(Narea);                                                           // Virgin biomass used to produce M
   vector<Type> VirginLegalBio(Narea);
+  array<Type> VirginN(dat.Narea, dat.Nsex, dat.Nage, MaxNlen);        // numbers by area, sex, age, size
+  array<Type> VirginBioAtLen(dat.Narea, dat.Nsex, MaxNlen);           // biomass summed over age by area, sex, size
  // vector<Type> AvM(BurnIn+Nyear+MaxProjYr+1);                                                           // Average M each year
   vector<Type> CurrentBio(Narea);                                                         // Current biomass used to produce M
 
@@ -2378,7 +2383,7 @@ Type objective_function<Type>::operator() ()
   // {
     Initial_pen = InitializeN(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
          Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, Ninit,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-         VirginBio, VirginLegalBio, LegalRef, CurrentBio);
+         VirginBio, VirginLegalBio, VirginN, VirginBioAtLen, LegalRef, CurrentBio);
   // }
 
   // Set up initial state (alternative)
@@ -2833,10 +2838,7 @@ if(thedata.IsTagData==1){
     REPORT(TagLike2);
     REPORT(LegalBio);
     REPORT(LegalBioAll);
-   // REPORT(CatchYSA);
-   // REPORT(LegalBioTS);
     REPORT(HRint);
-   // REPORT(wHRint);
     REPORT(HrateYA);
     REPORT(ActRecruitAreaSexDist);
     REPORT(ActRecruitLenDist);
@@ -2847,10 +2849,9 @@ if(thedata.IsTagData==1){
     REPORT(Select);
     REPORT(RecruitFrac);
     REPORT(RecruitPars);
-    //REPORT(NtotalCheck);
-    //REPORT(Nexpected);
+    REPORT(VirginN);
+    REPORT(VirginBioAtLen);
     REPORT(BiasMult);
-    //REPORT(LogRinitial);
     REPORT(VirginBio);
     REPORT(VirginLegalBio);
     REPORT(CurrentBio);

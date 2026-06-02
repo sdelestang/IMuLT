@@ -1242,9 +1242,19 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         CurrentStage <<- paste0("Restart ", restart, " \u2013 L-BFGS-B")
         cat("  Step A: L-BFGS-B\n")
         FnCallNo     <<- 0
-        BestFn       <- model$fn(model$env$last.par.best)
-        LastPrintFn  <<- BestFn
         bfgs_start   <- model$env$last.par.best
+
+        # Guard: fall back to mout$par if last.par.best is non-finite
+        fn_check <- model$fn(bfgs_start)
+        if (!is.finite(fn_check)) {
+          cat("  WARNING: last.par.best gives non-finite fn =", fn_check,
+              "- falling back to mout$par\n")
+          bfgs_start <- mout$par
+          fn_check   <- model$fn(bfgs_start)
+        }
+
+        BestFn      <- fn_check
+        LastPrintFn <<- BestFn
 
         .trace_append(TotalEval, BestFn)
 

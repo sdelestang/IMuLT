@@ -664,8 +664,9 @@ print("Building Control File")
     tmp <- c(tmp, "# Movement section\n# Number of movement patterns\n",nrow(migrate999)+1,"\n")
     tmp <- c(tmp, "# Pattern\tType\tDest\tExtra\t(Type 0: none; 1 constant [prespecified or estimated; 1 parameter]; 2 knife-eded-specific [pre-specified or estimated; 2 parameters])\n")
     tmp <- c(tmp,"\t",paste(c(0,0,0,0),collapse = "\t"),"\n")
-    if(nrow(migrate999)>0) {
-      for(i in 1:nrow(migrate999)) {
+    Nmigratepars <- nrow(migrate999)
+    if(Nmigratepars>0) {
+      for(i in 1:Nmigratepars) {
       tmp <- c(tmp,"\t",paste(c(i,1,migrate999$Dest[i]-1,0),collapse = "\t"),"\n")}}
 
     tmp <- c(tmp, "# Movement specifications\n")
@@ -673,15 +674,11 @@ print("Building Control File")
     for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "# Movement parameters\n# Lower\tUpper\tEstimate\tPhase\tLink\tUsePrior\tPrior_mn\tPrior_sd\tSource to Dest & Age\n")
-    Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd)
-    if(nrow(Mpar)>0) {
+    if(Nmigratepars>0) {
+      Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd)
       for(i in 1:nrow(Mpar)){
-      tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}
+        tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}
     }
-    if(nrow(Mpar)==0) {
-      Mpar <- c(1,1,1,-1,0,0,1,1)
-      tmp <- c(tmp,paste(Mpar,collapse = "\t"),paste("\t\t # No movement"))
-          }
 
     tmp <- c(tmp, "\n# Final check\n123456")
 

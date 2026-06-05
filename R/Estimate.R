@@ -580,6 +580,70 @@ LoadPars <- function(aask=''){
   }
   Parssolved(InitialVars)
 
+  # ── Bounds-encompass-initial check ──────────────────────────────────────────
+  # For every estimated parameter (phase > 0), verify that the initial value
+  # sits within [lower, upper]. Catches CTL file errors such as offset parameters
+  # with absolute-value bounds (e.g. lower=30 on an offset that starts at 0).
+  .check_bounds_initial <- function(grp_name, initial, lower, upper, phase) {
+    if (is.null(initial) || is.null(lower) || is.null(upper) || is.null(phase))
+      return(NULL)
+    # Bounds may be stored as a 2-element vector (global) or per-parameter matrix
+    if (length(lower) == 1) lower <- rep(lower, length(initial))
+    if (length(upper) == 1) upper <- rep(upper, length(initial))
+    # Only check estimated parameters
+    est_idx <- which(phase > 0)
+    if (length(est_idx) == 0) return(NULL)
+    bad <- est_idx[initial[est_idx] < lower[est_idx] |
+                     initial[est_idx] > upper[est_idx]]
+    if (length(bad) == 0) return(NULL)
+    data.frame(
+      Group   = grp_name,
+      Index   = bad,
+      Initial = initial[bad],
+      Lower   = lower[bad],
+      Upper   = upper[bad],
+      stringsAsFactors = FALSE
+    )
+  }
+
+  bnd_groups <- list(
+    MainPars    = InitialVars$MainPars,
+    RecruitPars = InitialVars$RecruitPars,
+    PuerPowPars = InitialVars$PuerPowPars,
+    SelPars     = InitialVars$SelPars,
+    RecDevs     = InitialVars$RecDevs,
+    efpars      = InitialVars$efpars,
+    MovePars    = InitialVars$MovePars
+  )
+
+  bnd_issues <- do.call(rbind, lapply(names(bnd_groups), function(grp) {
+    g <- bnd_groups[[grp]]
+    # Bounds stored as Bnd (2-col matrix or 2-element vector) or Lower/Upper
+    if (!is.null(g$Bnd)) {
+      if (is.matrix(g$Bnd)) {
+        lower <- g$Bnd[, 1]; upper <- g$Bnd[, 2]
+      } else {
+        lower <- g$Bnd[1];   upper <- g$Bnd[2]
+      }
+    } else if (!is.null(g$Lower) && !is.null(g$Upper)) {
+      lower <- g$Lower;      upper <- g$Upper
+    } else {
+      return(NULL)
+    }
+    .check_bounds_initial(grp, g$Initial, lower, upper, g$Phase)
+  }))
+
+  if (!is.null(bnd_issues) && nrow(bnd_issues) > 0) {
+    cat("\n*** WARNING: Initial values outside bounds ***\n")
+    cat("  These parameters will be clamped or cause immediate bound-hitting.\n")
+    cat("  Check CTL file — offset/linked parameters likely have wrong bounds.\n\n")
+    print(bnd_issues, row.names = FALSE)
+    cat("\n")
+  } else {
+    cat("  Bounds check: all initial values within bounds.\n")
+  }
+  # ────────────────────────────────────────────────────────────────────────────
+
   ## Parameter link summary
   par_info <- list(
     MainPars    = list(phase = InitialVars$MainPars$Phase,      link = Data$MparsLink),
@@ -623,7 +687,6 @@ LoadPars <- function(aask=''){
     }
   }
   cat("------------------------\n\n")
-
   parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,dummy=0)
   (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
 }

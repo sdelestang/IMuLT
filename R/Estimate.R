@@ -681,7 +681,7 @@ LoadPars <- function(aask=''){
     idx <- which(lk != 0)
     if(length(idx) > 0) {
       for(j in idx) {
-        ltype <- ifelse(lk[j] > 0, "copy", "offset")
+        ltype <- ifelse(lk[j] > 0, "link", "link+offset")
         cat(sprintf("  %s_%d -> %s_%d (%s)\n", grp, j, grp, abs(lk[j]), ltype))
       }
     }
@@ -1156,6 +1156,7 @@ UpdateLFWeights <- function(todo='No'){
 #' }
 #'
 #' @export
+#' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
                      nRestarts = 1, newtonSteps = 0, PrintNll = TRUE,
@@ -1237,20 +1238,23 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     model <- MakeADFun(Data, parameters, map = RunSpecs$map,
                        DLL = "IMuLT", silent = TRUE)
 
-    model$par   <- RunSpecs$EstVec
-    BestFn      <- model$fn()
+    model$par  <- RunSpecs$EstVec
+    BestFn     <- model$fn()
     if (is.na(BestFn)) BestFn <- Inf
-    initBestFn  <- BestFn
+    initBestFn <- BestFn
     LastPrintFn <<- BestFn
-    FnCallNo    <<- 0
-    model$fn_Orig <- model$fn
+    FnCallNo   <<- 0
 
     CurrentStage <<- paste0("Phase ", CurrPhase, " \u2013 Initial")
     .trace_append(TotalEval, BestFn)
 
     last_good <- BestFn   # tracks last finite fn value for penalty fallback
 
-    # ── Objective wrapper: finite-penalty + progress tracking ────────────
+    # ── Store originals then wrap both fn and gr ──────────────────────────
+    model$fn_Orig <- model$fn
+    model$gr_Orig <- model$gr
+
+    # Objective wrapper: finite-penalty + progress tracking
     model$fn <- function(x) {
       tyy <- model$fn_Orig(x)
 
@@ -1277,6 +1281,17 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       }
       return(tyy)
     }
+
+    # Gradient wrapper: return zero gradient for non-finite regions instead
+    # of crashing optimisers that require finite gradients (e.g. L-BFGS-B)
+    model$gr <- function(x) {
+      g <- tryCatch(model$gr_Orig(x), error = function(e) NULL)
+      if (is.null(g) || any(!is.finite(g))) {
+        return(rep(0, length(x)))
+      }
+      return(g)
+    }
+    # ─────────────────────────────────────────────────────────────────────
 
     ctrl       <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                        rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
@@ -1319,7 +1334,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
         # Dynamically pin parameters with large gradients — these cause
         # L-BFGS-B line search to step into non-finite regions
-        cur_grad   <- tryCatch(as.vector(model$gr(bfgs_start)),
+        cur_grad   <- tryCatch(as.vector(model$gr_Orig(bfgs_start)),
                                error = function(e) rep(0, length(bfgs_start)))
         large_idx  <- which(abs(cur_grad) > gradPin)
         bfgs_lower <- RunSpecs$lowBnd
@@ -1349,7 +1364,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                             control = list(maxit = MaXeVaL, reltol = 1e-12))
         }
 
-        bfgs_grad <- max(abs(model$gr(fit_bfgs$par)))
+        bfgs_grad <- max(abs(model$gr_Orig(fit_bfgs$par)))
         cat("  L-BFGS-B complete: obj =", round(fit_bfgs$value, 6),
             "| max|grad| =", round(bfgs_grad, 6),
             "| convergence:", fit_bfgs$convergence, "\n")
@@ -1373,7 +1388,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         TotalEval <<- TotalEval + FnCallNo
 
         # Early exit if converged
-        cur_grad <- max(abs(model$gr(mout$par)))
+        cur_grad <- max(abs(model$gr_Orig(mout$par)))
         cat("  Restart", restart, "complete: max|grad| =",
             round(cur_grad, 6), "\n")
         if (cur_grad < 1e-3) {
@@ -1391,14 +1406,14 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         for (ns in seq_len(newtonSteps)) {
           tryCatch({
             H    <- optimHess(newton_par, model$fn, model$gr)
-            g    <- as.vector(model$gr(newton_par))
+            g    <- as.vector(model$gr_Orig(newton_par))
             step <- solve(H, g)
             newton_par <- newton_par - step
             if (has_bounds) {
               newton_par <- pmax(newton_par, RunSpecs$lowBnd)
               newton_par <- pmin(newton_par, RunSpecs$uppBnd)
             }
-            ng <- max(abs(model$gr(newton_par)))
+            ng <- max(abs(model$gr_Orig(newton_par)))
             cat("  Newton step", ns, "- obj:",
                 round(model$fn(newton_par), 6),
                 "| max|grad|:", round(ng, 8), "\n")
@@ -1464,7 +1479,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         parameters = parameters,
         pin        = pout,
         best       = best,
-        Gradient   = abs(model$gr(best))
+        Gradient   = abs(model$gr_Orig(best))
       )
       save(BigSave, file = "Output/BigSave.lda")
 
@@ -1472,7 +1487,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       WriteOutput(Report, SDrep, fullrep, parameters, pout,
                   GeneralSpecs, ControlSpecs, TheData,
                   CurrPhase = 0, best = best,
-                  grad = abs(model$gr(best)))
+                  grad = abs(model$gr_Orig(best)))
     }
   }
 }

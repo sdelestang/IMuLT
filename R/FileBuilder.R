@@ -52,9 +52,11 @@
 #' @export
 BuildInputFiles <- function(){
 
-  library(dplyr, quietly = T)
-  library(magrittr, quietly = T)
-  library(openxlsx, quietly = T)
+  suppressPackageStartupMessages({
+    library(dplyr, quietly = T)
+    library(magrittr, quietly = T)
+    library(openxlsx, quietly = T)})
+
 
   ## Make function that adjusts sex definations loaded through the excel file.
   adjsex <- function(x,nsex,section='CPUE'){

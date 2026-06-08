@@ -1,6 +1,6 @@
 # IMuLT - Integrated Model using Length Transition
 
-A package to load, control and run the stock assessment model IMuLT for Crustaceans.
+A package to load, control and run the Size-based stock assessment model IMuLT.
 
 ## Installation
 
@@ -40,7 +40,7 @@ The following packages will be automatically installed:
 
 ## First Time Setup
 
-After installing, copy the required "ModelStructure.xlsx"" template to your working directory:
+After installing, copy the required "ModelStructure.xlsx"" template to your working directory. This has been pre-loaded with a four-area, two-sex model and two age model:
 ```r
 library(IMuLT)
 copy_model_structure()  # Copies to current directory

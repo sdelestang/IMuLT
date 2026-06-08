@@ -346,173 +346,6 @@ find <- function(KeyWord, DataFile, Offset){
 }}
 
 
-#' Fit IMuLT Stock Assessment Model Using TMB
-#'
-#' Main function for estimating model parameters using Template Model Builder (TMB)
-#' and sequential phased optimization. Minimizes negative log-likelihood using
-#' nlminb optimizer with bounds constraints and optional report generation.
-#'
-#' @param phit Integer. Maximum number of function evaluations for intermediate
-#'   estimation phases. Default is 500.
-#' @param lphit Integer. Maximum number of function evaluations for the final
-#'   estimation phase. Default is 1000 (allows more iterations for convergence).
-#' @param mxph Integer. Maximum phase number to run. Default is MaxPhase (set by
-#'   LoadPars()). Use lower values to run partial estimation sequences.
-#' @param PrintLag Integer. Progress is printed every PrintLag function calls.
-#'   Default is 50. Lower values give more frequent updates.
-#' @param report Logical. If TRUE, generates full diagnostic report including
-#'   SD report and saves BigSave.lda and Output.RL files. Default is FALSE
-#'   (faster, for intermediate runs). Set TRUE for final model run.
-#'
-#' @return NULL. Creates output files as side effects:
-#' \itemize{
-#'   \item Output/model \[phase\].par - Parameter values after each phase
-#'   \item Output/model final.par - Final converged parameters
-#'   \item Output/BigSave.lda - Complete model object (if report=TRUE)
-#'   \item Output/Output.RL - Formatted results for diagnostics (if report=TRUE)
-#' }
-#'
-#' @details
-#' The function implements sequential phased estimation:
-#' \enumerate{
-#'   \item For each phase (1 to MaxPhase):
-#'   \item Sets active parameters based on phase specification
-#'   \item Initializes TMB model object
-#'   \item Runs nlminb optimization with parameter bounds
-#'   \item Saves parameter estimates
-#'   \item Uses estimates as starting values for next phase
-#' }
-#'
-#' Progress monitoring displays:
-#' \itemize{
-#'   \item Current phase and iteration number
-#'   \item Negative log-likelihood value
-#'   \item Percent improvement from previous best
-#'   \item Number of active parameters
-#' }
-#'
-#' Convergence is indicated by:
-#' \itemize{
-#'   \item Convergence code = 0 (successful)
-#'   \item Maximum gradient < 0.001 (well converged)
-#'   \item Maximum gradient < 0.01 (acceptable)
-#' }
-#'
-#' @note
-#' \itemize{
-#'   \item Must run LoadPars() before calling this function
-#'   \item Set report=TRUE only for final production runs (much slower)
-#'   \item Monitor convergence - may need to increase lphit if not converging
-#'   \item Large models may take hours to run with report=TRUE
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # Standard workflow
-#' choose_model()
-#' LoadPars()
-#'
-#' # Quick test run (no report)
-#' SolveModelNew(phit = 100, lphit = 200, report = FALSE)
-#'
-#' # Full production run with reports
-#' SolveModelNew(phit = 500, lphit = 1000, report = TRUE)
-#'
-#' # Run only first 2 phases for testing
-#' SolveModelNew(mxph = 2, report = FALSE)
-#'
-#' # More frequent progress updates
-#' SolveModelNew(PrintLag = 10)
-#' }
-#'
-#' @seealso
-#' \code{\link{LoadPars}} for loading parameters before estimation,
-#' \code{\link{AdjustPhase}} for modifying estimation phases,
-#' \code{\link{MakeDiagReport}} for generating diagnostic outputs,
-#' \code{\link{choose_model}} for selecting model directory
-#'
-#' @export
-SolveModelNew <- function(phit=500,lphit=1000, mxph=MaxPhase, PrintLag = 50, report=F){
-  MaxPhase=ifelse(mxph==0,1,mxph)
-  for (CurrPhase in 1:MaxPhase) {
-    MaXeVaL <- ifelse(CurrPhase<MaxPhase, phit, lphit)
-    parameters <- list(MainPars=InitialVars$MainPars$Initial,RecruitPars=InitialVars$RecruitPars$Initial,PuerPowPars=InitialVars$PuerPowPars$Initial,SelPars=InitialVars$SelPars$Initial,RetPars=InitialVars$RetPars$Initial,RecDevs=InitialVars$RecDevs$Initial,Qpars=InitialVars$Qpars$Initial,efpars=InitialVars$efpars$Initial,#InitPars=InitialVars$InitPars$Initial,
-                       RecSpatDevs=InitialVars$RecSpatDevs$Initial,MovePars=InitialVars$MovePars$Initial,GrowthPars=InitialVars$GrowthPars$Initial,dummy=0)
-
-    RunSpecs <- SetInitialAndPhases(ParOld,parameters,InitialVars,CurrPhase=CurrPhase)  # Set parameters and mapping
-    ## Make model
-    cat("Making model object that will solve for",sum(!is.na(unlist(RunSpecs$map))) ,"parameters.","Phase =",CurrPhase,"\n")
-    pnames <- names(unlist(RunSpecs$map)[!is.na(unlist(RunSpecs$map))]);
-    nam <- stringr::str_extract(pnames, "[\\p{Letter}]+")
-    num <- stringr::str_extract(pnames, "\\d+$")
-    unnam <- nam[!duplicated(nam)]
-    for(iii in 1:length(unnam))  { print(paste(unnam[iii], length(num[nam==unnam[iii]]),'parameters'))  }
-    model <- MakeADFun(Data, parameters, map=RunSpecs$map, DLL="IMuLT",silent=T)
-    BestFn <- model$fn()
-    initBestFn <- BestFn
-    FnCallNo <<- 0;
-    model$fn_Orig <- model$fn
-    yy <- 1e+10
-    model$fn <- function(x)  {
-      tyy <- model$fn_Orig(x)
-      yy <<- ifelse(is.na(tyy),yy,tyy)
-      FnCallNo <<- FnCallNo + 1
-      if(BestFn>yy){
-        if ((FnCallNo %% PrintLag)==0) {
-          cat("Phase ", CurrPhase," ",FnCallNo," -LogLike / Delta: ",yy," / ",round(100*(1-(yy/BestFn)),6),"%; npar = ",length(x),"\n",sep="")
-          BestFn <<- yy }
-      }
-      return(tyy);  }
-    model$par <- RunSpecs$EstVec  # Assign new parameters associated with the correct phase
-    # Run model
-    BestFn <- model$fn(model$par)
-    initBestFn <- BestFn
-    mout<-nlminb(model$par,model$fn,model$gr,lower=RunSpecs$lowBnd,upper=RunSpecs$uppBnd,control = list(iter.max = MaXeVaL, eval.max=MaXeVaL, rel.tol=1e-12))
-    initBestFn <- BestFn
-    pars <- mout$par; names(pars) <- pnames; ParOld <- mout$par;
-    Grad <- abs(model$gr(mout$par))
-    badpar <- paste0("[",pnames[Grad==max(Grad)],"]")
-    cat("Likelihood: ",round(initBestFn,6),' to ' ,round(mout$objective,6),"| Convergence:",ifelse(mout$convergence==0,'Yes','No')," (",mout$convergence,") ","| Max Gradient [Par]:",round(max(abs(model$gr(mout$par))),6), badpar, "| Interations:",mout$iterations,"| Evalutions:",mout$evaluations,"\n")
-
-    if(CurrPhase==MaxPhase) {
-      cat("Re-run last phase to further reduce the gradient")
-      tmppars <- model$env$last.par.best
-      mout<-nlminb(start=tmppars,model$fn,model$gr,lower=RunSpecs$lowBnd,upper=RunSpecs$uppBnd,control = list(iter.max = MaXeVaL/2, eval.max=MaXeVaL, rel.tol=1e-12))
-      initBestFn <- BestFn
-      pars <- mout$par; names(pars) <- pnames; ParOld <- mout$par;
-      Grad <- abs(model$gr(mout$par))
-      badpar <- paste0("[",pnames[Grad==max(Grad)],"]")
-      cat("Likelihood: ",round(initBestFn,6),' to ' ,round(mout$objective,6),"| Convergence:",ifelse(mout$convergence==0,'Yes','No')," (",mout$convergence,") ","| Max Gradient [Par]:",round(max(abs(model$gr(mout$par))),6), badpar, "| Interations:",mout$iterations,"| Evalutions:",mout$evaluations,"\n")
-      }
-    # Store and save parameters
-    pout <- unlist(parameters); pout[names(pout)%in%names(pars)] <- pars; suffix <- ifelse(CurrPhase==MaxPhase," final", CurrPhase); write.table(pout, paste("Output/model",suffix,".par",sep=""), sep='\t', col.names = c('name\test'), quote=F)
-  if(report==T & CurrPhase==MaxPhase){       cat("Making report object.\n")
-      print("Loading report")
-      Report <- model$report()
-      best <- mout$par
-      print("Loading SD report (can take quite a long time)")
-      SDrep <- sdreport(model)
-      fullrep <- summary(SDrep)
-      BigSave <-NULL
-      BigSave$Report <- Report
-      BigSave$SDrep <- SDrep
-      BigSave$map <- RunSpecs$map
-      BigSave$Data <- Data
-      BigSave$fullrep <- fullrep
-      BigSave$parameters <- parameters
-      BigSave$pin  <- pout
-      BigSave$best <- best
-      BigSave$Gradient <- Grad
-      #BigSave$lowlike <- model$fn(best)
-      if(max(list.files()=='Output')==1) { setwd(paste(getwd(), "/Output",sep=""))  }
-      save(BigSave,file="BigSave.lda")
-      print("making Output.RL")
-      WriteOutput(Report,SDrep,fullrep,parameters,pout,GeneralSpecs,ControlSpecs,TheData,CurrPhase=0,best=best,grad=Grad)
-      }
-    }
-  }
-
-
 #' Load Initial Parameter Values for Model Estimation
 #'
 #' Reads initial parameter values, bounds, and estimation phases from all
@@ -1314,6 +1147,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     plateau_eval   <- NA_integer_   # eval at which plateau was first detected
     min_evals_diag <- PrintLag * (plateau_k + 2)  # warm-up guard
 
+    # ── Print suppression flag ────────────────────────────────────────────
+    # Set TRUE during sandwich and Newton to silence per-eval NLL prints.
+    # Summary lines from .report_fit are unaffected (outside model$fn).
+    suppress_print <- FALSE
+
     # ── Store originals then wrap both fn and gr ──────────────────────────
     model$fn_Orig <- model$fn
     model$gr_Orig <- model$gr
@@ -1330,7 +1168,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
       if (!is.na(BestFn) && BestFn > tyy) {
         BestFn <<- tyy
-        if ((FnCallNo %% PrintLag) == 0) {
+        if ((FnCallNo %% PrintLag) == 0 && !suppress_print) {
           delta <- 100 * (1 - (tyy / LastPrintFn))
           cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike: ",
               round(tyy, 3), " | Delta: ", round(abs(delta), 6), "%\n", sep = "")
@@ -1401,6 +1239,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     # ── Sandwich restarts (final phase only) ──────────────────────────────
     if (is_final && isTRUE(nRestarts)) {
 
+      suppress_print <<- TRUE        # silence per-eval prints during sandwich
       sandwich_done <- FALSE
       no_improve    <- 0L                    # consecutive cycles with no grad improvement
       max_sandwich  <- 20L                   # safety ceiling
@@ -1528,6 +1367,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       }
 
       # ── Newton polishing ───────────────────────────────────────────────
+      suppress_print <<- FALSE       # restore printing for Newton and beyond
       if (newtonSteps > 0) {
 
         cur_grad <- max(abs(model$gr_Orig(mout$par)))

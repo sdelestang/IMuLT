@@ -1410,16 +1410,24 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
         cat("\n--- Sandwich restart", restart, "---\n")
 
+        # Tighter tolerances from restart 2 onwards — by then we're in the
+        # basin and want fine-grained polishing rather than broad exploration.
+        bfgs_reltol  <- ifelse(restart == 1, 1e-12, 1e-15)
+        nlminb_rtol  <- ifelse(restart == 1, 1e-12, 1e-15)
+        nlminb_xtol  <- ifelse(restart == 1, 1e-12, 1e-15)
+
         # ---- Step A: BFGS in logit-transformed unconstrained space ─────
         CurrentStage <<- paste0("Restart ", restart, " \u2013 BFGS")
         cat("  Step A: BFGS (logit-transformed)\n")
         FnCallNo <<- 0
 
-        bfgs_start <- model$env$last.par.best
-        fn_check   <- model$fn(bfgs_start)
+        bfgs_start     <- model$env$last.par.best
+        fn_check       <- model$fn(bfgs_start)
+        pre_bfgs_grad  <- max(abs(model$gr_Orig(bfgs_start)))
         if (!is.finite(fn_check)) {
           cat("  WARNING: last.par.best non-finite, falling back to mout$par\n")
-          bfgs_start <- mout$par
+          bfgs_start    <- mout$par
+          pre_bfgs_grad <- max(abs(model$gr_Orig(bfgs_start)))
         }
 
         if (has_bounds) {
@@ -1436,7 +1444,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
           fit_bfgs <- optim(bfgs_start_u, fn_u, gr_u,
                             method  = "BFGS",
-                            control = list(maxit = MaXeVaL, reltol = 1e-12))
+                            control = list(maxit  = MaXeVaL,
+                                           reltol = bfgs_reltol))
 
           fit_bfgs$par <- .to_bounded(fit_bfgs$par, lo, hi)
 
@@ -1444,7 +1453,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
                             method  = "BFGS",
                             control = list(maxit  = MaXeVaL %/% 2,
-                                           reltol = 1e-12))
+                                           reltol = bfgs_reltol))
         }
 
         bfgs_grad <- max(abs(model$gr_Orig(fit_bfgs$par)))
@@ -1452,6 +1461,18 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| max|grad| =", round(bfgs_grad, 6),
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
+
+        # ---- BFGS gradient revert guard ─────────────────────────────────
+        # If BFGS degraded the gradient (common in tight basins on restart
+        # >= 2 where the cold-start Hessian approximation overshoots), revert
+        # to the pre-BFGS parameters so nlminb starts from the better point.
+        if (bfgs_grad > pre_bfgs_grad) {
+          cat("  BFGS degraded gradient (", round(pre_bfgs_grad, 4), "->",
+              round(bfgs_grad, 4), ") — reverting to pre-BFGS parameters\n",
+              sep = "")
+          fit_bfgs$par   <- bfgs_start
+          fit_bfgs$value <- model$fn(bfgs_start)
+        }
 
         # ---- Step B: nlminb from BFGS solution ──────────────────────────
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
@@ -1463,7 +1484,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         .trace_append(TotalEval, BestFn)
 
         ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
-                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
+                     rel.tol  = nlminb_rtol,
+                     x.tol    = nlminb_xtol,
+                     abs.tol  = 0)
         mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                        control = ctrl)

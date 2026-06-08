@@ -47,8 +47,9 @@ plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
 detection. Default 4.}
 
 \item{plateau_cv}{Numeric. Coefficient of variation threshold below which
-the delta window is declared a plateau and the phase exits early.
-Default 0.05 (5\\%).}
+the delta window is declared a plateau. A diagnostic message is printed
+after the phase suggesting a more efficient \code{phit}. Set to 0 to
+disable. Default 0.05 (5\\%).}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -63,22 +64,22 @@ nlminb) to escape local minima. Optional Newton polishing steps can further
 refine the solution.
 }
 \details{
-Non-final phases support early exit when the improvement delta has plateaued
-(i.e. the optimiser is grinding in a flat basin). Once detected, the phase
-exits early so that the next phase's additional parameters can break the
-symmetry. The final phase always runs its full evaluation budget.
+Non-final phases include a plateau diagnostic: after each phase completes,
+the rolling delta history is inspected and a message is printed if a plateau
+was detected, suggesting a more efficient \code{phit} value for future runs.
+nlminb is never interrupted — the diagnostic is informational only.
 
 \strong{Phased estimation:} Parameters are activated across phases via
 \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
 the final phase uses \code{lphit}.
 
-\strong{Plateau detection:} In non-final phases, after a minimum warm-up
-period of \code{PrintLag * (plateau_k + 2)} evaluations, a rolling window
-of \code{plateau_k} consecutive delta values is maintained. If the
-coefficient of variation of that window falls below \code{plateau_cv}, the
-phase is declared to have plateaued and exits early. The chunked nlminb
-loop checks the flag every \code{PrintLag * plateau_k} evaluations. The
-final phase is never subject to plateau exit.
+\strong{Plateau diagnostic:} In non-final phases, after the full nlminb call
+completes, the rolling window of \code{plateau_k} delta values is inspected.
+If the coefficient of variation falls below \code{plateau_cv}, a message is
+printed reporting the eval at which the plateau was first detected and
+suggesting that \code{phit} could be reduced to that value for future runs.
+nlminb is never interrupted — this is purely informational. Set
+\code{plateau_cv = 0} to disable. The final phase is never reported on.
 
 \strong{Sandwich restarts:} In the final phase, the optimiser alternates
 between BFGS (operating in logit-transformed unconstrained space) and
@@ -116,10 +117,10 @@ FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
 # Fit without live plotting
 FitModel(500, 1000, PrintNll = FALSE)
 
-# Tighter plateau detection (exit sooner, CV < 2\%)
+# Tighter plateau diagnostic (report plateau at CV < 2\%)
 FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
 
-# Disable plateau detection (original behaviour)
+# Disable plateau diagnostic (silent)
 FitModel(500, 1000, plateau_cv = 0)
 }
 

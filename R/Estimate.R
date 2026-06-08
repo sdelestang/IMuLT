@@ -1401,10 +1401,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     # ── Sandwich restarts (final phase only) ──────────────────────────────
     if (is_final && isTRUE(nRestarts)) {
 
-      sandwich_nll  <- mout$objective        # track NLL improvement per cycle
-      no_improve    <- 0L                    # consecutive cycles with no gain
-      max_sandwich  <- 20L                   # safety ceiling
       sandwich_done <- FALSE
+      no_improve    <- 0L                    # consecutive cycles with no grad improvement
+      max_sandwich  <- 20L                   # safety ceiling
+      prev_grad     <- max(abs(model$gr_Orig(mout$par)))  # gradient at sandwich entry
 
       for (restart in seq_len(max_sandwich)) {
 
@@ -1500,7 +1500,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             round(cur_grad, 6), "\n")
 
         # ---- Exit criteria ───────────────────────────────────────────────
-        # 1. Gradient low enough for Newton
+        # 1. Gradient low enough for Newton — clean exit
         if (cur_grad < newton_grad_thresh) {
           cat("  Gradient <", newton_grad_thresh,
               "\u2014 sandwich converged, proceeding to Newton.\n")
@@ -1508,20 +1508,23 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           break
         }
 
-        # 2. No NLL improvement this cycle
-        nll_improvement <- sandwich_nll - mout$objective
-        if (nll_improvement < 1e-4) {
+        # 2. Gradient stall — two consecutive cycles with no meaningful
+        #    gradient reduction. NLL may be flat (basin floor) while the
+        #    gradient is still improving, so we track gradient not NLL.
+        grad_improvement <- prev_grad - cur_grad
+        if (grad_improvement < newton_grad_thresh * 0.01) {
           no_improve <- no_improve + 1L
-          cat("  No NLL improvement this cycle (delta =",
-              round(nll_improvement, 6), ") — strike", no_improve, "of 2\n")
+          cat("  Gradient not improving (delta =",
+              round(grad_improvement, 6), ") — strike", no_improve, "of 2\n")
           if (no_improve >= 2L) {
-            cat("  Sandwich stalled — exiting after", restart, "cycles.\n")
+            cat("  Sandwich stalled on gradient — exiting after",
+                restart, "cycles.\n")
             break
           }
         } else {
-          no_improve    <- 0L          # reset strike counter on any improvement
-          sandwich_nll  <- mout$objective
+          no_improve <- 0L    # reset strike counter on meaningful improvement
         }
+        prev_grad <- cur_grad
       }
 
       # ── Newton polishing ───────────────────────────────────────────────

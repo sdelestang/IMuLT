@@ -12,7 +12,9 @@ FitModel(
   report = FALSE,
   nRestarts = 1,
   newtonSteps = 0,
-  PrintNll = TRUE
+  PrintNll = TRUE,
+  plateau_k = 4,
+  plateau_cv = 0.05
 )
 }
 \arguments{
@@ -20,7 +22,7 @@ FitModel(
 all phases except the last. Default 500.}
 
 \item{lphit}{Integer. Maximum number of function evaluations for the last
-phase (per optimizer call). Default 1000.}
+phase (per optimiser call). Default 1000.}
 
 \item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
 the global \code{MaxPhase}.}
@@ -39,6 +41,14 @@ restarts. Default 0 (disabled).}
 
 \item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
 plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
+
+\item{plateau_k}{Integer. Number of consecutive reporting intervals (each
+\code{PrintLag} evaluations) used in the rolling window for plateau
+detection. Default 4.}
+
+\item{plateau_cv}{Numeric. Coefficient of variation threshold below which
+the delta window is declared a plateau and the phase exits early.
+Default 0.05 (5\\%).}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -53,9 +63,22 @@ nlminb) to escape local minima. Optional Newton polishing steps can further
 refine the solution.
 }
 \details{
+Non-final phases support early exit when the improvement delta has plateaued
+(i.e. the optimiser is grinding in a flat basin). Once detected, the phase
+exits early so that the next phase's additional parameters can break the
+symmetry. The final phase always runs its full evaluation budget.
+
 \strong{Phased estimation:} Parameters are activated across phases via
 \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
 the final phase uses \code{lphit}.
+
+\strong{Plateau detection:} In non-final phases, after a minimum warm-up
+period of \code{PrintLag * (plateau_k + 2)} evaluations, a rolling window
+of \code{plateau_k} consecutive delta values is maintained. If the
+coefficient of variation of that window falls below \code{plateau_cv}, the
+phase is declared to have plateaued and exits early. The chunked nlminb
+loop checks the flag every \code{PrintLag * plateau_k} evaluations. The
+final phase is never subject to plateau exit.
 
 \strong{Sandwich restarts:} In the final phase, the optimiser alternates
 between BFGS (operating in logit-transformed unconstrained space) and
@@ -92,6 +115,12 @@ FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
 
 # Fit without live plotting
 FitModel(500, 1000, PrintNll = FALSE)
+
+# Tighter plateau detection (exit sooner, CV < 2\%)
+FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
+
+# Disable plateau detection (original behaviour)
+FitModel(500, 1000, plateau_cv = 0)
 }
 
 }

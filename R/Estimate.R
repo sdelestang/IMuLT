@@ -1083,10 +1083,15 @@ UpdateLFWeights <- function(todo='No'){
 #' nlminb) to escape local minima. Optional Newton polishing steps can further
 #' refine the solution.
 #'
+#' Non-final phases support early exit when the improvement delta has plateaued
+#' (i.e. the optimiser is grinding in a flat basin). Once detected, the phase
+#' exits early so that the next phase's additional parameters can break the
+#' symmetry. The final phase always runs its full evaluation budget.
+#'
 #' @param phit Integer. Maximum number of function evaluations per phase for
 #'   all phases except the last. Default 500.
 #' @param lphit Integer. Maximum number of function evaluations for the last
-#'   phase (per optimizer call). Default 1000.
+#'   phase (per optimiser call). Default 1000.
 #' @param mxph Integer. Maximum phase number. If 0, treated as 1. Defaults to
 #'   the global \code{MaxPhase}.
 #' @param PrintLag Integer. Print and plot progress every \code{PrintLag}
@@ -1099,11 +1104,25 @@ UpdateLFWeights <- function(todo='No'){
 #'   restarts. Default 0 (disabled).
 #' @param PrintNll Logical. If \code{TRUE}, display a live multi-panel trace
 #'   plot of the negative log-likelihood during fitting. Default \code{TRUE}.
+#' @param plateau_k Integer. Number of consecutive reporting intervals (each
+#'   \code{PrintLag} evaluations) used in the rolling window for plateau
+#'   detection. Default 4.
+#' @param plateau_cv Numeric. Coefficient of variation threshold below which
+#'   the delta window is declared a plateau and the phase exits early.
+#'   Default 0.05 (5\%).
 #'
 #' @details
 #' \strong{Phased estimation:} Parameters are activated across phases via
 #' \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
 #' the final phase uses \code{lphit}.
+#'
+#' \strong{Plateau detection:} In non-final phases, after a minimum warm-up
+#' period of \code{PrintLag * (plateau_k + 2)} evaluations, a rolling window
+#' of \code{plateau_k} consecutive delta values is maintained. If the
+#' coefficient of variation of that window falls below \code{plateau_cv}, the
+#' phase is declared to have plateaued and exits early. The chunked nlminb
+#' loop checks the flag every \code{PrintLag * plateau_k} evaluations. The
+#' final phase is never subject to plateau exit.
 #'
 #' \strong{Sandwich restarts:} In the final phase, the optimiser alternates
 #' between BFGS (operating in logit-transformed unconstrained space) and
@@ -1144,12 +1163,19 @@ UpdateLFWeights <- function(todo='No'){
 #'
 #' # Fit without live plotting
 #' FitModel(500, 1000, PrintNll = FALSE)
+#'
+#' # Tighter plateau detection (exit sooner, CV < 2%)
+#' FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
+#'
+#' # Disable plateau detection (original behaviour)
+#' FitModel(500, 1000, plateau_cv = 0)
 #' }
 #'
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 1, newtonSteps = 0, PrintNll = TRUE) {
+                     nRestarts = 1, newtonSteps = 0, PrintNll = TRUE,
+                     plateau_k = 4, plateau_cv = 0.05) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
@@ -1209,7 +1235,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   # ── Phase loop ────────────────────────────────────────────────────────────
   for (CurrPhase in 1:MaxPhase) {
 
-    MaXeVaL <- ifelse(CurrPhase < MaxPhase, phit, lphit)
+    MaXeVaL    <- ifelse(CurrPhase < MaxPhase, phit, lphit)
+    is_final   <- CurrPhase == MaxPhase
 
     parameters <- list(
       MainPars    = InitialVars$MainPars$Initial,
@@ -1259,11 +1286,18 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     last_good <- BestFn   # tracks last finite fn value for penalty fallback
 
+    # ── Plateau detection state (non-final phases only) ───────────────────
+    # Minimum evals before plateau can trigger: skip the steep initial drop
+    # by requiring at least (plateau_k + 2) reporting intervals first.
+    delta_history  <- numeric(0)
+    plateau_hit    <- FALSE
+    min_evals_exit <- PrintLag * (plateau_k + 2)
+
     # ── Store originals then wrap both fn and gr ──────────────────────────
     model$fn_Orig <- model$fn
     model$gr_Orig <- model$gr
 
-    # Objective wrapper: finite-penalty + progress tracking
+    # Objective wrapper: finite-penalty + progress tracking + plateau detection
     model$fn <- function(x) {
       tyy <- model$fn_Orig(x)
 
@@ -1286,6 +1320,27 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             .plot_trace(TraceDF, tyy)
             dev.flush()
           }
+
+          # ── Plateau detection (non-final phases only) ──────────────────
+          # Accumulate delta history once past the warm-up guard, then check
+          # CV of the rolling window. A near-zero CV means delta has stopped
+          # changing — the optimiser is grinding in a flat basin and further
+          # evals in this phase are unlikely to meaningfully reposition pars.
+          if (!is_final && plateau_cv > 0 && FnCallNo >= min_evals_exit) {
+            delta_history <<- c(delta_history, abs(delta))
+            if (length(delta_history) >= plateau_k) {
+              recent <- tail(delta_history, plateau_k)
+              cv     <- sd(recent) / abs(mean(recent))
+              if (cv < plateau_cv) {
+                cat("  Phase ", CurrPhase, " plateau detected (CV = ",
+                    round(cv, 4), ", mean delta = ",
+                    round(mean(recent), 4), "%) — early exit at eval ",
+                    FnCallNo, "\n", sep = "")
+                plateau_hit <<- TRUE
+              }
+            }
+          }
+          # ──────────────────────────────────────────────────────────────
         }
       }
       return(tyy)
@@ -1300,8 +1355,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
     # ─────────────────────────────────────────────────────────────────────
 
-    ctrl       <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
-                       rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
     has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
 
     # ── Initial nlminb ────────────────────────────────────────────────────
@@ -1312,15 +1365,51 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     FnCallNo     <<- 0
     .trace_append(TotalEval, BestFn)
 
-    mout <- nlminb(model$par, model$fn, model$gr,
-                   lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                   control = ctrl)
+    if (!is_final && plateau_cv > 0) {
+
+      # ── Chunked nlminb for non-final phases ──────────────────────────────
+      # Run nlminb in chunks of (PrintLag * plateau_k) evals, checking the
+      # plateau flag between chunks. This is the only way to interrupt nlminb
+      # mid-run; warm-starting from mout$par between chunks is essentially
+      # free since nlminb re-evaluates at the starting point anyway.
+      chunk_size  <- PrintLag * plateau_k
+      remaining   <- MaXeVaL
+      mout        <- NULL
+      current_par <- model$par
+
+      while (remaining > 0 && !plateau_hit) {
+        this_chunk  <- min(chunk_size, remaining)
+        ctrl_chunk  <- list(iter.max = this_chunk, eval.max = this_chunk,
+                            rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
+        mout <- nlminb(current_par, model$fn, model$gr,
+                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                       control = ctrl_chunk)
+        current_par <- mout$par
+        remaining   <- remaining - this_chunk
+      }
+
+      evals_used <- MaXeVaL - remaining
+      if (plateau_hit) {
+        cat("  Phase ", CurrPhase, " early exit — ",
+            evals_used, " of ", MaXeVaL, " evals used\n", sep = "")
+      }
+
+    } else {
+
+      # ── Full nlminb for final phase (or if plateau detection disabled) ────
+      ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                   rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
+      mout <- nlminb(model$par, model$fn, model$gr,
+                     lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                     control = ctrl)
+
+    }
 
     .report_fit(mout, model, pnames, initBestFn, label = "  Initial nlminb")
     TotalEval <<- TotalEval + FnCallNo
 
     # ── Sandwich restarts (final phase only) ──────────────────────────────
-    if (CurrPhase == MaxPhase) {
+    if (is_final) {
 
       for (restart in seq_len(nRestarts)) {
 
@@ -1391,6 +1480,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         LastPrintFn  <<- BestFn
         .trace_append(TotalEval, BestFn)
 
+        ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
         mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                        control = ctrl)
@@ -1448,6 +1539,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         LastPrintFn  <<- BestFn
         .trace_append(TotalEval, BestFn)
 
+        ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
         mout <- nlminb(newton_par, model$fn, model$gr,
                        lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                        control = ctrl)
@@ -1467,12 +1560,12 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     pout <- unlist(parameters)
     pout[names(pout) %in% names(pars)] <- pars
-    suffix <- ifelse(CurrPhase == MaxPhase, " final", CurrPhase)
+    suffix <- ifelse(is_final, " final", CurrPhase)
     write.table(pout, paste0("Output/model", suffix, ".par"),
                 sep = "\t", col.names = c("name\test"), quote = FALSE)
 
     # ── Report (final phase only) ─────────────────────────────────────────
-    if (report && CurrPhase == MaxPhase) {
+    if (report && is_final) {
       cat("Making report object.\n")
       print("Loading report")
       Report <- model$report()

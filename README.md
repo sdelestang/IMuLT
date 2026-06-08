@@ -68,7 +68,7 @@ choose_model()
 LoadData()
 LoadPars()
 
-FitModel(500, 3000, report = TRUE)
+FitModel(500, 1500, report = TRUE, nRestarts = 2)
 MakeDiagReport(is95 = TRUE)
 
 ## Re-run model after examining diagnotics ##

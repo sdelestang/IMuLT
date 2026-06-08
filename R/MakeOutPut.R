@@ -1580,9 +1580,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   ## plot parameters
   ## Parameter distribution plots
-  ## Parameter distribution plots
   plot_df <- pars %>%
-    mutate(across(c(Estimate, SD, Gradient, lwrBound, uprBound, PriorType, PriorMean, PriorSD, Initial), as.numeric)) %>%
+    mutate(across(c(Estimate, SD, Gradient, lwrBound, uprBound,
+                    PriorType, PriorMean, PriorSD, Initial),~ as.numeric(na_if(as.character(.), "-")))) %>%
     filter(!is.na(SD), SD > 0, as.numeric(Link) == 0)
 
   npars_per_page <- 8

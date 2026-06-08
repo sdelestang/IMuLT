@@ -10,7 +10,7 @@ FitModel(
   mxph = MaxPhase,
   PrintLag = 50,
   report = FALSE,
-  nRestarts = 0,
+  nRestarts = 1,
   newtonSteps = 0,
   PrintNll = TRUE
 )
@@ -31,8 +31,8 @@ function evaluations. Default 50.}
 \item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
 after the final phase. Default \code{FALSE}.}
 
-\item{nRestarts}{Integer. Number of sandwich restarts (L-BFGS-B then nlminb)
-in the final phase. Default 3.}
+\item{nRestarts}{Integer. Number of sandwich restarts (BFGS then nlminb)
+in the final phase. Default 1.}
 
 \item{newtonSteps}{Integer. Number of Newton polishing steps after sandwich
 restarts. Default 0 (disabled).}
@@ -48,41 +48,39 @@ parameter files to \code{Output/}, and if \code{report = TRUE}, saving
 \description{
 Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
 progressively introduced across phases, with the final phase employing
-sandwich restarts (alternating L-BFGS-B and nlminb) to escape local minima.
-Optional Newton polishing steps can further refine the solution.
+sandwich restarts (alternating BFGS on logit-transformed parameters and
+nlminb) to escape local minima. Optional Newton polishing steps can further
+refine the solution.
 }
 \details{
 \strong{Phased estimation:} Parameters are activated across phases via
 \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
 the final phase uses \code{lphit}.
 
-\strong{Sandwich restarts:} In the final phase, after the initial nlminb run,
-the optimizer alternates between L-BFGS-B (which uses a different Hessian
-approximation) and nlminb. This helps escape ridges and saddle points that
-trap a single algorithm. Each restart resets progress tracking for clean
-reporting.
+\strong{Sandwich restarts:} In the final phase, the optimiser alternates
+between BFGS (operating in logit-transformed unconstrained space) and
+nlminb (trust-region, operating in the original bounded space). The
+logit transformation maps each bounded parameter from \eqn{[lo, hi]} to
+\eqn{(-\infty, \infty)}, so BFGS can never step outside the feasible
+region or into non-finite areas. The gradient is adjusted via the chain
+rule so BFGS sees the correct curvature. After BFGS, parameters are
+back-transformed and passed to nlminb with full bounds.
+
+\strong{Finite penalty wrapper:} The objective function wrapper returns a
+large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
+TMB evaluation, preventing optimiser crashes.
+
+\strong{Gradient wrapper:} The gradient wrapper returns a zero vector for
+any non-finite or error-producing gradient evaluation, preventing crashes
+in optimisers that require finite gradients.
 
 \strong{Newton polishing:} If \code{newtonSteps > 0}, exact Newton steps
 using the full Hessian are attempted after the sandwich restarts, followed
 by a final nlminb call.
 
-\strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
-base-graphics figure is updated every \code{PrintLag} function evaluations
-using \code{\link[grDevices]{dev.hold}}/\code{\link[grDevices]{dev.flush}}
-for flicker-free rendering. The top panel shows the full optimisation
-history across all phases and restarts. Below it, any stage (phase or
-restart) that accumulates two or more print points receives its own
-sub-panel, arranged side by side in chronological order. A red dot marks
-the current best value.
-
-\strong{Prior penalties:} The model supports normal (type 1) and gamma
-(type 2) priors on main parameters via \code{MparsPrior}. Gamma priors
-are recommended for strictly positive parameters such as natural mortality.
-
-\strong{Global side effects:} The function writes to the global environment
-via \code{<<-}. The trace is stored in \code{TraceDF} (a data frame with
-columns \code{eval}, \code{nll}, \code{stage}), cumulative evaluations in
-\code{TotalEval}, and the current stage label in \code{CurrentStage}.
+\strong{Global side effects:} Writes to the global environment via
+\code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
+in \code{TotalEval}, and the current stage label in \code{CurrentStage}.
 }
 \examples{
 \dontrun{

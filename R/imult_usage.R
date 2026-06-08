@@ -30,8 +30,8 @@ BASIC WORKFLOW:
 4. Set output options and run model:
    LoadData()
    LoadPars()
-   SolveModelNew(500, 2000, report = TRUE)
-   MakeDiagReport(is95 = FALSE)
+   SolveModelNew(500, 2000, report = TRUE, nRestarts = 2)
+   MakeDiagReport(is95 = TRUE)
 
 5. Update length composition weightings
    UpdateLFWeights('Yes')

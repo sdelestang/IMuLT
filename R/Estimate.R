@@ -1372,7 +1372,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           # No bounds — plain BFGS in original space
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
                             method  = "BFGS",
-                            control = list(maxit  = MaXeVaL,
+                            control = list(maxit  = MaXeVaL %/% 2,
                                            reltol = 1e-12))
         }
 

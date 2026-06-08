@@ -1097,10 +1097,18 @@ UpdateLFWeights <- function(todo='No'){
 #'   function evaluations. Default 50.
 #' @param report Logical. If \code{TRUE}, produce SD report and save outputs
 #'   after the final phase. Default \code{FALSE}.
-#' @param nRestarts Integer. Number of sandwich restarts (BFGS then nlminb)
-#'   in the final phase. Default 1.
-#' @param newtonSteps Integer. Number of Newton polishing steps after sandwich
-#'   restarts. Default 0 (disabled).
+#' @param nRestarts Logical. If \code{TRUE}, sandwich restarts (alternating
+#'   BFGS and nlminb) run adaptively in the final phase until either the
+#'   gradient falls below \code{newton_grad_thresh} (ready for Newton) or two
+#'   successive cycles fail to improve the NLL (stuck). If \code{FALSE}, no
+#'   sandwich is performed. Default \code{TRUE}.
+#' @param newtonSteps Integer. Maximum number of damped Newton polishing steps
+#'   after the sandwich. Only attempted if the gradient is below
+#'   \code{newton_grad_thresh} at sandwich exit; otherwise a warning is
+#'   printed. Default 5.
+#' @param newton_grad_thresh Numeric. Gradient threshold below which Newton
+#'   polishing is considered safe. Also used as the sandwich convergence
+#'   criterion. Default 0.1.
 #' @param PrintNll Logical. If \code{TRUE}, display a live multi-panel trace
 #'   plot of the negative log-likelihood during fitting. Default \code{TRUE}.
 #' @param plateau_k Integer. Number of consecutive reporting intervals (each
@@ -1124,14 +1132,14 @@ UpdateLFWeights <- function(todo='No'){
 #' nlminb is never interrupted — this is purely informational. Set
 #' \code{plateau_cv = 0} to disable. The final phase is never reported on.
 #'
-#' \strong{Sandwich restarts:} In the final phase, the optimiser alternates
-#' between BFGS (operating in logit-transformed unconstrained space) and
-#' nlminb (trust-region, operating in the original bounded space). The
-#' logit transformation maps each bounded parameter from \eqn{[lo, hi]} to
-#' \eqn{(-\infty, \infty)}, so BFGS can never step outside the feasible
-#' region or into non-finite areas. The gradient is adjusted via the chain
-#' rule so BFGS sees the correct curvature. After BFGS, parameters are
-#' back-transformed and passed to nlminb with full bounds.
+#' \strong{Sandwich restarts:} If \code{nRestarts = TRUE}, the final phase
+#' runs adaptive sandwich cycles (BFGS then nlminb) until the gradient falls
+#' below \code{newton_grad_thresh} or two successive cycles produce no NLL
+#' improvement. BFGS operates in logit-transformed unconstrained space so it
+#' can never step outside bounds or into non-finite regions. The gradient is
+#' adjusted via the chain rule. After BFGS, parameters are back-transformed
+#' and passed to nlminb with full bounds. A safety ceiling of 20 cycles
+#' prevents runaway loops.
 #'
 #' \strong{Finite penalty wrapper:} The objective function wrapper returns a
 #' large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
@@ -1141,9 +1149,15 @@ UpdateLFWeights <- function(todo='No'){
 #' any non-finite or error-producing gradient evaluation, preventing crashes
 #' in optimisers that require finite gradients.
 #'
-#' \strong{Newton polishing:} If \code{newtonSteps > 0}, exact Newton steps
-#' using the full Hessian are attempted after the sandwich restarts, followed
-#' by a final nlminb call.
+#' \strong{Newton polishing:} If \code{newtonSteps > 0} and the gradient at
+#' sandwich exit is below \code{newton_grad_thresh}, damped Newton steps are
+#' attempted using the full Hessian. Each step performs a backtracking line
+#' search (halving the step size up to 10 times) to ensure the objective
+#' actually improves before accepting the step. A final nlminb call follows
+#' to clean up any remaining gradient. If the gradient is above
+#' \code{newton_grad_thresh} at sandwich exit, Newton is skipped with a
+#' warning — the Hessian is unlikely to be well-conditioned and steps would
+#' be unreliable.
 #'
 #' \strong{Global side effects:} Writes to the global environment via
 #' \code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
@@ -1155,26 +1169,31 @@ UpdateLFWeights <- function(todo='No'){
 #'
 #' @examples
 #' \dontrun{
-#' # Quick fit with defaults
-#' FitModel(500, 1000)
+#' # Quick fit, no sandwich
+#' FitModel(500, 1000, nRestarts = FALSE)
 #'
-#' # Full fit with reporting, extra restarts, and Newton polishing
-#' FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
+#' # Full fit — adaptive sandwich + Newton polishing
+#' FitModel(500, 3000, report = TRUE)
+#'
+#' # Tighter Newton threshold (only polish if gradient < 0.01)
+#' FitModel(500, 3000, report = TRUE, newton_grad_thresh = 0.01)
 #'
 #' # Fit without live plotting
 #' FitModel(500, 1000, PrintNll = FALSE)
 #'
-#' # Tighter plateau diagnostic (report plateau at CV < 2%)
+#' # Tighter plateau diagnostic
 #' FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
 #'
-#' # Disable plateau diagnostic (silent)
+#' # Disable plateau diagnostic
 #' FitModel(500, 1000, plateau_cv = 0)
 #' }
 #'
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 1, newtonSteps = 0, PrintNll = TRUE,
+                     nRestarts = TRUE, newtonSteps = 5,
+                     newton_grad_thresh = 0.1,
+                     PrintNll = TRUE,
                      plateau_k = 4, plateau_cv = 0.05) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
@@ -1380,16 +1399,18 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     TotalEval <<- TotalEval + FnCallNo
 
     # ── Sandwich restarts (final phase only) ──────────────────────────────
-    if (is_final) {
+    if (is_final && isTRUE(nRestarts)) {
 
-      for (restart in seq_len(nRestarts)) {
+      sandwich_nll  <- mout$objective        # track NLL improvement per cycle
+      no_improve    <- 0L                    # consecutive cycles with no gain
+      max_sandwich  <- 20L                   # safety ceiling
+      sandwich_done <- FALSE
 
-        cat("\n--- Sandwich restart", restart, "of", nRestarts, "---\n")
+      for (restart in seq_len(max_sandwich)) {
+
+        cat("\n--- Sandwich restart", restart, "---\n")
 
         # ---- Step A: BFGS in logit-transformed unconstrained space ─────
-        # Logit-transforming bounded parameters maps them to (-Inf, Inf),
-        # so BFGS can never step outside the feasible region or into
-        # non-finite areas — no gradient pinning required.
         CurrentStage <<- paste0("Restart ", restart, " \u2013 BFGS")
         cat("  Step A: BFGS (logit-transformed)\n")
         FnCallNo <<- 0
@@ -1405,31 +1426,21 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           lo <- RunSpecs$lowBnd
           hi <- RunSpecs$uppBnd
 
-          # Transform starting point to unconstrained space
           bfgs_start_u <- .to_unbounded(bfgs_start, lo, hi)
 
-          # Objective in unconstrained space
-          fn_u <- function(y) {
-            model$fn(.to_bounded(y, lo, hi))
-          }
-
-          # Gradient in unconstrained space via chain rule
+          fn_u <- function(y) model$fn(.to_bounded(y, lo, hi))
           gr_u <- function(y) {
             x <- .to_bounded(y, lo, hi)
-            g <- model$gr(x)
-            .chain_grad(g, y, lo, hi)
+            .chain_grad(model$gr(x), y, lo, hi)
           }
 
           fit_bfgs <- optim(bfgs_start_u, fn_u, gr_u,
                             method  = "BFGS",
-                            control = list(maxit   = MaXeVaL,
-                                           reltol  = 1e-12))
+                            control = list(maxit = MaXeVaL, reltol = 1e-12))
 
-          # Back-transform solution to original bounded space
           fit_bfgs$par <- .to_bounded(fit_bfgs$par, lo, hi)
 
         } else {
-          # No bounds — plain BFGS in original space
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
                             method  = "BFGS",
                             control = list(maxit  = MaXeVaL %/% 2,
@@ -1442,13 +1453,13 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        # ---- Step B: nlminb from BFGS solution (original bounded space) ─
+        # ---- Step B: nlminb from BFGS solution ──────────────────────────
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
-        FnCallNo     <<- 0
-        BestFn       <- fit_bfgs$value
-        initBestFn   <- BestFn
-        LastPrintFn  <<- BestFn
+        FnCallNo    <<- 0
+        BestFn      <- fit_bfgs$value
+        initBestFn  <- BestFn
+        LastPrintFn <<- BestFn
         .trace_append(TotalEval, BestFn)
 
         ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
@@ -1461,66 +1472,115 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                     label = paste("  nlminb restart", restart))
         TotalEval <<- TotalEval + FnCallNo
 
-        # Early exit if converged
         cur_grad <- max(abs(model$gr_Orig(mout$par)))
         cat("  Restart", restart, "complete: max|grad| =",
             round(cur_grad, 6), "\n")
-        if (cur_grad < 1e-3) {
-          cat("  Gradient < 1e-3 \u2014 exiting restart loop early.\n")
+
+        # ---- Exit criteria ───────────────────────────────────────────────
+        # 1. Gradient low enough for Newton
+        if (cur_grad < newton_grad_thresh) {
+          cat("  Gradient <", newton_grad_thresh,
+              "\u2014 sandwich converged, proceeding to Newton.\n")
+          sandwich_done <- TRUE
           break
+        }
+
+        # 2. No NLL improvement this cycle
+        nll_improvement <- sandwich_nll - mout$objective
+        if (nll_improvement < 1e-4) {
+          no_improve <- no_improve + 1L
+          cat("  No NLL improvement this cycle (delta =",
+              round(nll_improvement, 6), ") — strike", no_improve, "of 2\n")
+          if (no_improve >= 2L) {
+            cat("  Sandwich stalled — exiting after", restart, "cycles.\n")
+            break
+          }
+        } else {
+          no_improve    <- 0L          # reset strike counter on any improvement
+          sandwich_nll  <- mout$objective
         }
       }
 
       # ── Newton polishing ───────────────────────────────────────────────
       if (newtonSteps > 0) {
-        cat("\n--- Newton polishing steps ---\n")
-        CurrentStage <<- "Newton polish"
-        newton_par   <- model$env$last.par.best
 
-        for (ns in seq_len(newtonSteps)) {
-          tryCatch({
-            H    <- optimHess(newton_par, model$fn, model$gr)
-            g    <- as.vector(model$gr_Orig(newton_par))
-            step <- solve(H, g)
-            newton_par <- newton_par - step
-            if (has_bounds) {
-              newton_par <- pmax(newton_par, RunSpecs$lowBnd)
-              newton_par <- pmin(newton_par, RunSpecs$uppBnd)
-            }
-            ng <- max(abs(model$gr_Orig(newton_par)))
-            cat("  Newton step", ns, "- obj:",
-                round(model$fn(newton_par), 6),
-                "| max|grad|:", round(ng, 8), "\n")
-            if (ng < 1e-3) {
-              cat("  Gradient < 1e-3 after Newton \u2014 stopping.\n")
-              break
-            }
-          }, error = function(e) {
-            cat("  Newton step", ns, "failed (Hessian singular?):",
-                conditionMessage(e), "\n")
-          })
+        cur_grad <- max(abs(model$gr_Orig(mout$par)))
+
+        if (cur_grad >= newton_grad_thresh) {
+          cat("\n  WARNING: gradient =", round(cur_grad, 4),
+              ">= newton_grad_thresh (", newton_grad_thresh, ")",
+              "— skipping Newton (Hessian likely ill-conditioned).\n")
+        } else {
+          cat("\n--- Newton polishing steps ---\n")
+          CurrentStage <<- "Newton polish"
+          newton_par   <- model$env$last.par.best
+
+          for (ns in seq_len(newtonSteps)) {
+            improved <- FALSE
+            tryCatch({
+              H    <- optimHess(newton_par, model$fn, model$gr)
+              g    <- as.vector(model$gr_Orig(newton_par))
+              step <- solve(H, g)
+
+              # Backtracking line search — halve step until objective improves
+              base_obj   <- model$fn(newton_par)
+              step_size  <- 1.0
+              for (backstep in seq_len(10)) {
+                candidate <- newton_par - step_size * step
+                if (has_bounds) {
+                  candidate <- pmax(candidate, RunSpecs$lowBnd)
+                  candidate <- pmin(candidate, RunSpecs$uppBnd)
+                }
+                if (model$fn(candidate) < base_obj) {
+                  newton_par <- candidate
+                  improved   <- TRUE
+                  break
+                }
+                step_size <- step_size / 2
+              }
+
+              if (!improved) {
+                cat("  Newton step", ns,
+                    "— line search failed, stopping Newton.\n")
+              } else {
+                ng <- max(abs(model$gr_Orig(newton_par)))
+                cat("  Newton step", ns,
+                    "- obj:", round(model$fn(newton_par), 6),
+                    "| max|grad|:", round(ng, 8),
+                    "| step size:", round(step_size, 6), "\n")
+                if (ng < newton_grad_thresh / 100) {
+                  cat("  Gradient converged after Newton \u2014 stopping.\n")
+                  break
+                }
+              }
+            }, error = function(e) {
+              cat("  Newton step", ns, "failed (Hessian singular?):",
+                  conditionMessage(e), "\n")
+            })
+            if (!improved) break
+          }
+
+          # Final nlminb from Newton-polished parameters
+          CurrentStage <<- "Post-Newton nlminb"
+          cat("  Final nlminb (post-Newton)\n")
+          FnCallNo    <<- 0
+          BestFn      <- model$fn(newton_par)
+          initBestFn  <- BestFn
+          LastPrintFn <<- BestFn
+          .trace_append(TotalEval, BestFn)
+
+          ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                       rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
+          mout <- nlminb(newton_par, model$fn, model$gr,
+                         lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                         control = ctrl)
+          .report_fit(mout, model, pnames, initBestFn,
+                      label = "  Final nlminb (post-Newton)")
+          TotalEval <<- TotalEval + FnCallNo
         }
-
-        # Final nlminb from Newton-polished parameters
-        CurrentStage <<- "Post-Newton nlminb"
-        cat("  Final nlminb (post-Newton)\n")
-        FnCallNo     <<- 0
-        BestFn       <- model$fn(newton_par)
-        initBestFn   <- BestFn
-        LastPrintFn  <<- BestFn
-        .trace_append(TotalEval, BestFn)
-
-        ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
-                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-        mout <- nlminb(newton_par, model$fn, model$gr,
-                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                       control = ctrl)
-        .report_fit(mout, model, pnames, initBestFn,
-                    label = "  Final nlminb (post-Newton)")
-        TotalEval <<- TotalEval + FnCallNo
       }
 
-      # ── Bound diagnostics ─────────────────────────────────────────────
+      # ── Bound diagnostics ───────────────────────────────────────────────
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
     }
 

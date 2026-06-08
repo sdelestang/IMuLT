@@ -33,11 +33,16 @@ function evaluations. Default 50.}
 \item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
 after the final phase. Default \code{FALSE}.}
 
-\item{nRestarts}{Integer. Number of sandwich restarts (BFGS then nlminb)
-in the final phase. Default 1.}
+\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts (alternating
+BFGS and nlminb) run adaptively in the final phase until either the
+gradient falls below \code{newton_grad_thresh} (ready for Newton) or two
+successive cycles fail to improve the NLL (stuck). If \code{FALSE}, no
+sandwich is performed. Default \code{TRUE}.}
 
-\item{newtonSteps}{Integer. Number of Newton polishing steps after sandwich
-restarts. Default 0 (disabled).}
+\item{newtonSteps}{Integer. Maximum number of damped Newton polishing steps
+after the sandwich. Only attempted if the gradient is below
+\code{newton_grad_thresh} at sandwich exit; otherwise a warning is
+printed. Default 5.}
 
 \item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
 plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
@@ -50,6 +55,10 @@ detection. Default 4.}
 the delta window is declared a plateau. A diagnostic message is printed
 after the phase suggesting a more efficient \code{phit}. Set to 0 to
 disable. Default 0.05 (5\\%).}
+
+\item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
+polishing is considered safe. Also used as the sandwich convergence
+criterion. Default 0.1.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -81,14 +90,14 @@ suggesting that \code{phit} could be reduced to that value for future runs.
 nlminb is never interrupted — this is purely informational. Set
 \code{plateau_cv = 0} to disable. The final phase is never reported on.
 
-\strong{Sandwich restarts:} In the final phase, the optimiser alternates
-between BFGS (operating in logit-transformed unconstrained space) and
-nlminb (trust-region, operating in the original bounded space). The
-logit transformation maps each bounded parameter from \eqn{[lo, hi]} to
-\eqn{(-\infty, \infty)}, so BFGS can never step outside the feasible
-region or into non-finite areas. The gradient is adjusted via the chain
-rule so BFGS sees the correct curvature. After BFGS, parameters are
-back-transformed and passed to nlminb with full bounds.
+\strong{Sandwich restarts:} If \code{nRestarts = TRUE}, the final phase
+runs adaptive sandwich cycles (BFGS then nlminb) until the gradient falls
+below \code{newton_grad_thresh} or two successive cycles produce no NLL
+improvement. BFGS operates in logit-transformed unconstrained space so it
+can never step outside bounds or into non-finite regions. The gradient is
+adjusted via the chain rule. After BFGS, parameters are back-transformed
+and passed to nlminb with full bounds. A safety ceiling of 20 cycles
+prevents runaway loops.
 
 \strong{Finite penalty wrapper:} The objective function wrapper returns a
 large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
@@ -98,9 +107,15 @@ TMB evaluation, preventing optimiser crashes.
 any non-finite or error-producing gradient evaluation, preventing crashes
 in optimisers that require finite gradients.
 
-\strong{Newton polishing:} If \code{newtonSteps > 0}, exact Newton steps
-using the full Hessian are attempted after the sandwich restarts, followed
-by a final nlminb call.
+\strong{Newton polishing:} If \code{newtonSteps > 0} and the gradient at
+sandwich exit is below \code{newton_grad_thresh}, damped Newton steps are
+attempted using the full Hessian. Each step performs a backtracking line
+search (halving the step size up to 10 times) to ensure the objective
+actually improves before accepting the step. A final nlminb call follows
+to clean up any remaining gradient. If the gradient is above
+\code{newton_grad_thresh} at sandwich exit, Newton is skipped with a
+warning — the Hessian is unlikely to be well-conditioned and steps would
+be unreliable.
 
 \strong{Global side effects:} Writes to the global environment via
 \code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
@@ -108,19 +123,22 @@ in \code{TotalEval}, and the current stage label in \code{CurrentStage}.
 }
 \examples{
 \dontrun{
-# Quick fit with defaults
-FitModel(500, 1000)
+# Quick fit, no sandwich
+FitModel(500, 1000, nRestarts = FALSE)
 
-# Full fit with reporting, extra restarts, and Newton polishing
-FitModel(500, 3000, report = TRUE, nRestarts = 5, newtonSteps = 3)
+# Full fit — adaptive sandwich + Newton polishing
+FitModel(500, 3000, report = TRUE)
+
+# Tighter Newton threshold (only polish if gradient < 0.01)
+FitModel(500, 3000, report = TRUE, newton_grad_thresh = 0.01)
 
 # Fit without live plotting
 FitModel(500, 1000, PrintNll = FALSE)
 
-# Tighter plateau diagnostic (report plateau at CV < 2\%)
+# Tighter plateau diagnostic
 FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
 
-# Disable plateau diagnostic (silent)
+# Disable plateau diagnostic
 FitModel(500, 1000, plateau_cv = 0)
 }
 

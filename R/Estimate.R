@@ -1247,7 +1247,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       RecDevs     = InitialVars$RecDevs$Initial,
       Qpars       = InitialVars$Qpars$Initial,
       efpars      = InitialVars$efpars$Initial,
-      #InitPars   = InitialVars$InitPars$Initial,
       RecSpatDevs = InitialVars$RecSpatDevs$Initial,
       MovePars    = InitialVars$MovePars$Initial,
       GrowthPars  = InitialVars$GrowthPars$Initial,
@@ -1332,8 +1331,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
               recent <- tail(delta_history, plateau_k)
               cv     <- sd(recent) / abs(mean(recent))
               if (cv < plateau_cv) {
-                cat("  Phase ", CurrPhase, " plateau detected (CV = ",
-                    round(cv, 4), ", mean delta = ",
+                cat("  Phase ", CurrPhase, " plateau detected indicating model is in a local minima (CV = ",
+                    round(cv, 4), ", mean Delta = ",
                     round(mean(recent), 4), "%) — early exit at eval ",
                     FnCallNo, "\n", sep = "")
                 plateau_hit <<- TRUE
@@ -1368,11 +1367,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     if (!is_final && plateau_cv > 0) {
 
       # ── Chunked nlminb for non-final phases ──────────────────────────────
-      # Run nlminb in chunks of (PrintLag * plateau_k) evals, checking the
+      # Run nlminb in chunks of (PrintLag ) evals, checking the
       # plateau flag between chunks. This is the only way to interrupt nlminb
       # mid-run; warm-starting from mout$par between chunks is essentially
       # free since nlminb re-evaluates at the starting point anyway.
-      chunk_size  <- PrintLag * plateau_k
+      chunk_size  <- PrintLag
       remaining   <- MaXeVaL
       mout        <- NULL
       current_par <- model$par

@@ -410,7 +410,7 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n# variance specification parameters (1=Egg Production; 2=Egg Production x area;3=Recruitment x area; 4=Legal Biomass x area;5=Harvest Rate;6=Catch rates;7=Fishing efficiency;8=Unspecified;9=Unspecified;10=Unspecified)\n")
     tmp <- c(tmp, "# Number of variance specifications\n",10)
-    tmp <- c(tmp, "\n# variance components\n",paste(c(1,1,1,1,1,1,1,0,0,0),collapse = '\t'),"\n")
+    tmp <- c(tmp, "\n# variance components\n",paste(c(0,0,0,0,0,0,0,0,0,0),collapse = '\t'),"\n")
 
     tmp <- c(tmp, "\n1 # use the pin file for specifying parameters (ADMB)")
     tmp <- c(tmp, "\n1 # last function call (ADMB)\n")

@@ -1269,7 +1269,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         if ((FnCallNo %% PrintLag) == 0) {
           delta <- 100 * (1 - (tyy / LastPrintFn))
           cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike: ",
-              round(tyy, 3), " | Delta: ", round(delta, 6), "%\n", sep = "")
+              round(tyy, 3), " | Delta: ", round(abs(delta), 6), "%\n", sep = "")
           LastPrintFn <<- tyy
           .trace_append(TotalEval + FnCallNo, tyy)
           if (PrintNll) {

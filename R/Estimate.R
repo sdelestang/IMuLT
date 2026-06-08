@@ -1079,8 +1079,9 @@ UpdateLFWeights <- function(todo='No'){
 #'
 #' Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
 #' progressively introduced across phases, with the final phase employing
-#' sandwich restarts (alternating L-BFGS-B and nlminb) to escape local minima.
-#' Optional Newton polishing steps can further refine the solution.
+#' sandwich restarts (alternating BFGS on logit-transformed parameters and
+#' nlminb) to escape local minima. Optional Newton polishing steps can further
+#' refine the solution.
 #'
 #' @param phit Integer. Maximum number of function evaluations per phase for
 #'   all phases except the last. Default 500.
@@ -1092,48 +1093,38 @@ UpdateLFWeights <- function(todo='No'){
 #'   function evaluations. Default 50.
 #' @param report Logical. If \code{TRUE}, produce SD report and save outputs
 #'   after the final phase. Default \code{FALSE}.
-#' @param nRestarts Integer. Number of sandwich restarts (L-BFGS-B then nlminb)
+#' @param nRestarts Integer. Number of sandwich restarts (BFGS then nlminb)
 #'   in the final phase. Default 1.
 #' @param newtonSteps Integer. Number of Newton polishing steps after sandwich
 #'   restarts. Default 0 (disabled).
 #' @param PrintNll Logical. If \code{TRUE}, display a live multi-panel trace
 #'   plot of the negative log-likelihood during fitting. Default \code{TRUE}.
-#' @param gradPin Numeric. Parameters whose absolute gradient exceeds this
-#'   threshold at the start of each L-BFGS-B step are pinned (bounds collapsed
-#'   to a tiny window around their current value). This prevents L-BFGS-B line
-#'   search from stepping into non-finite regions for poorly-conditioned
-#'   parameters. Default 50.
 #'
 #' @details
 #' \strong{Phased estimation:} Parameters are activated across phases via
 #' \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
 #' the final phase uses \code{lphit}.
 #'
-#' \strong{Sandwich restarts:} In the final phase, after the initial nlminb run,
-#' the optimizer alternates between L-BFGS-B (which uses a different Hessian
-#' approximation) and nlminb. This helps escape ridges and saddle points that
-#' trap a single algorithm. Each restart resets progress tracking for clean
-#' reporting.
-#'
-#' \strong{Dynamic gradient pinning:} Before each L-BFGS-B step, parameters
-#' with absolute gradient exceeding \code{gradPin} are identified and their
-#' bounds collapsed to a tiny window around their current value. This prevents
-#' L-BFGS-B line search from stepping into non-finite regions. The subsequent
-#' nlminb step always uses the full bounds, freeing those parameters again.
+#' \strong{Sandwich restarts:} In the final phase, the optimiser alternates
+#' between BFGS (operating in logit-transformed unconstrained space) and
+#' nlminb (trust-region, operating in the original bounded space). The
+#' logit transformation maps each bounded parameter from \eqn{[lo, hi]} to
+#' \eqn{(-\infty, \infty)}, so BFGS can never step outside the feasible
+#' region or into non-finite areas. The gradient is adjusted via the chain
+#' rule so BFGS sees the correct curvature. After BFGS, parameters are
+#' back-transformed and passed to nlminb with full bounds.
 #'
 #' \strong{Finite penalty wrapper:} The objective function wrapper returns a
 #' large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
-#' evaluation, preventing optimiser crashes from parameter regions where the
-#' TMB model is undefined.
+#' TMB evaluation, preventing optimiser crashes.
+#'
+#' \strong{Gradient wrapper:} The gradient wrapper returns a zero vector for
+#' any non-finite or error-producing gradient evaluation, preventing crashes
+#' in optimisers that require finite gradients.
 #'
 #' \strong{Newton polishing:} If \code{newtonSteps > 0}, exact Newton steps
 #' using the full Hessian are attempted after the sandwich restarts, followed
 #' by a final nlminb call.
-#'
-#' \strong{Live trace plot:} When \code{PrintNll = TRUE}, a multi-panel
-#' base-graphics figure is updated every \code{PrintLag} function evaluations
-#' using \code{\link[grDevices]{dev.hold}}/\code{\link[grDevices]{dev.flush}}
-#' for flicker-free rendering.
 #'
 #' \strong{Global side effects:} Writes to the global environment via
 #' \code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
@@ -1156,11 +1147,9 @@ UpdateLFWeights <- function(todo='No'){
 #' }
 #'
 #' @export
-#' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
-                     nRestarts = 1, newtonSteps = 0, PrintNll = TRUE,
-                     gradPin = 50) {
+                     nRestarts = 1, newtonSteps = 0, PrintNll = TRUE) {
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
@@ -1195,6 +1184,26 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                                  nll   = nll,
                                  stage = CurrentStage,
                                  stringsAsFactors = FALSE))
+  }
+
+  # ── Logit transform helpers (bounded <-> unconstrained) ───────────────────
+  # Maps x in [lo, hi] to y in (-Inf, Inf) and back.
+  # Keeps x strictly inside bounds to avoid log(0).
+  .to_unbounded <- function(x, lo, hi) {
+    x_c <- pmax(pmin(x, hi - 1e-8), lo + 1e-8)
+    log((x_c - lo) / (hi - x_c))
+  }
+
+  .to_bounded <- function(y, lo, hi) {
+    lo + (hi - lo) / (1 + exp(-y))
+  }
+
+  # Chain-rule correction: dL/dy = dL/dx * dx/dy
+  # dx/dy for logit = (hi - lo) * sigmoid(y) * (1 - sigmoid(y))
+  .chain_grad <- function(g, y, lo, hi) {
+    sig  <- 1 / (1 + exp(-y))
+    dxdy <- (hi - lo) * sig * (1 - sig)
+    g * dxdy
   }
 
   # ── Phase loop ────────────────────────────────────────────────────────────
@@ -1283,12 +1292,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
 
     # Gradient wrapper: return zero gradient for non-finite regions instead
-    # of crashing optimisers that require finite gradients (e.g. L-BFGS-B)
+    # of crashing optimisers that require finite gradients
     model$gr <- function(x) {
       g <- tryCatch(model$gr_Orig(x), error = function(e) NULL)
-      if (is.null(g) || any(!is.finite(g))) {
-        return(rep(0, length(x)))
-      }
+      if (is.null(g) || any(!is.finite(g))) return(rep(0, length(x)))
       return(g)
     }
     # ─────────────────────────────────────────────────────────────────────
@@ -1319,58 +1326,63 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
         cat("\n--- Sandwich restart", restart, "of", nRestarts, "---\n")
 
-        # ---- Step A: L-BFGS-B ──────────────────────────────────────────
-        CurrentStage <<- paste0("Restart ", restart, " \u2013 L-BFGS-B")
-        cat("  Step A: L-BFGS-B\n")
-        FnCallNo     <<- 0
+        # ---- Step A: BFGS in logit-transformed unconstrained space ─────
+        # Logit-transforming bounded parameters maps them to (-Inf, Inf),
+        # so BFGS can never step outside the feasible region or into
+        # non-finite areas — no gradient pinning required.
+        CurrentStage <<- paste0("Restart ", restart, " \u2013 BFGS")
+        cat("  Step A: BFGS (logit-transformed)\n")
+        FnCallNo <<- 0
 
         bfgs_start <- model$env$last.par.best
         fn_check   <- model$fn(bfgs_start)
         if (!is.finite(fn_check)) {
           cat("  WARNING: last.par.best non-finite, falling back to mout$par\n")
           bfgs_start <- mout$par
-          fn_check   <- model$fn(bfgs_start)
         }
-
-        # Dynamically pin parameters with large gradients — these cause
-        # L-BFGS-B line search to step into non-finite regions
-        cur_grad   <- tryCatch(as.vector(model$gr_Orig(bfgs_start)),
-                               error = function(e) rep(0, length(bfgs_start)))
-        large_idx  <- which(abs(cur_grad) > gradPin)
-        bfgs_lower <- RunSpecs$lowBnd
-        bfgs_upper <- RunSpecs$uppBnd
-
-        if (length(large_idx) > 0) {
-          cat(sprintf("  Pinning %d parameter(s) with |grad| > %g: %s\n",
-                      length(large_idx), gradPin,
-                      paste(pnames[large_idx], collapse = ", ")))
-          bfgs_lower[large_idx] <- bfgs_start[large_idx] - 1e-6
-          bfgs_upper[large_idx] <- bfgs_start[large_idx] + 1e-6
-        }
-
-        BestFn      <- fn_check
-        LastPrintFn <<- BestFn
-        .trace_append(TotalEval, BestFn)
 
         if (has_bounds) {
-          fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
-                            method  = "L-BFGS-B",
-                            lower   = bfgs_lower,
-                            upper   = bfgs_upper,
-                            control = list(maxit = MaXeVaL, factr = 1e-15))
+          lo <- RunSpecs$lowBnd
+          hi <- RunSpecs$uppBnd
+
+          # Transform starting point to unconstrained space
+          bfgs_start_u <- .to_unbounded(bfgs_start, lo, hi)
+
+          # Objective in unconstrained space
+          fn_u <- function(y) {
+            model$fn(.to_bounded(y, lo, hi))
+          }
+
+          # Gradient in unconstrained space via chain rule
+          gr_u <- function(y) {
+            x <- .to_bounded(y, lo, hi)
+            g <- model$gr(x)
+            .chain_grad(g, y, lo, hi)
+          }
+
+          fit_bfgs <- optim(bfgs_start_u, fn_u, gr_u,
+                            method  = "BFGS",
+                            control = list(maxit   = MaXeVaL,
+                                           reltol  = 1e-12))
+
+          # Back-transform solution to original bounded space
+          fit_bfgs$par <- .to_bounded(fit_bfgs$par, lo, hi)
+
         } else {
+          # No bounds — plain BFGS in original space
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
                             method  = "BFGS",
-                            control = list(maxit = MaXeVaL, reltol = 1e-12))
+                            control = list(maxit  = MaXeVaL,
+                                           reltol = 1e-12))
         }
 
         bfgs_grad <- max(abs(model$gr_Orig(fit_bfgs$par)))
-        cat("  L-BFGS-B complete: obj =", round(fit_bfgs$value, 6),
+        cat("  BFGS complete: obj =", round(fit_bfgs$value, 6),
             "| max|grad| =", round(bfgs_grad, 6),
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        # ---- Step B: nlminb from L-BFGS-B solution (full bounds) ───────
+        # ---- Step B: nlminb from BFGS solution (original bounded space) ─
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
         FnCallNo     <<- 0

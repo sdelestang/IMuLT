@@ -206,50 +206,37 @@ csemod <- function(x){
   }
   return(x[mod])}
 
-#' Interactively Select IMuLT Model Run Directory
+#' Choose and Set a Model Directory
 #'
-#' Opens an interactive dialog to select from available model run directories
-#' and sets the working directory to the chosen run. If no selection is made,
-#' the first matching directory is used by default.
+#' Presents a numbered list of directories matching a pattern in the current
+#' working directory, prompts the user to select one, then sets the working
+#' directory to the selected model folder.
 #'
-#' @param pattern Character string pattern for matching run directories.
-#'   Default is 'Run' to match directories like "8Area8AgeRun92_23".
+#' @param pattern Character. Pattern passed to \code{list.files()} to filter
+#'   candidate directories. Default \code{"Run"}.
 #'
-#' @return Invisibly returns the name of the selected directory as a character string.
-#'   The function also changes the working directory to the selected run folder as a side effect.
-#'
-#' @details
-#' This function is typically used at the start of an analysis workflow to select
-#' which model run to work with. It:
-#' \itemize{
-#'   \item Searches for directories matching the pattern in the current working directory
-#'   \item Displays an interactive dialog listing all matching directories
-#'   \item Changes the working directory to the selected folder
-#'   \item Returns the directory name for potential further use
-#' }
+#' @return Invisibly returns the name of the selected directory as a character
+#'   string. Called for its side effect of changing the working directory via
+#'   \code{setwd()}.
 #'
 #' @examples
 #' \dontrun{
-#' # Select from available "Run" directories interactively
-#' chosen_run <- choose_model()
+#' # Select from directories matching "Run" in the current working directory
+#' choose_model()
 #'
-#' # Select from directories matching a custom pattern
-#' chosen_run <- choose_model(pattern = "AgeRun")
-#'
-#' # The working directory is now set to the chosen run
-#' getwd()
+#' # Select from directories matching a different pattern
+#' choose_model(pattern = "Assessment")
 #' }
-#'
-#' @seealso \code{\link{BuildInputFiles}} for creating new model run directories
 #'
 #' @export
 choose_model <- function(pattern = 'Run') {
   x <- list.files(pattern = pattern)
-  selected <- dlg_list(x, title = "Choose a model:")$res
-  if (!length(selected)) {
+  choice <- menu(x, title = "Choose a model:")
+  if (choice == 0) {
     cat(paste("OK, the default model is", x[1], "\n"))
     selected <- x[1]
   } else {
+    selected <- x[choice]
     cat(paste("Model", selected, "has been chosen\n"))
   }
   setwd(file.path(getwd(), selected))

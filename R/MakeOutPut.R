@@ -383,7 +383,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   plot(adat$time, adat$yax, col=1, bg=adat$Col, pch=21, cex=1.8,
        axes=FALSE, xlab='', ylab='', xlim=range(adat$time, na.rm=TRUE))
   abline(h=1:max(adat$yax), col="grey85", lty=1)
-  points(adat$time, adat$yax, col=adat$Col, bg=adat$Col, pch=21, cex=1.8)
+  points(adat$time, adat$yax, col='grey90', bg=adat$Col, pch=21, cex=1.8)
 
   lab1 <- lab %>% group_by(source, type, id1) %>% summarise(mnpos1=mean(order))
   mtext(side=4, at=lab1$mnpos1, lab1$source, las=1, cex=0.9, font=2)
@@ -433,7 +433,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       guides(colour = guide_legend(nrow = 2))
     print(p)
     caption <- paste("Selectivity curves estimated by the model.")
-    addplot(filen=filename,rundir=rundir,category="Selectivity_Retenion",caption=caption)
+    addplot(filen=filename,rundir=rundir,category="Selectivity_Retention",caption=caption)
   }
 
   ####  Retention ####
@@ -442,17 +442,15 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                   paste0('lb', 1:(ncol(ret) - 5)))
 
   # ── Helper: collapse a vector of integers into compact range notation ────────
-  # e.g. c(1970,1971,1972,1975,1976,1980) -> "1970-1972, 1975-1976, 1980"
   .collapse_ranges <- function(vals) {
-    uv   <- sort(unique(vals))
+    uv <- sort(unique(vals))
     if (length(uv) == 0) return("")
-    # Find where consecutive runs break
-    gaps <- c(0, which(diff(uv) > 1), length(uv))
+    gaps   <- c(0, which(diff(uv) > 1), length(uv))
     ranges <- sapply(seq_len(length(gaps) - 1), function(i) {
       start <- uv[gaps[i] + 1]
       end   <- uv[gaps[i + 1]]
       if (start == end) as.character(start)
-      else              paste0(start, "–", end)   # en-dash
+      else              paste0(start, "\u2013", end)
     })
     paste(ranges, collapse = ", ")
   }
@@ -482,46 +480,31 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                      function(r) paste(round(r, 8), collapse = "_"))
   ret$curve_id <- curve_key
 
-  # Group metadata by unique curve
-  curve_groups <- ret %>%
-    group_by(curve_id) %>%
-    summarise(
-      fleets = list(sort(unique(fleet))),
-      sexes  = list(sort(unique(sex))),
-      ages   = list(sort(unique(age))),
-      years  = list(sort(unique(year))),
-      tsteps = list(sort(unique(tstep))),
-      .groups = "drop"
-    )
-
-  # One representative row of lb values per unique curve
-  curve_vals <- ret %>%
-    group_by(curve_id) %>%
-    slice(1) %>%
-    ungroup() %>%
-    select(curve_id, all_of(lb_cols))
-
-  curve_groups <- left_join(curve_groups, curve_vals, by = "curve_id")
-
-  # ── Plot: one figure per fleet × sex combination ─────────────────────────────
-  # Each figure shows ALL unique retention curves that apply to that fleet/sex,
-  # faceted by tstep, with each curve coloured by its unique curve_id and
-  # annotated with which ages/years/tsteps share it.
-
+  # ── Plot loop: one figure per fleet (possibly combined sexes) ────────────────
   for (ft in sort(unique(ret$fleet))) {
-    for (sx in sort(unique(ret$sex))) {
 
-      # Unique curves that appear for this fleet × sex
-      rel_rows <- ret %>% filter(fleet == ft, sex == sx)
-      rel_ids  <- unique(rel_rows$curve_id)
+    fleet_dat <- ret %>% filter(fleet == ft)
 
-      if (length(rel_ids) == 0) next
+    # Assess complexity per sex: number of unique curves and tsteps
+    sex_summary <- fleet_dat %>%
+      group_by(sex) %>%
+      summarise(
+        n_curves = n_distinct(curve_id),
+        n_tsteps = n_distinct(tstep),
+        .groups  = "drop"
+      )
 
-      # Build long-format data for plotting
-      plot_rows <- ret %>%
-        filter(curve_id %in% rel_ids) %>%
-        group_by(curve_id) %>%
-        slice(1) %>%           # one representative row per curve
+    # Simple case: every sex has exactly 1 unique curve and 1 tstep
+    # → combine all sexes into one figure, sex as colour
+    simple_case <- all(sex_summary$n_curves == 1) &&
+      all(sex_summary$n_tsteps == 1)
+
+    if (simple_case) {
+
+      # One representative row per sex (all rows are identical within sex)
+      plot_rows <- fleet_dat %>%
+        group_by(sex) %>%
+        slice(1) %>%
         ungroup()
 
       plot_long <- plot_rows %>%
@@ -532,64 +515,123 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           names_transform = list(length_bin = as.integer),
           values_to       = "proportion"
         ) %>%
-        mutate(length_bin = lbin[length_bin])
-
-      # Build annotation label per curve_id
-      curve_labels <- rel_rows %>%
-        group_by(curve_id) %>%
-        group_map(~ {
-          data.frame(
-            curve_id = .y$curve_id,
-            label    = .make_label(.x),
-            stringsAsFactors = FALSE
-          )
-        }) %>%
-        bind_rows()
-
-      plot_long <- left_join(plot_long, curve_labels, by = "curve_id")
-
-      # Number of unique tstep × curve combinations for facet layout
-      n_tsteps <- n_distinct(plot_long$tstep)
+        mutate(
+          length_bin = lbin[length_bin],
+          sex_label  = paste("Sex", sex)
+        )
 
       filename <- filenametopath(
-        rundir, paste("Sex", sx, "Fleet", ft, "Retention.png"))
+        rundir, paste("Fleet", ft, "Retention.png"))
 
-      plotprep(width = 12, height = 5 * n_tsteps,
+      plotprep(width = 12, height = 5,
                filename = filename, cex = 0.9, verbose = FALSE)
 
       p <- ggplot(plot_long,
                   aes(x = length_bin, y = proportion,
-                      colour = label, group = curve_id)) +
+                      colour = sex_label, group = sex_label)) +
         geom_line(linewidth = 0.8) +
         scale_y_continuous(limits = c(0, 1)) +
-        scale_colour_discrete(name = "Curve applies to") +
-        facet_wrap(~ paste("Tstep", tstep), ncol = 1) +
+        scale_colour_discrete(name = "Sex") +
         labs(
-          title   = paste("Retention — Fleet", ft, "| Sex", sx),
-          subtitle = sprintf("%d unique curve(s)", length(rel_ids)),
-          x = "Length bin (mm)",
-          y = "Proportion retained"
+          title    = paste("Retention \u2014 Fleet", ft),
+          subtitle = paste(n_distinct(plot_long$sex_label), "sex(es), 1 curve each"),
+          x        = "Length bin (mm)",
+          y        = "Proportion retained"
         ) +
         theme_bw() +
         theme(
-          legend.position      = "bottom",
-          legend.direction     = "vertical",
-          legend.text          = element_text(size = 7),
-          legend.key.width     = unit(1.5, "cm"),
-          strip.background     = element_rect(fill = "white"),
-          panel.grid.minor     = element_blank()
+          legend.position  = "bottom",
+          legend.direction = "horizontal",
+          strip.background = element_rect(fill = "white"),
+          panel.grid.minor = element_blank()
         )
 
       suppressWarnings(print(p))
 
-      caption <- paste0("Retention curves for fleet ", ft, ", sex ", sx,
-                        ". Each line is a unique curve; legend shows which ",
-                        "ages/years/tsteps share that curve.")
+      caption <- paste0("Retention curves for fleet ", ft,
+                        ". Sexes combined (single invariant curve per sex).")
       addplot(filen = filename, rundir = rundir,
               category = "Selectivity_Retention", caption = caption)
+
+    } else {
+
+      # Complex case: separate figure per sex, faceted by tstep
+      for (sx in sort(unique(fleet_dat$sex))) {
+
+        rel_rows <- fleet_dat %>% filter(sex == sx)
+        rel_ids  <- unique(rel_rows$curve_id)
+        if (length(rel_ids) == 0) next
+
+        plot_rows <- ret %>%
+          filter(curve_id %in% rel_ids) %>%
+          group_by(curve_id) %>%
+          slice(1) %>%
+          ungroup()
+
+        plot_long <- plot_rows %>%
+          tidyr::pivot_longer(
+            cols            = all_of(lb_cols),
+            names_to        = "length_bin",
+            names_prefix    = "lb",
+            names_transform = list(length_bin = as.integer),
+            values_to       = "proportion"
+          ) %>%
+          mutate(length_bin = lbin[length_bin])
+
+        curve_labels <- rel_rows %>%
+          group_by(curve_id) %>%
+          group_map(~ {
+            data.frame(
+              curve_id = .y$curve_id,
+              label    = .make_label(.x),
+              stringsAsFactors = FALSE
+            )
+          }) %>%
+          bind_rows()
+
+        plot_long <- left_join(plot_long, curve_labels, by = "curve_id")
+
+        n_tsteps <- n_distinct(plot_long$tstep)
+
+        filename <- filenametopath(
+          rundir, paste("Sex", sx, "Fleet", ft, "Retention.png"))
+
+        plotprep(width = 12, height = 5 * n_tsteps,
+                 filename = filename, cex = 0.9, verbose = FALSE)
+
+        p <- ggplot(plot_long,
+                    aes(x = length_bin, y = proportion,
+                        colour = label, group = curve_id)) +
+          geom_line(linewidth = 0.8) +
+          scale_y_continuous(limits = c(0, 1)) +
+          scale_colour_discrete(name = "Curve applies to") +
+          facet_wrap(~ paste("Tstep", tstep), ncol = 1) +
+          labs(
+            title    = paste("Retention \u2014 Fleet", ft, "| Sex", sx),
+            subtitle = sprintf("%d unique curve(s)", length(rel_ids)),
+            x        = "Length bin (mm)",
+            y        = "Proportion retained"
+          ) +
+          theme_bw() +
+          theme(
+            legend.position  = "bottom",
+            legend.direction = "vertical",
+            legend.text      = element_text(size = 7),
+            legend.key.width = unit(1.5, "cm"),
+            strip.background = element_rect(fill = "white"),
+            panel.grid.minor = element_blank()
+          )
+
+        suppressWarnings(print(p))
+
+        caption <- paste0("Retention curves for fleet ", ft, ", sex ", sx,
+                          ". Each line is a unique curve; legend shows which ",
+                          "ages/years/tsteps share that curve.")
+        addplot(filen = filename, rundir = rundir,
+                category = "Selectivity_Retention", caption = caption)
+      }
     }
   }
-
 
 
  #### Growth ####

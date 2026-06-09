@@ -10,8 +10,9 @@ FitModel(
   mxph = MaxPhase,
   PrintLag = 50,
   report = FALSE,
-  nRestarts = 1,
-  newtonSteps = 0,
+  nRestarts = TRUE,
+  newtonSteps = 5,
+  newton_grad_thresh = 0.1,
   PrintNll = TRUE,
   plateau_k = 4,
   plateau_cv = 0.05
@@ -44,6 +45,10 @@ after the sandwich. Only attempted if the gradient is below
 \code{newton_grad_thresh} at sandwich exit; otherwise a warning is
 printed. Default 5.}
 
+\item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
+polishing is considered safe. Also used as the sandwich convergence
+criterion. Default 0.1.}
+
 \item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
 plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
 
@@ -55,10 +60,6 @@ detection. Default 4.}
 the delta window is declared a plateau. A diagnostic message is printed
 after the phase suggesting a more efficient \code{phit}. Set to 0 to
 disable. Default 0.05 (5\\%).}
-
-\item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
-polishing is considered safe. Also used as the sandwich convergence
-criterion. Default 0.1.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing

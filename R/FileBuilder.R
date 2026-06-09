@@ -321,7 +321,7 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n# Recruitment_deviations\n",startseason, "\t\t\t# First year with estimated recruitment deviations\n")
     tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# last year with estimated recruitment deviations\n")
-    tmp <- c(tmp, -2, "\t\t\t# Phase for recruitment deviations\n")
+    tmp <- c(tmp, 2, "\t\t\t# Phase for recruitment deviations\n")
 
     tmp <- c(tmp, "\n# Spatial_deviations_in_recruitment\n",startseason, "\t\t\t# First year with estimates spatial recruitment deviations\n")
     tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# Last year with estimates spatial recruitment deviations\n")

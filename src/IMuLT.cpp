@@ -2876,6 +2876,7 @@ if(thedata.IsTagData==1){
     REPORT(RecSpatDevs);
     REPORT(MovePars);
     REPORT(GrowthPars);
+    REPORT(Rec_Penal_SumZero);
 
 
         }

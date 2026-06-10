@@ -1462,6 +1462,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     write.table(pout, paste0("Output/model", suffix, ".par"),
                 sep = "\t", col.names = c("name\test"), quote = FALSE)
 
+    if (is_final) {
+      assign("ProfileReport", model$report(),               envir = .GlobalEnv)
+      assign("ProfileGrad",   abs(model$gr_Orig(mout$par)), envir = .GlobalEnv)
+    }
+
     # ── Report (final phase only) ─────────────────────────────────────────
     if (report && is_final) {
       cat("Making report object.\n")

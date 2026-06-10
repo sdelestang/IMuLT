@@ -30,8 +30,12 @@
 #'              globals `ProfileReport`/`ProfileGrad` (skips the per-step
 #'              sdreport). Requires the 3-line FitModel stash described in the
 #'              accompanying notes. Default FALSE uses report = TRUE + BigSave.
+#' @param newtonSteps Newton polishing steps per fit, forwarded to FitModel.
+#'              Defaults to 0 for profiling - Newton reduces the gradient but
+#'              not the likelihood, so it is wasted work when only the NLL is
+#'              recorded. Set > 0 to re-enable.
 #' @param ...   Optimisation-control arguments forwarded to FitModel (phit,
-#'              lphit, mxph, newtonSteps, ...). Do NOT pass `report`.
+#'              lphit, mxph, ...). Do NOT pass `report`.
 #'
 #' @return (invisibly) a data.frame, one row per profiled value.
 #'
@@ -54,7 +58,7 @@ ProfileLT <- function(group, pos,
                       lower = NULL, upper = NULL, step = NULL, se = NULL,
                       label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
-                      append = FALSE, plot = TRUE, fast = FALSE, ...) {
+                      append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0, ...) {
 
   GE <- .GlobalEnv
   .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
@@ -192,8 +196,9 @@ ProfileLT <- function(group, pos,
                           envir = GE))
     message(sprintf("Profiling %s = %.5g  (%d/%d)", label, grid[i], i, length(grid)))
 
-    ok <- tryCatch({ FitModel(report = !fast, ...); TRUE },
+    ok <- tryCatch({ FitModel(report = !fast, newtonSteps = newtonSteps, ...); TRUE },
                    error = function(e) { message("  step failed: ", conditionMessage(e)); FALSE })
+
     st   <- if (ok) tryCatch(get_step(), error = function(e) NULL) else NULL
     comp <- if (!is.null(st) && !is.null(st$rep)) collect(st$rep) else collect(NULL)
     res[[i]] <- data.frame(value = grid[i], t(comp),

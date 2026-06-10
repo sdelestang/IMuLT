@@ -111,7 +111,7 @@
 #' @seealso \code{\link{LoadOutputData}} for loading outputs without report generation
 #'
 #' @export
-MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
+MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
 
   suppressPackageStartupMessages({
     library(makehtml)
@@ -1738,6 +1738,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   # Add in description names
   pars %<>%
     mutate(
+      OrigParameter = Parameter,                 # keep the raw Prefix_N name
       .idx = suppressWarnings(as.integer(sub("^.*_(\\d+)$", "\\1", Parameter))),
       Parameter = case_when(
         grepl("^MainPars_",    Parameter) ~ MainParsName[.idx],
@@ -1745,7 +1746,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         grepl("^PuerPowPars_", Parameter) ~ PuerParName[.idx],
         grepl("^MovePars_",    Parameter) ~ MigrateParName[.idx],
         grepl("^SelPars_",     Parameter) ~ SelectParName[.idx],
-        grepl("^RecDevs_", Parameter) ~ RDevName[.idx],
+        grepl("^RecDevs_",     Parameter) ~ RDevName[.idx],
         TRUE ~ Parameter
       )
     ) %>%
@@ -1753,8 +1754,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) > 0)) %>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
-           Group = sub("_[0-9]+$", "", Parameter),
-           GroupIdx = as.numeric(sub(".*_", "", Parameter)),
+           Group    = sub("_[0-9]+$", "", OrigParameter),
+           GroupIdx = suppressWarnings(as.numeric(sub(".*_", "", OrigParameter))),
            Link_num = suppressWarnings(as.numeric(Link))) %>%
     group_by(Group) %>%
     mutate(

@@ -54,6 +54,7 @@
 #' @param ...        Forwarded to FitModel (phit, lphit, mxph, ...). Not `report`.
 #'
 #' @return (invisibly) list(summary, pars, best_nll, plot).
+#' @export
 JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
                       grad_thresh = 0.1, min_scale = 1, bounds = TRUE,
                       tol = 0.1, rundir = ".", append = FALSE, plot = TRUE, ...) {
@@ -184,6 +185,8 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 #' @param ...     Forwarded to FitModel. Not `report`.
 #'
 #' @return (invisibly) list(series, rho, plot).
+#'
+#' @export
 RetroFit <- function(npeel = 5, rebuild = NULL,
                      quantities = c("MatBio", "Recruits"),
                      grad_thresh = 0.1, rundir = ".", append = FALSE,

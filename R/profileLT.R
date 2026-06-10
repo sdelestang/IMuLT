@@ -35,7 +35,7 @@
 #'              lphit, mxph, newtonSteps, ...). Do NOT pass `report`.
 #'
 #' @return (invisibly) a data.frame, one row per profiled value.
-profileLT <- function(group, pos,
+ProfileLT <- function(group, pos,
                       lower = NULL, upper = NULL, step = NULL, se = NULL,
                       label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
@@ -147,14 +147,12 @@ profileLT <- function(group, pos,
     Tag2      = g(rep, "Weighted_TagLike2"),
     RecPen    = g(rep, "Rec_Penal"),
     RecSmooth = g(rep, "Rec_Penal_Smooth"),
+    SumZero   = g(rep, "Rec_Penal_SumZero"),
     InitPen   = g(rep, "Initial_pen"),
     MainPrior = g(rep, "MainParPriorPen"),
     RecPrior  = g(rep, "RecParPriorPen"),
     SelPrior  = g(rep, "SelParPriorPen"),
-    EffPrior  = g(rep, "EffParPriorPen"),
-    RecSmooth = g(rep, "Rec_Penal_Smooth"),
-    SumZero   = g(rep, "Rec_Penal_SumZero"),
-    InitPen   = g(rep, "Initial_pen"))
+    EffPrior  = g(rep, "EffParPriorPen"))
 
   get_step <- function() {
     if (fast && exists("ProfileReport", envir = GE)) {
@@ -208,7 +206,7 @@ profileLT <- function(group, pos,
 }
 
 
-#' Plot a likelihood-profile output file produced by profileLT()
+#' Plot a likelihood-profile output file produced by ProfileLT()
 #'
 #' Shows the change in each NLL component (relative to its own minimum across the
 #' profiled range) against the parameter value, with the total in bold. The

@@ -2,46 +2,31 @@
 % Please edit documentation in R/Estimate.R
 \name{choose_model}
 \alias{choose_model}
-\title{Interactively Select IMuLT Model Run Directory}
+\title{Choose and Set a Model Directory}
 \usage{
 choose_model(pattern = "Run")
 }
 \arguments{
-\item{pattern}{Character string pattern for matching run directories.
-Default is 'Run' to match directories like "8Area8AgeRun92_23".}
+\item{pattern}{Character. Pattern passed to \code{list.files()} to filter
+candidate directories. Default \code{"Run"}.}
 }
 \value{
-Invisibly returns the name of the selected directory as a character string.
-The function also changes the working directory to the selected run folder as a side effect.
+Invisibly returns the name of the selected directory as a character
+string. Called for its side effect of changing the working directory via
+\code{setwd()}.
 }
 \description{
-Opens an interactive dialog to select from available model run directories
-and sets the working directory to the chosen run. If no selection is made,
-the first matching directory is used by default.
-}
-\details{
-This function is typically used at the start of an analysis workflow to select
-which model run to work with. It:
-\itemize{
-\item Searches for directories matching the pattern in the current working directory
-\item Displays an interactive dialog listing all matching directories
-\item Changes the working directory to the selected folder
-\item Returns the directory name for potential further use
-}
+Presents a numbered list of directories matching a pattern in the current
+working directory, prompts the user to select one, then sets the working
+directory to the selected model folder.
 }
 \examples{
 \dontrun{
-# Select from available "Run" directories interactively
-chosen_run <- choose_model()
+# Select from directories matching "Run" in the current working directory
+choose_model()
 
-# Select from directories matching a custom pattern
-chosen_run <- choose_model(pattern = "AgeRun")
-
-# The working directory is now set to the chosen run
-getwd()
+# Select from directories matching a different pattern
+choose_model(pattern = "Assessment")
 }
 
-}
-\seealso{
-\code{\link{BuildInputFiles}} for creating new model run directories
 }

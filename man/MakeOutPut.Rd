@@ -4,7 +4,7 @@
 \alias{MakeOutPut}
 \title{Generate Comprehensive HTML Report from IMuLT Model Outputs}
 \usage{
-MakeOutPut(is95 = TRUE, folder_name = "", openfile = TRUE)
+MakeOutPut(is95 = TRUE, folder_name = "x", openfile = TRUE)
 }
 \arguments{
 \item{is95}{Logical indicating whether to use 95\% confidence intervals (TRUE)

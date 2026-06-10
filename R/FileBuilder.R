@@ -57,7 +57,6 @@ BuildInputFiles <- function(end_override = NULL){
     library(magrittr, quietly = T)
     library(openxlsx, quietly = T)})
 
-
   ## Make function that adjusts sex definations loaded through the excel file.
   adjsex <- function(x,nsex,section='CPUE'){
     if(nsex==1) { xout <- rep(1, length(x)) }

@@ -1405,10 +1405,14 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                 }
                 step_size <- step_size / 2
               }
-
               if (!improved) {
-                cat("  Newton step", ns,
-                    "— line search failed, stopping Newton.\n")
+                if (max(abs(g)) < newton_grad_thresh) {
+                  cat("  Newton step", ns,
+                      "\u2014 already at optimum, no further improvement needed.\n")
+                } else {
+                  cat("  Newton step", ns,
+                      "\u2014 line search failed, stopping Newton.\n")
+                }
               } else {
                 ng <- max(abs(model$gr_Orig(newton_par)))
                 cat("  Newton step", ns,

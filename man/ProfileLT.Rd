@@ -31,8 +31,13 @@ globals \code{ProfileReport}/\code{ProfileGrad} (skips the per-step
 sdreport). Requires the 3-line FitModel stash described in the
 accompanying notes. Default FALSE uses report = TRUE + BigSave.}
 
+\item{newtonSteps}{Newton polishing steps per fit, forwarded to FitModel.
+Defaults to 0 for profiling - Newton reduces the gradient but
+not the likelihood, so it is wasted work when only the NLL is
+recorded. Set > 0 to re-enable.}
+
 \item{...}{Optimisation-control arguments forwarded to FitModel (phit,
-lphit, mxph, newtonSteps, ...). Do NOT pass \code{report}.}
+lphit, mxph, ...). Do NOT pass \code{report}.}
 }
 \value{
 (invisibly) a data.frame, one row per profiled value.

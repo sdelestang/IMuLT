@@ -10,7 +10,7 @@ one of names(InitialVars) that maps to a PARAMETER_VECTOR.}
 \item{pos}{Integer 1-based position of the parameter within \code{group}.}
 
 \item{lower, upper, step}{Profile range on the parameter's ESTIMATION scale.
-Leave lower/upper NULL to default to mle +/- 3*\code{se}.}
+Leave lower/upper/step NULL to default to mle +/- 3*\code{se}.}
 
 \item{se}{Optional SE (estimation scale) for the default range.}
 
@@ -19,7 +19,7 @@ Defaults to paste(group, pos).}
 
 \item{rundir}{Directory for the output text file and plot.}
 
-\item{baseline}{Path to the BigSave.lda from the unprofiled MLE fit.}
+\item{baseline}{Path to the BigSave.lda from the unprofiled MLE fit. Defaults to "Output/BigSave.lda".}
 
 \item{append}{If TRUE, append to an existing "LPT \if{html}{\out{<label>}}.txt"; rows carry a
 run timestamp and are de-duplicated (latest wins) on read.}
@@ -43,13 +43,26 @@ parameter with the full phased sandwich fit at each step (a true profile, not
 a slice), recording the total negative log-likelihood and each component.
 }
 \details{
-This wraps your existing \code{FitModel()}, which is globals-driven and writes its
-results to disk. The profiler therefore fixes the target the way FitModel
-already understands - it sets that element's PHASE negative and its $Initial
+This wraps the existing \code{FitModel()}, which is globals-driven and writes its
+results to disk. The profiler fixes the target by setting its PHASE negative and its $Initial
 to the profile value in the global \code{InitialVars} - then reads the component
 likelihoods back out of \code{BigSave$Report}. All globals it touches (\code{Data},
 \code{InitialVars}) and the baseline \code{BigSave.lda} file are restored on exit.
 
 Requires in the global environment: \code{Data}, \code{InitialVars}, \code{FitModel}, and a
 baseline \code{BigSave.lda} from a completed \code{FitModel(report = TRUE)} run.
+}
+\examples{
+\dontrun{
+# Default range from the standard error: profiles Rbar (MainPars[1]) over
+# mle +/- 3*se on the estimation scale (for Rbar that is log-recruitment).
+# `se` is that parameter's SE taken from the SD report table.
+ProfileLT("MainPars", pos = 1, se = 0.12,
+          label = "Rbar", fast = TRUE, mxph = MaxPhase)
+
+# Explicit range: profile a selectivity parameter from 80 to 120 in steps
+# of 2 (estimation scale). Writes "LPT Sel50_fleet1.txt" and .png to rundir.
+ProfileLT("SelPars", pos = 2, lower = 80, upper = 120, step = 2,
+          label = "Sel50_fleet1", fast = TRUE, mxph = MaxPhase)
+}
 }

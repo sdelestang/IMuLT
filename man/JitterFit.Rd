@@ -31,3 +31,16 @@ Perturbs the starting values of the active (positive-phase, non-mirrored)
 parameters and re-fits \code{n} times through the full sandwich, to test whether
 the model returns to the same optimum (convergence robustness / multimodality).
 }
+\examples{
+\dontrun{
+# 50 jittered re-fits, perturbing each start by 10\% of its bound range
+# (or magnitude where no bounds), then summarise convergence.
+jit <- JitterFit(n = 50, jitter_sd = 0.1, mxph = MaxPhase)
+table(jit$summary$converged)
+jit$plot                       # ranked dNLL-from-best
+
+# Wider perturbation, fewer runs, written to a chosen directory.
+JitterFit(n = 20, jitter_sd = 0.25, base_seed = 100,
+          rundir = "Output/jitter", mxph = MaxPhase)
+}
+}

@@ -28,3 +28,17 @@ Sequentially removes the last \code{npeel} years, re-fits each peel through the
 full sandwich, overlays a chosen quantity by calendar year, and computes
 Mohn's rho on the terminal points.
 }
+\examples{
+\dontrun{
+# Peel the last 5 years. `rebuild` re-runs FileBuilder with the terminal
+# year reduced by `peel` - adjust the FileBuilder argument name to your setup.
+full_terminal <- Data$Year1 + Data$Nyear - 1
+retro <- RetroFit(
+  npeel      = 5,
+  rebuild    = function(peel) FileBuilder(LastYear = full_terminal - peel),
+  quantities = c("MatBio", "Recruits"),
+  mxph       = MaxPhase)
+retro$rho                      # Mohn's rho per quantity
+retro$plot                     # peel overlay, rho in the facet strip labels
+}
+}

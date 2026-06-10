@@ -12,6 +12,21 @@ plotLT(
   ci_line = TRUE
 )
 }
+\arguments{
+\item{file}{Path to an "LPT \if{html}{\out{<label>}}.txt" written by ProfileLT().}
+
+\item{rundir}{Directory for the output PNG (defaults to the file's directory).}
+
+\item{label}{Plot/file label; defaults to the \code{parameter} column in the file.}
+
+\item{keep_latest}{If TRUE, keep only the most recent run (by runtag) when the
+file holds several appended profiles.}
+
+\item{ci_line}{If TRUE, draw the dNLL = 1.92 reference line for the total.}
+}
+\value{
+(invisibly) list(data, long, plot, file).
+}
 \description{
 Shows the change in each NLL component (relative to its own minimum across the
 profiled range) against the parameter value, with the total in bold. The

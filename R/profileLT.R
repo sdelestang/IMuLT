@@ -4,9 +4,8 @@
 #' parameter with the full phased sandwich fit at each step (a true profile, not
 #' a slice), recording the total negative log-likelihood and each component.
 #'
-#' This wraps your existing `FitModel()`, which is globals-driven and writes its
-#' results to disk. The profiler therefore fixes the target the way FitModel
-#' already understands - it sets that element's PHASE negative and its $Initial
+#' This wraps the existing `FitModel()`, which is globals-driven and writes its
+#' results to disk. The profiler fixes the target by setting its PHASE negative and its $Initial
 #' to the profile value in the global `InitialVars` - then reads the component
 #' likelihoods back out of `BigSave$Report`. All globals it touches (`Data`,
 #' `InitialVars`) and the baseline `BigSave.lda` file are restored on exit.
@@ -18,12 +17,12 @@
 #'              one of names(InitialVars) that maps to a PARAMETER_VECTOR.
 #' @param pos   Integer 1-based position of the parameter within `group`.
 #' @param lower,upper,step  Profile range on the parameter's ESTIMATION scale.
-#'              Leave lower/upper NULL to default to mle +/- 3*`se`.
+#'              Leave lower/upper/step NULL to default to mle +/- 3*`se`.
 #' @param se    Optional SE (estimation scale) for the default range.
 #' @param label Display / file name (e.g. the descriptive name "Rbar").
 #'              Defaults to paste(group, pos).
 #' @param rundir   Directory for the output text file and plot.
-#' @param baseline Path to the BigSave.lda from the unprofiled MLE fit.
+#' @param baseline Path to the BigSave.lda from the unprofiled MLE fit. Defaults to "Output/BigSave.lda".
 #' @param append   If TRUE, append to an existing "LPT <label>.txt"; rows carry a
 #'              run timestamp and are de-duplicated (latest wins) on read.
 #' @param plot   If TRUE, draw and save the component dNLL plot at the end.
@@ -35,6 +34,20 @@
 #'              lphit, mxph, newtonSteps, ...). Do NOT pass `report`.
 #'
 #' @return (invisibly) a data.frame, one row per profiled value.
+#'
+#' @examples
+#' \dontrun{
+#' # Default range from the standard error: profiles Rbar (MainPars[1]) over
+#' # mle +/- 3*se on the estimation scale (for Rbar that is log-recruitment).
+#' # `se` is that parameter's SE taken from the SD report table.
+#' ProfileLT("MainPars", pos = 1, se = 0.12,
+#'           label = "Rbar", fast = TRUE, mxph = MaxPhase)
+#'
+#' # Explicit range: profile a selectivity parameter from 80 to 120 in steps
+#' # of 2 (estimation scale). Writes "LPT Sel50_fleet1.txt" and .png to rundir.
+#' ProfileLT("SelPars", pos = 2, lower = 80, upper = 120, step = 2,
+#'           label = "Sel50_fleet1", fast = TRUE, mxph = MaxPhase)
+#' }
 #' @name ProfileLT
 #' @export
 ProfileLT <- function(group, pos,
@@ -214,6 +227,16 @@ ProfileLT <- function(group, pos,
 #' profiled range) against the parameter value, with the total in bold. The
 #' dashed line at dNLL = 1.92 is the approximate 95% CI for the TOTAL on one
 #' parameter (chi-square(1)/2) - valid because this is a true profile.
+#' @param file Path to an "LPT <label>.txt" written by ProfileLT().
+#' @param rundir Directory for the output PNG (defaults to the file's directory).
+#' @param label Plot/file label; defaults to the `parameter` column in the file.
+#' @param keep_latest If TRUE, keep only the most recent run (by runtag) when the
+#'              file holds several appended profiles.
+#' @param ci_line If TRUE, draw the dNLL = 1.92 reference line for the total.
+#' @return (invisibly) list(data, long, plot, file).
+#'
+#' @name plotLT
+#' @export
 plotLT <- function(file, rundir = dirname(file), label = NULL,
                    keep_latest = TRUE, ci_line = TRUE) {
 

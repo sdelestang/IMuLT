@@ -54,6 +54,19 @@
 #' @param ...        Forwarded to FitModel (phit, lphit, mxph, ...). Not `report`.
 #'
 #' @return (invisibly) list(summary, pars, best_nll, plot).
+#'
+#' @examples
+#' \dontrun{
+#' # 50 jittered re-fits, perturbing each start by 10% of its bound range
+#' # (or magnitude where no bounds), then summarise convergence.
+#' jit <- JitterFit(n = 50, jitter_sd = 0.1, mxph = MaxPhase)
+#' table(jit$summary$converged)
+#' jit$plot                       # ranked dNLL-from-best
+#'
+#' # Wider perturbation, fewer runs, written to a chosen directory.
+#' JitterFit(n = 20, jitter_sd = 0.25, base_seed = 100,
+#'           rundir = "Output/jitter", mxph = MaxPhase)
+#' }
 #' @name JitterFit
 #' @export
 JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
@@ -74,13 +87,19 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
   base_IV <- IV_orig
 
   ## locate optional bound fields on a block
+  ## bounds live in $Bnd: an [n, 2] matrix, col 1 = lower, col 2 = upper
   get_bounds <- function(b) {
-    for (nm in list(c("lwrBound","uprBound"), c("lower","upper"), c("lwr","upr"))) {
-      if (!is.null(base_IV[[b]][[nm[1]]]) && !is.null(base_IV[[b]][[nm[2]]]))
-        return(list(lo = base_IV[[b]][[nm[1]]], hi = base_IV[[b]][[nm[2]]]))
-    }
-    NULL
+    bnd <- base_IV[[b]]$Bnd
+    if (is.null(bnd) || !is.matrix(bnd) || nrow(bnd) == 0) return(NULL)
+    if (nrow(bnd) != length(base_IV[[b]]$Initial)) return(NULL)   # dimension guard
+    list(lo = bnd[, 1], hi = bnd[, 2])
   }
+
+  if (bounds && !any(vapply(.PARBLOCKS,
+                            function(b) !is.null(get_bounds(b)), logical(1))))
+    message("Note: no bound fields found on InitialVars blocks - jitter uses ",
+            "magnitude scaling and starts are NOT clipped to bounds. Check the ",
+            "bound field names or keep jitter_sd small.")
 
   ## active, non-mirrored positions per block
   active_idx <- function(b) {
@@ -186,6 +205,19 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 #' @param ...     Forwarded to FitModel. Not `report`.
 #'
 #' @return (invisibly) list(series, rho, plot).
+#' @examples
+#' \dontrun{
+#' # Peel the last 5 years. `rebuild` re-runs FileBuilder with the terminal
+#' # year reduced by `peel` - adjust the FileBuilder argument name to your setup.
+#' full_terminal <- Data$Year1 + Data$Nyear - 1
+#' retro <- RetroFit(
+#'   npeel      = 5,
+#'   rebuild    = function(peel) FileBuilder(LastYear = full_terminal - peel),
+#'   quantities = c("MatBio", "Recruits"),
+#'   mxph       = MaxPhase)
+#' retro$rho                      # Mohn's rho per quantity
+#' retro$plot                     # peel overlay, rho in the facet strip labels
+#' }
 #' @name RetroFit
 #' @export
 RetroFit <- function(npeel = 5, rebuild = NULL,

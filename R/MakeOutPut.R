@@ -211,6 +211,14 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nareas <- length(unique(areas$AreaCode))
   times <- readWorkbook(wb,sheet='times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
+## Get names of Pars
+  MainParsName <- readWorkbook(wb,sheet='MainParameters', startRow = 2)$comment
+  RecParName <- paste0('Rec_',readWorkbook(wb,sheet='Recruitment', startRow = 2)$description)
+  PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
+  MigrateParName <- readWorkbook(wb,sheet='migrate', startRow = 2)
+  MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
+  SelectParName <- readWorkbook(wb,sheet='Selectivity', startRow = 2)$comment
+  SelectParName <- paste0('Sel_',SelectParName[!is.na(SelectParName)])
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
@@ -904,8 +912,17 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   if(nrow(cpuesd)>0) suppressWarnings(tdat <- cbind(tdat,cpuesd))
   if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), esd=NA,estlwr=est,estupr=est)
-  if(nrow(cpuesd)>0)  tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), estupr=exp(log(mean(Predicted))+(log(mean(Predicted))*mean(cv))*SclErr), estlwr=exp(log(mean(Predicted))-(log(mean(Predicted))*mean(cv))*SclErr))
-  if(nrow(cpuesd)>0) tdat %<>% mutate(se=sum(SE))
+  if(nrow(cpuesd)>0) tdat1 <- tdat %>%
+    mutate(yts = Year + (Time_step-1)/max(Time_step)) %>%
+    group_by(Sex, Fleet, Year, Time_step) %>%
+    summarise(obs    = mean(Observed),
+              Lse    = mean(Relative_CV),
+              obsUp  = exp(log(mean(Observed)) + Lse*SclErr),
+              obsLow = exp(log(mean(Observed)) - Lse*SclErr),
+              est    = mean(Predicted),
+              estlwr = mean(lwr),
+              estupr = mean(upr),
+              .groups = "drop")
 
   tdat2 <- tdat1 %>% pivot_longer(col=c(obs,est), names_to = 'type') %>% mutate(lwr=ifelse(type=='obs',obsLow,estlwr),upr=ifelse(type=='obs',obsUp,estupr))
 
@@ -1714,6 +1731,26 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nms <- nms[nms!='#' & nms!='']
   colnames(pars) <- nms[1:ncol(pars)]
 
+  # Compute rec dev names
+  RDevYears <- (startseason - burnin + Data$RecYr1):(startseason - burnin + Data$RecYr2)
+  RDevName  <- paste0('RDev_', RDevYears)
+
+  # Add in description names
+  pars %<>%
+    mutate(
+      .idx = suppressWarnings(as.integer(sub("^.*_(\\d+)$", "\\1", Parameter))),
+      Parameter = case_when(
+        grepl("^MainPars_",    Parameter) ~ MainParsName[.idx],
+        grepl("^RecruitPars_", Parameter) ~ RecParName[.idx],
+        grepl("^PuerPowPars_", Parameter) ~ PuerParName[.idx],
+        grepl("^MovePars_",    Parameter) ~ MigrateParName[.idx],
+        grepl("^SelPars_",     Parameter) ~ SelectParName[.idx],
+        grepl("^RecDevs_", Parameter) ~ RDevName[.idx],
+        TRUE ~ Parameter
+      )
+    ) %>%
+    select(-.idx)
+
   pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) > 0)) %>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
            Group = sub("_[0-9]+$", "", Parameter),
@@ -1790,16 +1827,31 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
       p <- ggplot() +
         geom_line(data = curve_df, aes(x = x, y = y, colour = Type, linewidth = Type)) +
-        scale_colour_manual(values = c("max. likelihood" = "blue", "prior" = "black")) +
-        scale_linewidth_manual(values = c("max. likelihood" = 0.5, "prior" = 1.2)) +
-        geom_vline(data = sub_df, aes(xintercept = Estimate), colour = "blue", linewidth = 0.4) +
-        geom_point(data = sub_df, aes(x = Initial, y = 0), colour = "red", shape = 17, size = 3) +
-        geom_vline(data = sub_df, aes(xintercept = lwrBound), colour = "orange", linewidth = 0.6) +
-        geom_vline(data = sub_df, aes(xintercept = uprBound), colour = "orange", linewidth = 0.6) +
+        geom_vline(data = sub_df,aes(xintercept = Estimate, colour = "max. likelihood"),
+                   linewidth = 0.4) +
+        geom_vline(data = sub_df,aes(xintercept = lwrBound, colour = "bounds"), linewidth = 0.6) +
+        geom_vline(data = sub_df,aes(xintercept = uprBound, colour = "bounds"), linewidth = 0.6) +
+        geom_point(data = sub_df,aes(x = Initial, y = 0, colour = "initial"),
+                   shape = 17, size = 3) +
+        scale_colour_manual(name   = NULL,
+          breaks = c("max. likelihood", "prior", "initial", "bounds"),
+          values = c("max. likelihood" = "blue",
+                     "prior"           = "black",
+                     "initial"         = "red",
+                     "bounds"          = "orange")) +
+        scale_linewidth_manual(
+          values = c("max. likelihood" = 0.5, "prior" = 1.2),
+          guide  = "none") +
+        guides(colour = guide_legend(override.aes = list(
+          linetype  = c("solid", "solid", "blank", "solid"),
+          shape     = c(NA,       NA,      17,      NA),
+          linewidth = c(0.5,      1.2,     NA,      0.6),
+          size      = c(NA,       NA,      3,       NA)))) +
         facet_wrap(~ Parameter, scales = "free", ncol = 2) +
         labs(x = "Parameter value", y = "Density") +
         theme_bw() +
-        theme(legend.position = "top", strip.text = element_text(size = 9),
+        theme(legend.position = "top",
+              strip.text   = element_text(size = 9),
               legend.title = element_blank())
 
       filename <- filenametopath(rundir, paste0("parameter_distributions_page", ipage, ".png"))

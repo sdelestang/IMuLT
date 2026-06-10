@@ -569,43 +569,46 @@ MakeDiagReport <- function(is95=T,folder_name = '',openfile=TRUE) {
 #' Interactively Adjust Parameter Estimation Phases
 #'
 #' Provides an interactive interface to modify which parameters are estimated
-#' in which phases of the optimization. Phases control the sequential estimation
+#' in which phases of the optimisation. Phases control the sequential estimation
 #' of parameter groups, with lower phases estimated before higher phases.
 #'
-#' @param dum Character string. Use 'dummy' to set all parameters to phase -1
-#'   (fixed) except growth parameters. Default '' provides interactive dialog.
+#' @param dum Character string. Use \code{'dummy'} to set all parameters to
+#'   phase -1 (fixed) except growth parameters. Default \code{' '} provides
+#'   interactive menu.
 #'
-#' @return NULL. Modifies global objects InitialVars and MaxPhase.
+#' @return Invisibly returns \code{NULL}. Modifies global objects
+#'   \code{InitialVars} and \code{MaxPhase}.
 #'
 #' @details
 #' Estimation phases allow sequential parameter estimation:
 #' \itemize{
 #'   \item Phase -1: Parameter is fixed at initial value (not estimated)
-#'   \item Phase 1: Estimated in first optimization phase
+#'   \item Phase 1: Estimated in first optimisation phase
 #'   \item Phase 2+: Estimated after lower phases converge
 #' }
 #'
-#' The function offers two interactive options for each parameter group:
+#' For each parameter group the function offers:
 #' \itemize{
-#'   \item 'All': Set all parameters in the group to the same phase
-#'   \item 'Individual': Set each parameter's phase separately
-#'   \item 'Skip': Leave current phases unchanged
+#'   \item \code{All}: Set all parameters in the group to the same phase
+#'   \item \code{Individual}: Set each parameter's phase separately
+#'   \item \code{Skip}: Leave current phases unchanged
+#'   \item \code{End all resets}: Stop adjusting and keep current state
 #' }
 #'
-#' Using 'dummy' mode is useful for testing model structure without full
+#' Using \code{'dummy'} mode is useful for testing model structure without full
 #' estimation (e.g., checking growth specifications only).
 #'
-#' @note This function modifies global variables. Run after LoadPars() and
-#'   before model estimation to customize the estimation sequence.
+#' @note This function modifies global variables. Run after \code{LoadPars()}
+#'   and before model estimation to customise the estimation sequence.
 #'
 #' @examples
 #' \dontrun{
 #' # Interactive phase adjustment
 #' choose_model()
 #' LoadPars()
-#' AdjustPhase()  # Opens interactive dialogs
+#' AdjustPhase()
 #'
-#' # Dummy mode - test growth only
+#' # Dummy mode — test growth only
 #' AdjustPhase(dum = 'dummy')
 #' }
 #'
@@ -614,63 +617,78 @@ MakeDiagReport <- function(is95=T,folder_name = '',openfile=TRUE) {
 #' \code{\link{choose_model}} for selecting model directory
 #'
 #' @export
-AdjustPhase <- function(dum=' '){
+AdjustPhase <- function(dum = ' ') {
 
-  ## Check pars and data loaded first.
-  if (!exists("Data", envir = .GlobalEnv)) {
+  ## Check pars and data loaded first
+  if (!exists("Data", envir = .GlobalEnv))
     stop("Data not loaded. Run LoadData() first.", call. = FALSE)
-  }
-  if (!exists("InitialVars", envir = .GlobalEnv)) {
-    stop("Parameters not loaded. Run LoadData() then LoadPars() first.", call. = FALSE)
-  }
+  if (!exists("InitialVars", envir = .GlobalEnv))
+    stop("Parameters not loaded. Run LoadData() then LoadPars() first.",
+         call. = FALSE)
 
   MaxPhase <- 0
-  Innames <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RecDevs","RecSpatDevs","efpars","MovePars")
-  for(i in 1:length(Innames)) {
+  Innames  <- c("MainPars", "RecruitPars", "PuerPowPars", "SelPars",
+                "RecDevs", "RecSpatDevs", "efpars", "MovePars")
 
-    iv <- which(names(InitialVars)==Innames[i]) ## which Initivals vars matches the name
-    if(dum!='dummy') {
-      #todo <- dlg_list(c('All','Individual','Skip this par','End all resets','                '),  title=paste('Phase for',names(InitialVars)[i],'                             ') )$res
+  for (i in seq_along(Innames)) {
 
-      todo <- tk_choice(
-        choices = c('All', 'Individual', 'Skip this par', 'End all resets'),
-        title   = paste('Phase for', Innames[i]) )
+    iv <- which(names(InitialVars) == Innames[i])
 
-      if(todo=='End all resets') {
+    if (dum != 'dummy') {
+
+      # ── Top-level choice for this parameter group ───────────────────────
+      todo_choices <- c('All', 'Individual', 'Skip this par', 'End all resets')
+      todo_idx     <- menu(todo_choices,
+                           title = paste('Phase for', Innames[i]))
+
+      # menu() returns 0 on cancel/escape
+      if (todo_idx == 0 || todo_choices[todo_idx] == 'End all resets') {
         InitialVars <<- InitialVars
-        MaxPhase <<- MaxPhase
+        MaxPhase    <<- MaxPhase
         return(invisible(NULL))
       }
 
-      if(todo=='All'){
-        #nphase <- dlg_list(c('-1','1','2','3','4','                '),  title=paste('Phase for all',names(InitialVars)[i],'                             ') )$res
-        nphase <- tk_choice(
-          choices = c('-1','1','2','3','4','5','6'),
-          title   = paste('Phase for all', Innames[i]) )
+      todo <- todo_choices[todo_idx]
 
-        InitialVars[[iv]]$Phase <- rep(as.numeric(nphase), length(InitialVars[[iv]]$Phase))
+      # ── Set all parameters to the same phase ────────────────────────────
+      if (todo == 'All') {
+        phase_choices <- c('-1', '1', '2', '3', '4', '5', '6')
+        ph_idx <- menu(phase_choices,
+                       title = paste('Phase for all', Innames[i]))
+        if (ph_idx == 0) next
+        InitialVars[[iv]]$Phase <- rep(as.numeric(phase_choices[ph_idx]),
+                                       length(InitialVars[[iv]]$Phase))
       }
-      if(todo=='Individual'){
-        for(ip in 1:length(InitialVars[[iv]]$Initial)){
-          nphase <- tk_choice(
-            choices = c('-1','1','2','3','4','5','6','End this par'),
-            title   = paste('Phase',Innames[i],'par #',ip) )
-          if(nphase=='End this par') break
-          InitialVars[[iv]]$Phase[ip] <- as.numeric(nphase)
+
+      # ── Set each parameter's phase individually ──────────────────────────
+      if (todo == 'Individual') {
+        phase_choices <- c('-1', '1', '2', '3', '4', '5', '6', 'End this par')
+        for (ip in seq_along(InitialVars[[iv]]$Initial)) {
+          ph_idx <- menu(phase_choices,
+                         title = paste('Phase', Innames[i], 'par #', ip))
+          if (ph_idx == 0 || phase_choices[ph_idx] == 'End this par') break
+          InitialVars[[iv]]$Phase[ip] <- as.numeric(phase_choices[ph_idx])
         }
       }
-      if(max(InitialVars[[iv]]$Phase)>MaxPhase) MaxPhase <- max(InitialVars[[i]]$Phase)
-    }
-    if(dum=='dummy') {
+
+      if (max(InitialVars[[iv]]$Phase) > MaxPhase)
+        MaxPhase <- max(InitialVars[[i]]$Phase)
+
+    } else {
+      # ── Dummy mode: fix everything, enable growth only ──────────────────
       InitialVars[[i]]$Phase <- rep(-1, length(InitialVars[[i]]$Phase))
-      tmp <- InitialVars$Growth; tmp$Phase <- 1
+      tmp        <- InitialVars$Growth
+      tmp$Phase  <- 1
       InitialVars$dummy <- tmp
     }
   }
-  (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
+
+  MaxPhase    <<- getPhase(InitialVars)
+  ParOld      <<- NULL
+  CurrPhase   <<- 1
   InitialVars <<- InitialVars
-  MaxPhase <<- MaxPhase
-  Parssolved(InitialVars) ## Records which parameters were used to solve the model for output file
+  MaxPhase    <<- MaxPhase
+  Parssolved(InitialVars)
 }
 
 #' Display a styled Tk list selection dialog

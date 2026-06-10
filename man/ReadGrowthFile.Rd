@@ -41,7 +41,7 @@ a molt event. This function handles both parametric growth patterns (which would
 be estimated) and pre-specified transition matrices.
 
 \strong{Pre-specified transition matrices} (TransInp) are length × length matrices where
-element \code{\link{i,j}} represents the probability of an individual in size class i molting
+element \verb{[i,j]} represents the probability of an individual in size class i molting
 to size class j. Each row should sum to 1.0. These matrices can differ by sex,
 allowing sex-specific growth patterns.
 

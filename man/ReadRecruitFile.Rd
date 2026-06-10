@@ -22,7 +22,7 @@ List containing recruitment specifications:
 \item Column 3: Additional specification
 }
 \item NrecruitPatternsB - Number of length allocation patterns
-\item RecruitSpecsB - Matrix of length allocation specifications (pattern × \link{1+2×Nsex})
+\item RecruitSpecsB - Matrix of length allocation specifications (pattern × \verb{[1+2×Nsex]})
 \item RecruitPnt - Matrix of recruitment pattern pointers by year and step (year × step)
 \item RecruitLenPnt - Vector of length pattern pointers by area (length Narea)
 \item NrecruitPars - Total number of recruitment parameters to estimate
@@ -47,7 +47,7 @@ This function handles three main components of recruitment specification:
 distributed across sexes and spatial areas. Two allocation types are supported:
 \itemize{
 \item Type 0: Estimates sex ratio plus independent area proportions (Narea parameters)
-\item Type 1: Estimates sex × area proportions independently (Nsex × \code{\link{Narea-1}} parameters)
+\item Type 1: Estimates sex × area proportions independently (Nsex × \verb{[Narea-1]} parameters)
 }
 
 \strong{Length Distribution (Pattern B)}: Defines the size distribution of recruits

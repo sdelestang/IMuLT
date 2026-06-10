@@ -25,7 +25,7 @@ List containing projection specifications:
 \item LegalFleetPntFut - Array of future legal size pattern pointers
 (sex × age × fleet × projection_year × step)
 \item Phi - Extended discard mortality array including projection years
-(fleet × age × \code{\link{assessment_years + projection_years}} × step)
+(fleet × age × \verb{[assessment_years + projection_years]} × step)
 }
 }
 \description{

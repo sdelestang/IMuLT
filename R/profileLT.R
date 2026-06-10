@@ -35,6 +35,7 @@
 #'              lphit, mxph, newtonSteps, ...). Do NOT pass `report`.
 #'
 #' @return (invisibly) a data.frame, one row per profiled value.
+#' @name ProfileLT
 #' @export
 ProfileLT <- function(group, pos,
                       lower = NULL, upper = NULL, step = NULL, se = NULL,

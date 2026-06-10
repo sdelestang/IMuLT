@@ -226,6 +226,9 @@ RetroFit <- function(npeel = 5, rebuild = NULL,
                      plot = TRUE, ...) {
 
   GE <- .GlobalEnv
+  owd <- getwd(); on.exit(setwd(owd), add = TRUE)   # restore wd even if a peel errors
+  if (!is.function(rebuild))
+    stop("Provide `rebuild`: a function(peel) ...")
   if (!is.function(rebuild))
     stop("Provide `rebuild`: a function(peel) that repopulates the globals ",
          "(Data, InitialVars, ParOld, MaxPhase) for a model with the last ",
@@ -253,9 +256,12 @@ RetroFit <- function(npeel = 5, rebuild = NULL,
 
   for (p in 0:npeel) {
     message(sprintf("Retro peel %d/%d ...", p, npeel))
-    rebuild(p)                                      # repopulates the globals
+    ok <- tryCatch({ rebuild(p); TRUE },
+                   error = function(e) { message("   peel ", p, " rebuild failed: ",
+                                                 conditionMessage(e)); FALSE })
+    if (!ok) next
     Data <- get("Data", envir = GE); Data$DoProject <- 0L
-    assign("Data", Data, envir = GE)
+    assign("Data", Data, envir = GE)                                    # repopulates the globals
     fr <- .quiet_fit(grad_thresh, ...)
     if (is.null(fr)) { message("   peel ", p, " did not return a fit - skipping."); next }
     if (!fr$converged)
@@ -266,6 +272,8 @@ RetroFit <- function(npeel = 5, rebuild = NULL,
       if (!is.null(s)) { s$peel <- p; s$quantity <- q; store[[q]][[p + 1L]] <- s }
     }
   }
+
+  setwd(owd)   # back to launch dir: Retro.txt / Retro.png write here, not the last peel folder
 
   ## ---- assemble long series & Mohn's rho ---------------------------------
   long <- do.call(rbind, unlist(store, recursive = FALSE))

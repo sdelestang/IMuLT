@@ -50,7 +50,7 @@
 #' See the IMuLT User Guide for ModelStructure.xlsx template format and specifications.
 #'
 #' @export
-BuildInputFiles <- function(){
+BuildInputFiles <- function(end_override = NULL){
 
   suppressPackageStartupMessages({
     library(dplyr, quietly = T)
@@ -86,6 +86,7 @@ BuildInputFiles <- function(){
   dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
   startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
   endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
+  if (!is.null(end_override)) endseason <- end_override
   projectseason <- as.numeric(dynamics$value[dynamics$object=='projectedseason'])
   projectcatch <- as.numeric(dynamics$value[dynamics$object=='projectedcatch'])
   burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
@@ -1124,7 +1125,7 @@ for(r in 1:nrow(gauge4)){
       }}
 
     write.table(tmp, paste(floc,'/PROJECTIONS.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
-
+    invisible(floc)
 }
 
 

@@ -6,17 +6,35 @@
 \arguments{
 \item{npeel}{Number of years to peel (peels run 0..npeel; 0 = full model).}
 
-\item{rebuild}{function(peel) that repopulates the globals (Data, InitialVars,
-ParOld, MaxPhase) for a model with the last \code{peel} years
-removed - typically a one-line wrapper around FileBuilder() with
-the terminal year reduced by \code{peel}. REQUIRED.}
+\item{rebuild}{function(peel) that, with the working directory already set to
+\code{home}, builds and loads the model with the last \code{peel} years
+removed - typically \code{BuildInputFiles(end_override = full_end - peel)}, then \code{setwd()} into the returned folder and
+\code{LoadData()} / \code{LoadPars()}. REQUIRED.}
+
+\item{refit0}{If FALSE (default), peel 0 reuses the already-fitted model in
+the current folder (read from the \code{ProfileReport} global)
+instead of rebuilding it - the standard fast path when you run
+the retro from a solved model. TRUE rebuilds peel 0 like the
+rest, for strict comparability.}
+
+\item{home}{Parent folder holding \code{workbook}, where \code{BuildInputFiles()}
+runs. NULL (default) searches up to two levels up and down from
+the working directory and confirms the choice interactively.}
+
+\item{rundir}{Output folder for Retro.txt / Retro.png. NULL (default) writes
+to a "RetroFit" subfolder beside \code{workbook} (i.e. under \code{home}).}
+
+\item{append, plot}{Output controls.}
+
+\item{workbook}{Name of the model-structure workbook. Default
+"ModelStructure.xlsx".}
 
 \item{quantities}{Names of REPORTed vector quantities to track, e.g.
 "MatBio" (mature biomass) and "Recruits".}
 
 \item{grad_thresh}{max|grad| convergence flag.}
 
-\item{rundir, append, plot}{Output controls.}
+\item{rundir, append, plot}{Output controls (written to the launch directory).}
 
 \item{...}{Forwarded to FitModel. Not \code{report}.}
 }
@@ -24,21 +42,32 @@ the terminal year reduced by \code{peel}. REQUIRED.}
 (invisibly) list(series, rho, plot).
 }
 \description{
-Sequentially removes the last \code{npeel} years, re-fits each peel through the
-full sandwich, overlays a chosen quantity by calendar year, and computes
-Mohn's rho on the terminal points.
+Sequentially removes the last \code{npeel} years, re-builds and re-fits each peel
+through the full sandwich, overlays a chosen quantity by calendar year, and
+computes Mohn's rho on the terminal points.
+}
+\details{
+Each peel is built fresh by running \code{BuildInputFiles()} in the parent folder
+that holds \code{ModelStructure.xlsx}, with the terminal year reduced by the peel.
+\code{RetroFit} locates and confirms that parent folder, anchors the working
+directory there before every peel, and restores the directory and the
+overwritten globals on exit.
 }
 \examples{
 \dontrun{
-# Peel the last 5 years. `rebuild` re-runs FileBuilder with the terminal
-# year reduced by `peel` - adjust the FileBuilder argument name to your setup.
-full_terminal <- Data$Year1 + Data$Nyear - 1
+# Run from inside a solved model run-folder. RetroFit finds the parent that
+# holds ModelStructure.xlsx, confirms it, then peels the terminal year 1..5.
+full_end <- Data$Year1 + Data$Nyear - 1
 retro <- RetroFit(
-  npeel      = 5,
-  rebuild    = function(peel) FileBuilder(LastYear = full_terminal - peel),
+  npeel   = 5,
+  rebuild = function(peel) {
+    rundir <- BuildInputFiles(end_override = full_end - peel)  # wd is `home`
+    setwd(rundir)
+    LoadData(); LoadPars()
+  },
   quantities = c("MatBio", "Recruits"),
-  mxph       = MaxPhase)
-retro$rho                      # Mohn's rho per quantity
-retro$plot                     # peel overlay, rho in the facet strip labels
+  mxph = MaxPhase)
+retro$rho     # Mohn's rho per quantity
+retro$plot    # peel overlay, rho in the facet strip labels
 }
 }

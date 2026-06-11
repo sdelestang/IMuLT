@@ -34,6 +34,44 @@
   list(rep = rep, grad = grad, converged = is.finite(grad) && grad < grad_thresh)
 }
 
+## Find folder(s) holding the workbook, searching `up` levels up and `down` down
+.locate_workbook <- function(workbook = "ModelStructure.xlsx", up = 2, down = 2) {
+  start <- normalizePath(getwd(), winslash = "/", mustWork = FALSE)
+  cand  <- start
+  d <- start                                   # walk upward
+  for (i in seq_len(up)) {
+    parent <- dirname(d); if (parent == d) break
+    cand <- c(cand, parent); d <- parent
+  }
+  level <- start                               # walk downward, level by level
+  for (i in seq_len(down)) {
+    level <- unlist(lapply(level, list.dirs, recursive = FALSE, full.names = TRUE))
+    if (!length(level)) break
+    cand <- c(cand, level)
+  }
+  cand <- unique(normalizePath(cand, winslash = "/", mustWork = FALSE))
+  cand[file.exists(file.path(cand, workbook))]
+}
+
+## Resolve to a single parent folder: search -> (choose if many / browse if none)
+.resolve_home <- function(workbook = "ModelStructure.xlsx") {
+  hits <- .locate_workbook(workbook)
+  if (length(hits) == 1) return(hits)
+  if (length(hits) > 1) {
+    if (!interactive()) { message("Multiple ", workbook, "; using ", hits[1]); return(hits[1]) }
+    pick <- utils::menu(hits, title = paste("Multiple", workbook, "found - choose the parent for this retro:"))
+    return(if (pick == 0) NULL else hits[pick])
+  }
+  if (interactive() && .Platform$OS.type == "windows") {
+    message("Could not find ", workbook, " near ", getwd(), " - browse to it.")
+    sel <- utils::choose.dir(caption = paste("Select the folder containing", workbook))
+    if (is.na(sel) || !file.exists(file.path(sel, workbook))) return(NULL)
+    return(normalizePath(sel, winslash = "/"))
+  }
+  message("Could not find ", workbook, " within 2 levels of ", getwd(),
+          " - setwd() to its folder or pass `home=` and re-run.")
+  NULL
+}
 
 ## ============================================================================
 #' Jitter analysis for an IMuLT fit
@@ -189,57 +227,102 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 ## ============================================================================
 #' Retrospective analysis for an IMuLT fit
 #'
-#' Sequentially removes the last `npeel` years, re-fits each peel through the
-#' full sandwich, overlays a chosen quantity by calendar year, and computes
-#' Mohn's rho on the terminal points.
+#' Sequentially removes the last `npeel` years, re-builds and re-fits each peel
+#' through the full sandwich, overlays a chosen quantity by calendar year, and
+#' computes Mohn's rho on the terminal points.
+#'
+#' Each peel is built fresh by running `BuildInputFiles()` in the parent folder
+#' that holds `ModelStructure.xlsx`, with the terminal year reduced by the peel.
+#' `RetroFit` locates and confirms that parent folder, anchors the working
+#' directory there before every peel, and restores the directory and the
+#' overwritten globals on exit.
 #'
 #' @param npeel   Number of years to peel (peels run 0..npeel; 0 = full model).
-#' @param rebuild function(peel) that repopulates the globals (Data, InitialVars,
-#'                ParOld, MaxPhase) for a model with the last `peel` years
-#'                removed - typically a one-line wrapper around FileBuilder() with
-#'                the terminal year reduced by `peel`. REQUIRED.
+#' @param rebuild function(peel) that, with the working directory already set to
+#'                `home`, builds and loads the model with the last `peel` years
+#'                removed - typically `BuildInputFiles(end_override = full_end -
+#'                peel)`, then `setwd()` into the returned folder and
+#'                `LoadData()` / `LoadPars()`. REQUIRED.
+#' @param refit0  If FALSE (default), peel 0 reuses the already-fitted model in
+#'                the current folder (read from the `ProfileReport` global)
+#'                instead of rebuilding it - the standard fast path when you run
+#'                the retro from a solved model. TRUE rebuilds peel 0 like the
+#'                rest, for strict comparability.
+#' @param home    Parent folder holding `workbook`, where `BuildInputFiles()`
+#'                runs. NULL (default) searches up to two levels up and down from
+#'                the working directory and confirms the choice interactively.
+#' @param rundir Output folder for Retro.txt / Retro.png. NULL (default) writes
+#'                to a "RetroFit" subfolder beside `workbook` (i.e. under `home`).
+#' @param append,plot Output controls.
+#' @param workbook Name of the model-structure workbook. Default
+#'                "ModelStructure.xlsx".
 #' @param quantities Names of REPORTed vector quantities to track, e.g.
 #'                "MatBio" (mature biomass) and "Recruits".
 #' @param grad_thresh max|grad| convergence flag.
-#' @param rundir,append,plot Output controls.
+#' @param rundir,append,plot Output controls (written to the launch directory).
 #' @param ...     Forwarded to FitModel. Not `report`.
 #'
 #' @return (invisibly) list(series, rho, plot).
 #' @examples
 #' \dontrun{
-#' # Peel the last 5 years. `rebuild` re-runs FileBuilder with the terminal
-#' # year reduced by `peel` - adjust the FileBuilder argument name to your setup.
-#' full_terminal <- Data$Year1 + Data$Nyear - 1
+#' # Run from inside a solved model run-folder. RetroFit finds the parent that
+#' # holds ModelStructure.xlsx, confirms it, then peels the terminal year 1..5.
+#' full_end <- Data$Year1 + Data$Nyear - 1
 #' retro <- RetroFit(
-#'   npeel      = 5,
-#'   rebuild    = function(peel) FileBuilder(LastYear = full_terminal - peel),
+#'   npeel   = 5,
+#'   rebuild = function(peel) {
+#'     rundir <- BuildInputFiles(end_override = full_end - peel)  # wd is `home`
+#'     setwd(rundir)
+#'     LoadData(); LoadPars()
+#'   },
 #'   quantities = c("MatBio", "Recruits"),
-#'   mxph       = MaxPhase)
-#' retro$rho                      # Mohn's rho per quantity
-#' retro$plot                     # peel overlay, rho in the facet strip labels
+#'   mxph = MaxPhase)
+#' retro$rho     # Mohn's rho per quantity
+#' retro$plot    # peel overlay, rho in the facet strip labels
 #' }
 #' @name RetroFit
 #' @export
-RetroFit <- function(npeel = 5, rebuild = NULL,
+RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
+                     home = NULL, workbook = "ModelStructure.xlsx",
                      quantities = c("MatBio", "Recruits"),
-                     grad_thresh = 0.1, rundir = ".", append = FALSE,
+                     grad_thresh = 0.1, rundir = NULL, append = FALSE,
                      plot = TRUE, ...) {
 
-  GE <- .GlobalEnv
-  owd <- getwd(); on.exit(setwd(owd), add = TRUE)   # restore wd even if a peel errors
+  GE  <- .GlobalEnv
+  owd <- getwd(); on.exit(setwd(owd), add = TRUE)   # restore launch dir; outputs use absolute paths under home/RetroFit
+
   if (!is.function(rebuild))
-    stop("Provide `rebuild`: a function(peel) ...")
-  if (!is.function(rebuild))
-    stop("Provide `rebuild`: a function(peel) that repopulates the globals ",
-         "(Data, InitialVars, ParOld, MaxPhase) for a model with the last ",
-         "`peel` years removed - e.g. a wrapper around FileBuilder() with the ",
-         "terminal year reduced by `peel`.")
+    stop("Provide `rebuild`: a function(peel) that, with the working directory ",
+         "already at `home`, builds and loads the model with the last `peel` ",
+         "years removed - e.g. BuildInputFiles(end_override = full_end - peel), ",
+         "then setwd() into the returned folder and LoadData()/LoadPars().")
+
+  ## ---- locate & confirm the parent that holds the workbook ---------------
+  if (is.null(home)) home <- .resolve_home(workbook)
+  else               home <- normalizePath(home, winslash = "/", mustWork = FALSE)
+  if (is.null(home)) { message("RetroFit aborted - parent folder not set."); return(invisible(NULL)) }
+  if (!file.exists(file.path(home, workbook)))
+    stop("`", workbook, "` not found in home: ", home)
+
+  if (interactive()) {
+    ans <- utils::menu(
+      c("Continue - this workbook builds my current model",
+        "Stop - let me check it first"),
+      title = paste0(
+        "Retro will build each peel by running BuildInputFiles() in:\n  ", home,
+        "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model,\n",
+        "or peels won't be comparable to the reference. Proceed?"))
+    if (ans != 1L) { message("RetroFit stopped - check ", workbook, ", then re-run."); return(invisible(NULL)) }
+  }
+  message("Retro anchored at: ", home)
+  if (is.null(rundir)) rundir <- file.path(home, "RetroFit")   # outputs next to the workbook
+  message("Retro outputs  -> ", rundir)
 
   ## snapshot the four globals rebuild() will overwrite, restore on exit
   snap <- mget(c("Data","InitialVars","ParOld","MaxPhase"),
                envir = GE, ifnotfound = list(NULL))
   on.exit(for (nm in names(snap))
-            if (!is.null(snap[[nm]])) assign(nm, snap[[nm]], envir = GE), add = TRUE)
+    if (!is.null(snap[[nm]])) assign(nm, snap[[nm]], envir = GE), add = TRUE)
 
   ## assessment-period series (calendar year vs value) from a REPORTed vector
   series <- function(rep, nm, Data) {
@@ -256,13 +339,23 @@ RetroFit <- function(npeel = 5, rebuild = NULL,
 
   for (p in 0:npeel) {
     message(sprintf("Retro peel %d/%d ...", p, npeel))
-    ok <- tryCatch({ rebuild(p); TRUE },
-                   error = function(e) { message("   peel ", p, " rebuild failed: ",
-                                                 conditionMessage(e)); FALSE })
-    if (!ok) next
-    Data <- get("Data", envir = GE); Data$DoProject <- 0L
-    assign("Data", Data, envir = GE)                                    # repopulates the globals
-    fr <- .quiet_fit(grad_thresh, ...)
+    if (p == 0 && !refit0) {
+      ## peel 0 = the already-fitted model in the current folder; don't rebuild/refit
+      Data <- get("Data", envir = GE)
+      if (!exists("ProfileReport", envir = GE))
+        stop("peel 0 expects the current model to be fitted already ",
+             "(ProfileReport not found). Fit it first, or call with refit0 = TRUE.")
+      fr <- list(rep  = get("ProfileReport", envir = GE),
+                 grad = if (exists("ProfileGrad", envir = GE))
+                   max(abs(get("ProfileGrad", envir = GE))) else NA_real_)
+      fr$converged <- is.finite(fr$grad) && fr$grad < grad_thresh
+    } else {
+      setwd(home)                                   # anchor: BuildInputFiles runs & reads workbook here
+      rebuild(p)
+      Data <- get("Data", envir = GE); Data$DoProject <- 0L
+      assign("Data", Data, envir = GE)
+      fr <- .quiet_fit(grad_thresh, ...)
+    }
     if (is.null(fr)) { message("   peel ", p, " did not return a fit - skipping."); next }
     if (!fr$converged)
       message(sprintf("   warning: peel %d max|grad| = %.4g (>= %.3g)",

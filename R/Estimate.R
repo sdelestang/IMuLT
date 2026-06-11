@@ -335,8 +335,8 @@ find <- function(KeyWord, DataFile, Offset){
 #' model input files and prepares them for the optimisation routine. This
 #' function must be called before running the model estimation. Prints a
 #' parameter summary table to the console showing counts of estimated,
-#' linked, and offset parameters per group, followed by a detailed listing
-#' of any linked parameters to aid in diagnosing mis-specified links.
+#' mirrored, and linked parameters per group, followed by a detailed listing
+#' of any linked parameters to aid in diagnosing miss-specified links.
 #'
 #' @param aask Character string for testing mode. Use 'test' to display a
 #'   dialog box prompting the user to check the console. Default is ''
@@ -355,10 +355,10 @@ find <- function(KeyWord, DataFile, Offset){
 #'   \item Handles special cases (e.g., single area models)
 #'   \item Records which parameters are active for output tracking
 #'   \item Prints a summary table of parameter groups with columns for
-#'     Total, Estimated, Phases, Linked (positive links = copy), and
+#'     Total, Estimated, Phases, Mirrored (positive links = copy), and
 #'     Offset (negative links = additive offset)
-#'   \item Lists each linked parameter individually, showing source and
-#'     target within the group, to help catch mis-specified link indices
+#'   \item Lists each mirrored parameter individually, showing source and
+#'     target within the group, to help catch miss-specified link indices
 #' }
 #'
 #' Parameter groups loaded include:
@@ -452,7 +452,7 @@ LoadPars <- function(aask=''){
   if (!is.null(bnd_issues) && nrow(bnd_issues) > 0) {
     cat("\n*** WARNING: Initial values outside bounds ***\n")
     cat("  These parameters will be clamped or cause immediate bound-hitting.\n")
-    cat("  Check CTL file — offset/linked parameters likely have wrong bounds.\n\n")
+    cat("  Check CTL file — offset/mirrored parameters likely have wrong bounds.\n\n")
     print(bnd_issues, row.names = FALSE)
     cat("\n")
   } else {
@@ -485,7 +485,7 @@ LoadPars <- function(aask=''){
     n_offset <- sum(lk < 0)
     data.frame(Group = grp, Total = length(ph), Estimated = n_est,
                Phases = ph_used,
-               Linked = ifelse(n_linked == 0, "-", n_linked),
+               Mirrored = ifelse(n_linked == 0, "-", n_linked),
                Offset = ifelse(n_offset == 0, "-", n_offset),
                stringsAsFactors = FALSE)
   }))
@@ -497,7 +497,7 @@ LoadPars <- function(aask=''){
     idx <- which(lk != 0)
     if(length(idx) > 0) {
       for(j in idx) {
-        ltype <- ifelse(lk[j] > 0, "link", "link+offset")
+        ltype <- ifelse(lk[j] > 0, "mirror", "mirror+offset")
         cat(sprintf("  %s_%d -> %s_%d (%s)\n", grp, j, grp, abs(lk[j]), ltype))
       }
     }
@@ -1044,7 +1044,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
-  # ── Enforce negative phase for linked parameters ──────────────────────────
+  # ── Enforce negative phase for mirrored parameters ──────────────────────────
   link_map <- list(MainPars    = Data$MparsLink,
                    RecruitPars = Data$RecparsLink,
                    SelPars     = Data$SelparsLink,
@@ -1055,7 +1055,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       for (i in seq_along(lv)) {
         if (!is.na(lv[i]) && lv[i] > 0 && InitialVars[[pname]]$Phase[i] > 0) {
           warning(paste(pname, "parameter", i,
-                        "is linked but has positive phase — forcing negative"))
+                        "is mirrored but has positive phase — forcing negative"))
           InitialVars[[pname]]$Phase[i] <- -abs(InitialVars[[pname]]$Phase[i])
         }
       }

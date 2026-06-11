@@ -369,7 +369,7 @@ print("Building Control File")
     for(i in 1:nqs){ tmp <- c(tmp, paste(c(-100,100,Qpar1,-1),collapse="\t"), "\t\t\t# Multiplier for Environmental index - Keep to 1\n")}
 
     tmp <- c(tmp, "\n# Efficiency parameters (lower, upper, estimate, phase, link, useprior, prior, priorsd) \n")
-    ecpar1 <- effic[,c('lower','upper','est','Phase','useprior','prior','priorsd')] %>% mutate(link=0) %>% dplyr::select(lower,upper,est,Phase,link,useprior,prior,priorsd)
+    ecpar1 <- effic[,c('lower','upper','est','Phase','Link','useprior','prior','priorsd')] %>%  dplyr::select(lower,upper,est,Phase,Link,useprior,prior,priorsd)
     nECvec <- max(fleets$effic.creep)
     nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
     tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")
@@ -887,9 +887,9 @@ for(p in pars){
     code <- cbind(Selid,Semat)
     for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
 
-    tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, ParLink, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
+    tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
 
-    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,parlink,parlink, useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(parlink==0,phase, -abs(phase)))
+    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(link==0,phase, -abs(phase)))
     ## Now make the multiple links
     tegapparog <- tegappar
     for(p in pars){

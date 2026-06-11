@@ -231,14 +231,18 @@ csemod <- function(x){
 #' @export
 choose_model <- function(pattern = 'Run') {
   x <- list.files(pattern = pattern)
-  choice <- menu(x, title = "Choose a model:")
-  if (choice == 0) {
-    cat(paste("OK, the default model is", x[1], "\n"))
-    selected <- x[1]
-  } else {
-    selected <- x[choice]
-    cat(paste("Model", selected, "has been chosen\n"))
-  }
+    if(length(x)>1){
+    choice <- menu(x, title = "Choose a model:")
+    if (choice == 0) {
+      cat(paste("OK, the default model is", x[1], "\n"))
+      selected <- x[1]
+    } else {
+      selected <- x[choice]
+      cat(paste("Model", selected, "has been chosen\n"))
+    }
+    } else { selected <- x[1]
+             cat(paste("Only one model present.", selected, "has been chosen\n"))
+    }
   setwd(file.path(getwd(), selected))
   invisible(selected)
 }

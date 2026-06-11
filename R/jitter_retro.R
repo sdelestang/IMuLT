@@ -307,7 +307,7 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
   if (interactive()) {
     ans <- utils::menu(
       c("Continue - this workbook builds my current model",
-        "Stop - let me check it first"),
+        "Stop - let me change it first and then I will re-run"),
       title = paste0(
         "Retro will build each peel by running BuildInputFiles() in:\n  ", home,
         "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model, or peels won't be comparable to the reference. \nProceed?"))
@@ -315,6 +315,7 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
   }
   message("Retro anchored at: ", home)
   if (is.null(rundir)) rundir <- file.path(home, "RetroFit")   # outputs next to the workbook
+  if (!dir.exists(rundir)) dir.create(rundir, recursive = TRUE)   # create now, not at the end
   message("Retro outputs  -> ", rundir)
 
   ## snapshot the four globals rebuild() will overwrite, restore on exit
@@ -365,7 +366,7 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
     }
   }
 
-  setwd(owd)   # back to launch dir: Retro.txt / Retro.png write here, not the last peel folder
+  setwd(owd)
 
   ## ---- assemble long series & Mohn's rho ---------------------------------
   long <- do.call(rbind, unlist(store, recursive = FALSE))
@@ -387,7 +388,6 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
   rho <- vapply(quantities, mohn, numeric(1))
 
   ## ---- write & report -----------------------------------------------------
-  if (!dir.exists(rundir)) dir.create(rundir, recursive = TRUE)
   fn <- file.path(rundir, "Retro.txt")
   do_append <- isTRUE(append) && file.exists(fn)
   utils::write.table(long, fn, sep = "\t", row.names = FALSE,

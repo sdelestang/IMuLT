@@ -8,10 +8,10 @@
 #' The function requires a ModelStructure.xlsx file in the current working directory.
 #' This Excel workbook must contain the following sheets:
 #' \itemize{
-#'   \item dynamics - Model dynamics and temporal settings
-#'   \item area - Spatial structure and management zones
-#'   \item times - Time step specifications
-#'   \item fleetcode - Fleet definitions
+#'   \item Dynamics - Model dynamics and temporal settings
+#'   \item Area - Spatial structure and management zones
+#'   \item Times - Time step specifications
+#'   \item Fleetcode - Fleet definitions
 #'   \item Catch - Catch data by year, time step, and fleet
 #'   \item CPUE - Catch-per-unit-effort indices
 #'   \item LengthFreq - Length frequency data
@@ -82,7 +82,7 @@ BuildInputFiles <- function(end_override = NULL){
   wb <- safe_loadWorkbook("ModelStructure.xlsx")
 
   #This is the location of the data input files and their associated parameters
-  dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
+  dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
   startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
   endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
   if (!is.null(end_override)) endseason <- end_override
@@ -92,11 +92,11 @@ BuildInputFiles <- function(end_override = NULL){
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
   sexs <- 0:(as.numeric(dynamics$value[dynamics$object=='sexs'])-1)
   nsex <- length(sexs)
-  areas <- readWorkbook(wb,sheet='area', startRow = 2)
-  times <- readWorkbook(wb,sheet='times', startRow = 2)
-  fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
+  areas <- readWorkbook(wb,sheet='Area', startRow = 2)
+  times <- readWorkbook(wb,sheet='Times', startRow = 2)
+  fleets <- readWorkbook(wb,sheet='Fleetcode', startRow = 2)
   effic <- readWorkbook(wb,sheet='EfficiencyCreep', startRow = 2)
-  migrate <- readWorkbook(wb,sheet='migrate', startRow = 2)
+  migrate <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   (zones <- length(unique(areas$ManageZone)))
   area <- areas %>% group_by(ManageZone) %>% reframe(newarea=unique(AreaCode))
   (zoneareas <- split(area$newarea, area$ManageZone))
@@ -228,39 +228,7 @@ if(dim(puer)[1]==0) { tmp <- c(tmp,"\n# Number of data points (puerulus samples)
 tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",nrow(puer),'\n# Area\tYear\tIndex\tSD\n')
 for(i in 1:nrow(puer)){ tmp <- c(tmp, paste(puer[i,], collapse = "\t"),"\n")} }
 
-#	Environmental	Data   / Fishing efficiency
-#fe <- read.csv(direct('Lobster/Minor stuff/Efficiency/2020/Fish_eff_estimates.csv'))
-# fe <- readWorkbook(wb,sheet='CommEfficiency')
-# fe2 <- expand.grid(year=startseason:endseason, area=fe$newarea, creep=1) %>% mutate(pwr=year-startseason)
-# for(a in unique(fe$newarea)){
-#   fe2$creep[fe2$area==a] <- fe2$creep[fe2$area==a] * fe$annualE[fe$newarea==a]^fe2$pwr[fe2$area==a]}
-# dat <- expand.grid(year=startseason:endseason, Qid=sort(unique(Udat$CpueInd)), step=sort(unique(times$tstep)))
-# dat %<>% arrange(year,Qid,step)
-# dat %<>% mutate(fleet=Udat$Fleet[match(dat$Qid,Udat$CpueInd)], area=fleets$newarea[match(fleet,fleets$fleet)])
-# dat$effcreep <- round(log(fe2$creep[match(paste(dat$year, dat$area), paste(fe2$year,fe2$area))]),5)
-# dat$effcreep[is.na(dat$effcreep)] <- 0
-
-#nseries <- dat %>% group_by(fleet) %>% summarise(num=length(effcreep))
 tmp <- c(tmp,"\n# Environmental Data - ln(Efficiency creep)\n# Number of environmental series (commercial efficiency creep for each area)\n",0)
-# tmp <- c(tmp,"\n# Years of data per series\n",paste(unname(table(dat$Qid)), collapse = "\t"),'\n')
-# tmp <- c(tmp,"# Year\tTstep\tln(creep)\tSeries\n")
-# for(s in 1:length(unique(dat$Qid))){
-#   tdat <- dat[dat$Qid==sort(unique(dat$Qid))[s],]
-#   for(i in 1:nrow(tdat)){ tmp <- c(tmp, paste(tdat[i,c('year', 'step', 'effcreep')], collapse = "\t"), "\t#\t",s,"\n")}}
-
-#write.table(tmp,  paste(getwd(),'/Simon/Northa.dat',sep=''), sep="", row.names = F, col.names = F, quote=F)
-
-# # Movement Data
-# move <- read.csv(direct('Lobster/Minor stuff/Growth/All_move.growth.data.csv'))
-# move %<>% filter(!is.na(Lsex), Lsex!='U' , LCl>=51, LCl<=200) %>% filter(libm>2)%>% filter(Cloc!=0)%>% filter(Ccl >= 51 , Ccl <=200)
-# move %<>% mutate(sex=ifelse(Lsex=='M',1,2), RelLB=as.numeric(cut(LCl, c(lens[1:(length(lens)-1)]-0.1,180))), RecLB=as.numeric(cut(Ccl, c(lens[1:(length(lens)-1)]-0.1,180)))) %>%
-#   mutate(group=ifelse(source=='comm', 'comm', 'ibss'), fleet=fleetcode$fleet[match(paste(Cloc,group),paste(fleetcode$area,fleetcode$group))]) %>%
-#   select(Lloc,sex,Lseason,Ltstep,RelLB,fleet,Cseason,Ctstep,RecLB) %>% filter(!is.na(fleet)) %>%
-#   group_by(Lloc,sex,Lseason,Ltstep,RelLB,fleet,Cseason,Ctstep,RecLB) %>% summarise(Num=length(sex))
-# unique(move$fleet)
-# tmp <- c(tmp,"\n# Movement and growth data from tagging\n")
-# tmp <- c(tmp,"# Length of Movement data\n", nrow(move), '\n#RelArea   Sex   RelSeason   RelTstep   RelLB   RecFleet   RecSeason   RecTstep   RecLB   NumObs\n')
-# for(i in 1:nrow(move)){ tmp <- c(tmp, paste(move[i,], collapse = "\t"),"\n")}
 
 tmp <- c(tmp, "\n# Final check\n123456")
 
@@ -284,7 +252,7 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n# Biomass target, threshold, limit (one per area)\n")
 
-    bio <- readWorkbook(wb,sheet='area', startRow = 2) %>% select(starts_with('biomass'))
+    bio <- readWorkbook(wb,sheet='Area', startRow = 2) %>% select(starts_with('biomass'))
     for(i in 1:nrow(bio)){ tmp <- c(tmp, paste(bio[i,], collapse = "\t"),"\n")}
 
     tmp <- c(tmp, "\n# Fleet specification\n# Fleet Area Name\n\t")
@@ -321,11 +289,12 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n# Recruitment_deviations\n",startseason, "\t\t\t# First year with estimated recruitment deviations\n")
     tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# last year with estimated recruitment deviations\n")
-    tmp <- c(tmp, 2, "\t\t\t# Phase for recruitment deviations\n")
+    rec <- readWorkbook(wb,sheet='Recruitment', startRow = 2)
+    tmp <- c(tmp, rec$Phase[1], "\t\t\t# Phase for recruitment deviations\n")
 
     tmp <- c(tmp, "\n# Spatial_deviations_in_recruitment\n",startseason, "\t\t\t# First year with estimates spatial recruitment deviations\n")
     tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# Last year with estimates spatial recruitment deviations\n")
-    tmp <- c(tmp, -6, "\t\t\t# Phase for spatial recruitment deviations\n\n")
+    tmp <- c(tmp, rec$Phase[1], "\t\t\t# Phase for spatial recruitment deviations\n\n")
 
     tmp <- c(tmp, "# Prespecify_rec_devs :  dev # Year\n",1,"\t\t\t# 1 = rec_devs are to be pre-specified\n")
     dat <- data.frame(rec_dev=0, year=(startseason-max(areas$burn_in)):(endseason+projectseason+5))
@@ -802,6 +771,8 @@ print("Building Control File")
     tmp <- c(tmp, "\n#  Recuitment1 parameters\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd::\t Number of recruitment size parameter pairs (mean+sd) must match Number of pre-specified recruitment functions above.\n")
 
     rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,link,useprior,mnprior,sdprior,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
+    ## Remove the Rec deviations
+    rec <- rec[3:nrow(rec),]
     npars <- length(unique(areas$AreaCode))+nsizecomp*2
     if(nrow(rec)!=npars) warning("Number of recruitment pars for size at recruitment does not match recruitment areas defined in Area tab. \nThey have been truncated.")
     rec <- rec[1:npars,]

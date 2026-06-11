@@ -198,7 +198,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   } else {  wb <- loadWorkbook(file = file_path)  }
 
   #This is the location of the data input files and their associated parameters
-  dynamics <- readWorkbook(wb,sheet='dynamics', startRow = 2)
+  dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
   startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
   endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
   yr <- startseason:endseason
@@ -207,15 +207,15 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   burnin <- as.numeric(dynamics$value[dynamics$object=='burnin'])
   ages <- as.numeric(dynamics$value[dynamics$object=='ages'])
   sexs <- 1:as.numeric(dynamics$value[dynamics$object=='sexs'])
-  areas <- readWorkbook(wb,sheet='area', startRow = 2)
+  areas <- readWorkbook(wb,sheet='Area', startRow = 2)
   nareas <- length(unique(areas$AreaCode))
-  times <- readWorkbook(wb,sheet='times', startRow = 2)
-  fleets <- readWorkbook(wb,sheet='fleetcode', startRow = 2)
+  times <- readWorkbook(wb,sheet='Times', startRow = 2)
+  fleets <- readWorkbook(wb,sheet='Fleetcode', startRow = 2)
 ## Get names of Pars
   MainParsName <- readWorkbook(wb,sheet='MainParameters', startRow = 2)$comment
   RecParName <- paste0('Rec_',readWorkbook(wb,sheet='Recruitment', startRow = 2)$description)
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
-  MigrateParName <- readWorkbook(wb,sheet='migrate', startRow = 2)
+  MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
   SelectParName <- readWorkbook(wb,sheet='Selectivity', startRow = 2)$comment
   SelectParName <- paste0('Sel_',SelectParName[!is.na(SelectParName)])
@@ -1459,7 +1459,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   virgin <- data.frame(est=findNclean(c('#Virgin','Legal'), dat, 1)) %>% mutate(area=1:nrow(.))  ## Uses the reference legal statement >76
   lb %<>% mutate(virgin=virgin$est[match(area,virgin$area)], `Legal Biomass (t)`=est/1e+3, LBlwr=(est-se*SclErr)/1e+3, LBupr=(est+se*SclErr)/1e+3, rel=est/virgin, rellwr=(est-se*SclErr)/virgin, relupr=(est+se*SclErr)/virgin) %>% filter(est>0)
   lb %<>% filter(year>=GeneralSpecs$Year1) %>% group_by(area) %>% mutate(`B/B0`=rel, lwr=rellwr, upr=relupr, lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
-  areas <- readWorkbook(wb,sheet='area', startRow = 2)
+  areas <- readWorkbook(wb,sheet='Area', startRow = 2)
   lb$areaname <- areas$Name[match(lb$area,areas$AreaCode)]
   reflev <- findNclean(c('#', 'Biomass', 'target'), ctl1, 1)
   colnames(reflev) <- c('target','threshold','limit')

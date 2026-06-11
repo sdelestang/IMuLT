@@ -770,7 +770,7 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n#  Recuitment1 parameters\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd::\t Number of recruitment size parameter pairs (mean+sd) must match Number of pre-specified recruitment functions above.\n")
 
-    rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,link,useprior,mnprior,sdprior,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
+    rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,Link,useprior,mnprior,sdprior,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
     ## Remove the Rec deviations
     rec <- rec[3:nrow(rec),]
     npars <- length(unique(areas$AreaCode))+nsizecomp*2
@@ -889,7 +889,7 @@ for(p in pars){
 
     tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
 
-    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(link==0,phase, -abs(phase)))
+    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(Link==0,phase, -abs(phase)))
     ## Now make the multiple links
     tegapparog <- tegappar
     for(p in pars){

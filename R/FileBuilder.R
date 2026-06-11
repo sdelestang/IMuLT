@@ -338,6 +338,13 @@ print("Building Control File")
     tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
 
     mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
+    NumMPars <- 1+nrow(areas)+ages+3
+
+    n_need <- NumMPars
+    vals   <- nrow(mainpar)
+    if (vals < n_need)
+      stop("Not enough parameters have been provided in the MainParameters tab ",
+           "(", vals, " supplied, ", n_need, " required).", call. = FALSE)
 
     Mpar1 <- mainpar %>% filter(name=='MeanRecruitment') %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar1,collapse = "\t"), "\n")
@@ -352,16 +359,6 @@ print("Building Control File")
     tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
     Mpar6 <- mainpar %>% filter(grepl('Sigma', name, ignore.case=T)) %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
-    # Mpar7 <- mainpar %>% filter(grepl('Rintro', name, ignore.case=T)) %>% dplyr::select(-name)
-    # for(i in 1:nrow(Mpar7)){ tmp <- c(tmp, paste(Mpar7[i,],collapse="\t"),"\n") }
-    # Mpar8 <- mainpar %>% filter(grepl('Initial', name, ignore.case=T)) %>% dplyr::select(-name)
-    # tmp <- c(tmp, paste(Mpar8,collapse="\t"), "\n")
-
-    # tmp <- c(tmp, "\n# Initial_dev_option\n")
-    # tmp <- c(tmp, 0, "\t\t\t\t# 0=convetional; 1=alternative; 2=Something; 3=Something else; 4=Yet another option; 5 as for 3 but with initial values for Rinitial by area\n")
-    # tmp <- c(tmp, 1, "\t\t\t\t# Initial value options (0=default; 1=same for all)\n")
-    # tmp <- c(tmp, "# Initial size parameters\n")
-    # tmp <- c(tmp, paste(-100,100,0,1,collapse='\t'), "\t\t\t# 0=convetional; 1=alternative\n")
 
     tmp <- c(tmp, "\n# Q parameters\n")
     Qpar1 <- 1

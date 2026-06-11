@@ -294,7 +294,7 @@ print("Building Control File")
 
     tmp <- c(tmp, "\n# Spatial_deviations_in_recruitment\n",startseason, "\t\t\t# First year with estimates spatial recruitment deviations\n")
     tmp <- c(tmp, "#", endseason+projectseason-1, "\t\t\t# Last year with estimates spatial recruitment deviations\n")
-    tmp <- c(tmp, rec$Phase[1], "\t\t\t# Phase for spatial recruitment deviations\n\n")
+    tmp <- c(tmp, rec$Phase[2], "\t\t\t# Phase for spatial recruitment deviations\n\n")
 
     tmp <- c(tmp, "# Prespecify_rec_devs :  dev # Year\n",1,"\t\t\t# 1 = rec_devs are to be pre-specified\n")
     dat <- data.frame(rec_dev=0, year=(startseason-max(areas$burn_in)):(endseason+projectseason+5))

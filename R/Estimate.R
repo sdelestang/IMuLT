@@ -1030,6 +1030,18 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintNll = TRUE,
                      plateau_k = 4, plateau_cv = 0.05) {
 
+  ## --- prerequisites: globals populated by LoadData() / LoadPars() --------
+  need <- c("Data", "InitialVars")
+  miss <- need[!vapply(need, exists, logical(1), envir = .GlobalEnv, inherits = FALSE)]
+  ## mxph defaults to the MaxPhase global; only require it if not supplied
+  if (missing(mxph) && !exists("MaxPhase", envir = .GlobalEnv, inherits = FALSE))
+    miss <- c(miss, "MaxPhase")
+  if (length(miss)) {
+    warning("FitModel: ", paste(miss, collapse = ", "),
+            " not found - run LoadData() then LoadPars() first.", call. = FALSE)
+    return(invisible(NULL))
+  }
+
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
   # ── Enforce negative phase for linked parameters ──────────────────────────

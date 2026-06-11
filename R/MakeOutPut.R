@@ -214,6 +214,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
 ## Get names of Pars
   MainParsName <- readWorkbook(wb,sheet='MainParameters', startRow = 2)$comment
   RecParName <- paste0('Rec_',readWorkbook(wb,sheet='Recruitment', startRow = 2)$description)
+  RecParName <- RecParName[2:length(RecParName)] ## Shorten for rec_devs and spatial rec_devs
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)

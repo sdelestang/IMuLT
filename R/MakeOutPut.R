@@ -1867,7 +1867,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
 
   filen <- "Est.Params.csv"
   addtable(intable=pars,filen=filen,rundir=rundir,category="Parameter Table",
-           caption="Estimated final parameters and gradients. Link column indicates parameter linking (0 = directly estimated or fixed, \npositive is position within parameter group for mirroring, and negative is position within parameter group for mirroring + offset).")
+           caption="Estimated final parameters and gradients. Link column indicates parameter linking (0 = directly estimated or fixed, positive is position within parameter group for mirroring, and negative is position within parameter group for mirroring + offset).")
 
   ## Correlation matrix heatmap ####
   corfile <- filenametopath(rundir, "CorrelationMatrix.csv")

@@ -310,8 +310,7 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
         "Stop - let me check it first"),
       title = paste0(
         "Retro will build each peel by running BuildInputFiles() in:\n  ", home,
-        "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model,\n",
-        "or peels won't be comparable to the reference. Proceed?"))
+        "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model, or peels won't be comparable to the reference. \nProceed?"))
     if (ans != 1L) { message("RetroFit stopped - check ", workbook, ", then re-run."); return(invisible(NULL)) }
   }
   message("Retro anchored at: ", home)

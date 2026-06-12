@@ -935,30 +935,32 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   unfleet <- sort(unique(tdat2$Fleet))
   for(uf in unfleet)  {
     tdat3 <- tdat2 %>% filter(Fleet==uf) %>% mutate(aSex=recode_values(Sex, -1~'comb',0~'F',1~'M'))
+    if(length(unique(tdat3$aSex))==1) tdat3$aSex <- 'M'  # One sex Model
     filename <- filenametopath(rundir,paste0("Fleet ",uf,".png"))
     plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=c(1,1))
-    if(length(unique(tdat3$aSex))>1) {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-                                              geom_line()+geom_point()+
-                                              geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-                                              facet_grid(Time_step~aSex)+
-                                              scale_color_manual(values=c("red","black")) +
-                                              scale_size_manual(values = c(0.5, 0.5)) +
-                                              theme(panel.background = element_rect(fill = "white",colour = NA),
-                                                    panel.border = element_rect(fill = NA, colour = "grey20"),
-                                                    axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-                                              ylab('Catch rate (kg/pot)'))} else {
-                                                {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-                                                         geom_line()+geom_point()+
-                                                         geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-                                                         facet_wrap(~Time_step)+
-                                                         scale_color_manual(values=c("red","black")) +
-                                                         scale_size_manual(values = c(0.5, 0.5)) +
-                                                         theme(panel.background = element_rect(fill = "white",colour = NA),
-                                                               panel.border = element_rect(fill = NA, colour = "grey20"),
-                                                               axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-                                                         ylab('Catch rate (kg/pot)'))}
-                                              }
+    if(length(unique(tdat3$aSex))>1) {
+      print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+            geom_line()+geom_point()+
+            geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+            facet_grid(Time_step~aSex)+
+            scale_color_manual(values=c("red","black")) +
+            scale_size_manual(values = c(0.5, 0.5)) +
+            theme(panel.background = element_rect(fill = "white",colour = NA),
+                  panel.border = element_rect(fill = NA, colour = "grey20"),
+                  axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+            ylab('Catch rate (kg/pot)')) } else {
+              {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+                       geom_line()+geom_point()+
+                       geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+                       facet_wrap(~Time_step)+
+                       scale_color_manual(values=c("red","black")) +
+                       scale_size_manual(values = c(0.5, 0.5)) +
+                       theme(panel.background = element_rect(fill = "white",colour = NA),
+                             panel.border = element_rect(fill = NA, colour = "grey20"),
+                             axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+                       ylab('Catch rate (kg/pot)'))}
+            }
     caption <- paste(unique(tdat3$aSex), unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }

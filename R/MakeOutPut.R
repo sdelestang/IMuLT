@@ -1739,7 +1739,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   # Add in description names
   pars %<>%
     mutate(
-      OrigParameter = Parameter,                 # keep the raw Prefix_N name
+      OrigParameter = Parameter,
       .idx = suppressWarnings(as.integer(sub("^.*_(\\d+)$", "\\1", Parameter))),
       Parameter = case_when(
         grepl("^MainPars_",    Parameter) ~ MainParsName[.idx],
@@ -1751,7 +1751,10 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
         TRUE ~ Parameter
       )
     ) %>%
-    select(-.idx)
+    select(-.idx) %>%
+    group_by(Parameter) %>%
+    mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
+    ungroup()
 
   pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) > 0)) %>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),

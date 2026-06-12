@@ -342,9 +342,7 @@ print("Building Control File")
 
     n_need <- NumMPars
     vals   <- nrow(mainpar)
-    if (vals < n_need)
-      stop("Not enough parameters have been provided in the MainParameters tab ",
-           "(", vals, " supplied, ", n_need, " required).", call. = FALSE)
+    if (vals < n_need){ stop("Not enough parameters have been provided in the MainParameters tab ","(", vals, " supplied, ", n_need, " required).", call. = FALSE)}
 
     Mpar1 <- mainpar %>% filter(name=='MeanRecruitment') %>% dplyr::select(-name)
     tmp <- c(tmp, paste(Mpar1,collapse = "\t"), "\n")
@@ -368,6 +366,12 @@ print("Building Control File")
     tmp <- c(tmp, "\n# Efficiency parameters (lower, upper, estimate, phase, link, useprior, prior, priorsd) \n")
     ecpar1 <- effic[,c('lower','upper','est','Phase','Link','useprior','prior','priorsd')] %>%  dplyr::select(lower,upper,est,Phase,Link,useprior,prior,priorsd)
     nECvec <- max(fleets$effic.creep)
+
+    ## Test number of parameters supplied is correct
+    n_need <- nECvec
+    vals   <- nrow(ecpar1)
+    if (vals < n_need){ stop("Not enough parameters have been provided in the Efficiency tab ","(", vals, " supplied, ", n_need, " required).", call. = FALSE)}
+
     nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
     tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")
     for(nv in 1:nECvec){

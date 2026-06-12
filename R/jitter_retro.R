@@ -235,7 +235,8 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 #' that holds `ModelStructure.xlsx`, with the terminal year reduced by the peel.
 #' `RetroFit` locates and confirms that parent folder, anchors the working
 #' directory there before every peel, and restores the directory and the
-#' overwritten globals on exit.
+#' overwritten globals on exit. Quantities named in `relative` are shown as a
+#' fraction of each peel's own re-estimated virgin (true depletion).
 #'
 #' @param npeel   Number of years to peel (peels run 0..npeel; 0 = full model).
 #' @param rebuild function(peel) that, with the working directory already set to
@@ -251,15 +252,22 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 #' @param home    Parent folder holding `workbook`, where `BuildInputFiles()`
 #'                runs. NULL (default) searches up to two levels up and down from
 #'                the working directory and confirms the choice interactively.
-#' @param rundir Output folder for Retro.txt / Retro.png. NULL (default) writes
-#'                to a "RetroFit" subfolder beside `workbook` (i.e. under `home`).
-#' @param append,plot Output controls.
 #' @param workbook Name of the model-structure workbook. Default
 #'                "ModelStructure.xlsx".
-#' @param quantities Names of REPORTed vector quantities to track, e.g.
-#'                "MatBio" (mature biomass) and "Recruits".
+#' @param quantities Names of REPORTed quantities to track. Vectors are used as
+#'                is; matrices (e.g. LegalBio, Nyear x Narea) are summed across
+#'                areas. Default c("LegalBio", "Recruits").
+#' @param relative Optional named character vector mapping a tracked quantity to
+#'                the REPORTed field holding its virgin value. Default
+#'                c(LegalBio = "VirginLegalBio") expresses legal biomass as a
+#'                fraction of virgin legal biomass using EACH PEEL'S OWN
+#'                re-estimated B0 (summed over areas) - true depletion - so Mohn's
+#'                rho is computed on the depletion series. Set NULL for absolute.
+#'                Unnamed quantities (e.g. Recruits) stay absolute.
 #' @param grad_thresh max|grad| convergence flag.
-#' @param rundir,append,plot Output controls (written to the launch directory).
+#' @param rundir  Output folder for Retro.txt / Retro.png. NULL (default) writes
+#'                to a "RetroFit" subfolder beside `workbook` (i.e. under `home`).
+#' @param append,plot Output controls.
 #' @param ...     Forwarded to FitModel. Not `report`.
 #'
 #' @return (invisibly) list(series, rho, plot).
@@ -269,27 +277,28 @@ JitterFit <- function(n = 50, jitter_sd = 0.1, base_seed = 1,
 #' # holds ModelStructure.xlsx, confirms it, then peels the terminal year 1..5.
 #' full_end <- Data$Year1 + Data$Nyear - 1
 #' retro <- RetroFit(
-#'   npeel   = 5,
-#'   rebuild = function(peel) {
+#'   npeel    = 5,
+#'   rebuild  = function(peel) {
 #'     rundir <- BuildInputFiles(end_override = full_end - peel)  # wd is `home`
-#'     setwd(rundir)
-#'     LoadData(); LoadPars()
+#'     setwd(rundir); LoadData(); LoadPars()
 #'   },
 #'   quantities = c("MatBio", "Recruits"),
+#'   relative   = c(MatBio = "VirginBiomass"),  # MatBio as depletion (own B0)
 #'   mxph = MaxPhase)
 #' retro$rho     # Mohn's rho per quantity
-#' retro$plot    # peel overlay, rho in the facet strip labels
+#' retro$plot    # peel overlay, rho + interpretation in the facet strip labels
 #' }
 #' @name RetroFit
 #' @export
 RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
                      home = NULL, workbook = "ModelStructure.xlsx",
-                     quantities = c("MatBio", "Recruits"),
+                     quantities = c("LegalBio", "Recruits"),
+                     relative   = c(LegalBio = "VirginLegalBio"),
                      grad_thresh = 0.1, rundir = NULL, append = FALSE,
                      plot = TRUE, ...) {
 
   GE  <- .GlobalEnv
-  owd <- getwd(); on.exit(setwd(owd), add = TRUE)   # restore launch dir; outputs use absolute paths under home/RetroFit
+  owd <- getwd(); on.exit(setwd(owd), add = TRUE)   # restore launch dir even if a peel errors
 
   if (!is.function(rebuild))
     stop("Provide `rebuild`: a function(peel) that, with the working directory ",
@@ -310,12 +319,13 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
         "Stop - let me change it first and then I will re-run"),
       title = paste0(
         "Retro will build each peel by running BuildInputFiles() in:\n  ", home,
-        "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model, or peels won't be comparable to the reference. \nProceed?"))
+        "\nusing '", workbook, "'. Ensure that workbook builds your CURRENT model, ",
+        "or peels won't be comparable to the reference. \nProceed?"))
     if (ans != 1L) { message("RetroFit stopped - check ", workbook, ", then re-run."); return(invisible(NULL)) }
   }
   message("Retro anchored at: ", home)
-  if (is.null(rundir)) rundir <- file.path(home, "RetroFit")   # outputs next to the workbook
-  if (!dir.exists(rundir)) dir.create(rundir, recursive = TRUE)   # create now, not at the end
+  if (is.null(rundir)) rundir <- file.path(home, "RetroFit")     # outputs next to the workbook
+  if (!dir.exists(rundir)) dir.create(rundir, recursive = TRUE)  # create now, not at the end
   message("Retro outputs  -> ", rundir)
 
   ## snapshot the four globals rebuild() will overwrite, restore on exit
@@ -325,17 +335,21 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
     if (!is.null(snap[[nm]])) assign(nm, snap[[nm]], envir = GE), add = TRUE)
 
   ## assessment-period series (calendar year vs value) from a REPORTed vector
+  ## or matrix; matrices (e.g. LegalBio: Nyear x Narea) are summed across areas
   series <- function(rep, nm, Data) {
     v <- rep[[nm]]; if (is.null(v)) return(NULL)
-    v  <- as.numeric(v)
     By <- Data$BurnIn; Y1 <- Data$Year1; Ny <- Data$Nyear
-    r  <- (By + 1):(By + Ny)                       # R indices of assessment years
-    data.frame(year = Y1 + (r - 1) - By, value = v[r])
+    tot <- if (is.matrix(v)) rowSums(v) else as.numeric(v)   # total over areas
+    if (length(tot) < Ny) return(NULL)
+    idx <- if (length(tot) >= By + Ny) (By + 1):(By + Ny) else seq_len(Ny)
+    data.frame(year = Y1 + seq_len(Ny) - 1, value = tot[idx])
   }
 
   ## ---- peel loop ----------------------------------------------------------
-  store <- list()                                   # store[[quantity]][[peel+1]]
+  store   <- list()                                 # store[[quantity]][[peel+1]]
   for (q in quantities) store[[q]] <- vector("list", npeel + 1L)
+  virgins <- setNames(lapply(names(relative), function(x) rep(NA_real_, npeel + 1L)),
+                      names(relative))              # each peel's own B0 per relative quantity
 
   for (p in 0:npeel) {
     message(sprintf("Retro peel %d/%d ...", p, npeel))
@@ -362,11 +376,18 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
                       p, fr$grad, grad_thresh))
     for (q in quantities) {
       s <- series(fr$rep, q, Data)
-      if (!is.null(s)) { s$peel <- p; s$quantity <- q; store[[q]][[p + 1L]] <- s }
+      if (is.null(s)) next
+      if (q %in% names(relative)) {                 # divide by THIS peel's own virgin (depletion)
+        vr <- sum(as.numeric(fr$rep[[ relative[[q]] ]]), na.rm = TRUE)
+        if (is.finite(vr) && vr != 0) { s$value <- s$value / vr; virgins[[q]][p + 1L] <- vr }
+        else warning("relative: no usable virgin for ", q, " at peel ", p,
+                     " - left absolute.", call. = FALSE)
+      }
+      s$peel <- p; s$quantity <- q; store[[q]][[p + 1L]] <- s
     }
   }
 
-  setwd(owd)
+  setwd(owd)   # outputs use absolute paths under home/RetroFit; restore launch dir
 
   ## ---- assemble long series & Mohn's rho ---------------------------------
   long <- do.call(rbind, unlist(store, recursive = FALSE))
@@ -394,17 +415,33 @@ RetroFit <- function(npeel = 5, rebuild = NULL, refit0 = FALSE,
                      col.names = !do_append, append = do_append, quote = FALSE)
   message("Wrote ", fn)
   for (q in quantities) message(sprintf("Mohn's rho [%s] = %+.4f", q, rho[[q]]))
+  for (q in names(relative)) {                      # B0 stability across peels
+    vb <- virgins[[q]][is.finite(virgins[[q]])]
+    if (length(vb) > 1)
+      message(sprintf("%s virgin (B0) across peels: %.4g to %.4g (%.2f%% spread).",
+                      q, min(vb), max(vb), 100 * (max(vb) - min(vb)) / mean(vb)))
+  }
 
   p_obj <- NULL
   if (plot) {
-    long$peel <- factor(long$peel)
-    labs <- setNames(sprintf("%s  (rho = %+.3f)", quantities, rho[quantities]), quantities)
-    p_obj <- ggplot2::ggplot(long, ggplot2::aes(year, value, colour = peel, group = peel)) +
+    qlab <- setNames(quantities, quantities)
+    for (q in names(relative)) qlab[q] <- paste0(q, "/B0")
+    interp <- function(x) { a <- abs(x)
+    if (!is.finite(a)) "NA" else if (a < 0.1) "negligible" else
+      if (a < 0.2) "minor" else "strong (>0.2)" }
+    pdat <- long; pdat$peel <- factor(pdat$peel)
+    labs <- setNames(sprintf("%s  (rho = %+.3f, %s)",
+                             qlab[quantities], rho[quantities],
+                             vapply(rho[quantities], interp, character(1))),
+                     quantities)
+    p_obj <- ggplot2::ggplot(pdat, ggplot2::aes(year, value, colour = peel, group = peel)) +
       ggplot2::geom_line() +
       ggplot2::facet_wrap(~ quantity, scales = "free_y",
                           labeller = ggplot2::labeller(quantity = labs)) +
       ggplot2::labs(x = "Year", y = NULL, colour = "peel",
-                    title = "Retrospective analysis") +
+                    title = "Retrospective analysis",
+                    caption = paste("Mohn's rho rule of thumb: |rho| < 0.1 negligible,",
+                                    "0.1-0.2 minor, > 0.2 strong (Hurtado-Ferro et al. 2015)")) +
       ggplot2::theme_bw()
     pf <- file.path(rundir, "Retro.png")
     ggplot2::ggsave(pf, p_obj, width = 9, height = 5, dpi = 150)

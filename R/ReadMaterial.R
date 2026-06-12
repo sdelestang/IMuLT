@@ -1081,7 +1081,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
   if(NmovePars>0){
     MoveparsLink <- as.numeric(MoveFile[(Index):(Index+NmovePars-1),5])
     MoveparsPrior <- matrix(apply(as.matrix(MoveFile[(Index):(Index+NmovePars-1),6:8]),2,as.numeric), ncol=3)
-    } else { MoveparsLink <- 0; MoveparsPrior <- c(0,0,0) }
+    } else { MoveparsLink <- 0; MoveparsPrior <- matrix(c(0,0,0),ncol=3) }
 
   write("READ IN THE MOVEMENT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL

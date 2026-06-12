@@ -26,7 +26,8 @@ Imports:
     viridis,
     ggplot2,
     openxlsx,
-    tcltk
+    tcltk,
+    fs
 Suggests:
     officer,
     flextable,

@@ -181,21 +181,23 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
 
-  file_path <- "../../ModelStructure.xlsx"
-  # Test workbook and inform user that it is open
-  is_file_locked <- function(path) {
-    tryCatch({
-      con <- file(path, open = "a")  # "a" = append, requires exclusive access
-      close(con)
-      FALSE  # not locked
-    }, error = function(e) {
-      TRUE   # locked / open elsewhere
-    })
-  }
+  # file_path <- "../../ModelStructure.xlsx"
+  # # Test workbook and inform user that it is open
+  # is_file_locked <- function(path) {
+  #   tryCatch({
+  #     con <- file(path, open = "a")  # "a" = append, requires exclusive access
+  #     close(con)
+  #     FALSE  # not locked
+  #   }, error = function(e) {
+  #     TRUE   # locked / open elsewhere
+  #   })
+  # }
+  #
+  # if (is_file_locked(file_path)) {
+  #   stop("ModelStructure.xlsx is currently open in another application. Please close it and try again.")
+  # } else {  wb <- loadWorkbook(file = file_path)  }
 
-  if (is_file_locked(file_path)) {
-    stop("ModelStructure.xlsx is currently open in another application. Please close it and try again.")
-  } else {  wb <- loadWorkbook(file = file_path)  }
+  wb <- load_model_structure()
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)

@@ -1,53 +1,33 @@
 
 
-find_model_file <- function(filename = "ModelStructure.xlsx", up = 2L, down = 2L) {
-  here  <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)
-  roots <- Reduce(function(p, .) dirname(p), seq_len(up), accumulate = TRUE, init = here)
-  roots <- unique(roots)
-
-  pat  <- glob2rx(filename)
-  hits <- character(0)
-  for (r in roots) {
-    f <- list.files(r, pattern = pat, recursive = TRUE,
-                    full.names = TRUE, ignore.case = TRUE)
-    if (!length(f)) next
-    f   <- normalizePath(f, winslash = "/", mustWork = FALSE)
-    rel <- substring(f, nchar(r) + 2L)            # path below root, sans leading "/"
-    dep <- lengths(strsplit(rel, "/")) - 1L       # folders between root and file
-    hits <- c(hits, f[dep <= down])
+find_model_file <- function(filename = "ModelStructure.xlsx", up = 3L) {
+  d <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)
+  for (i in 0:up) {
+    cand <- file.path(d, filename)
+    if (file.exists(cand)) return(cand)
+    parent <- dirname(d)
+    if (parent == d) break          # hit the drive root
+    d <- parent
   }
-  hits <- unique(hits)
-  if (!length(hits))
-    stop(sprintf("Could not find '%s' within %d folder(s) up/down of:\n  %s",
-                 filename, max(up, down), here))
-  if (length(hits) > 1L)
-    warning(sprintf("Multiple copies of '%s' found; using the first:\n%s",
-                    filename, paste(" -", hits, collapse = "\n")))
-  hits[[1]]
+  stop("Could not find '", filename, "' in the working directory or its ", up, " parents.")
 }
 
-#3 Laods ModelStucture whther it is open or not
+#3 Loads ModelStucture whether it is open or not
 load_model_structure <- function(filename = "ModelStructure.xlsx",
-                                 tries = 8, wait = 0.25) {
+                                 tries = 5, wait = 0.25) {
   path <- find_model_file(filename)
-
-  retry <- function(expr, what) {
-    for (i in seq_len(tries)) {
-      ok <- tryCatch(expr, error = function(e) e)
-      if (!inherits(ok, "error") && !identical(ok, FALSE)) return(ok)
-      Sys.sleep(wait)
-    }
-    stop(sprintf("'%s' still failing after %d tries - OneDrive may be mid-sync. ",
-                 basename(path), tries),
-         "Right-click the folder > 'Always keep on this device', or pause OneDrive and retry.")
-  }
-
-  # copy to LOCAL temp (not the synced folder) so the read path never touches OneDrive
-  tmp <- file.path(tempdir(), sprintf("RtmpCopy_%d_%s", Sys.getpid(), basename(path)))
+  tmp  <- file.path(tempdir(), sprintf("RtmpCopy_%d_%s", Sys.getpid(), basename(path)))
   on.exit(unlink(tmp), add = TRUE)
 
-  retry(file.copy(path, tmp, overwrite = TRUE), "copy")  # forces hydration; retries past sync locks
-  wb <- retry(loadWorkbook(tmp), "load")                 # loads a local, unsynced file
+  for (i in seq_len(tries)) {
+    ok <- tryCatch(fs::file_copy(path, tmp, overwrite = TRUE), error = function(e) e)
+    if (!inherits(ok, "error")) break
+    if (i == tries)
+      stop("Could not copy '", basename(path), "': ", conditionMessage(ok))
+    Sys.sleep(wait)
+  }
+
+  wb <- loadWorkbook(tmp)               # loads a local, unsynced copy
   attr(wb, "source_path") <- path
   wb
 }

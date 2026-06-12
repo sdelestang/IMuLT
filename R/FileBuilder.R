@@ -69,17 +69,19 @@ BuildInputFiles <- function(end_override = NULL){
     return(as.numeric(xout))
   }
 
-  safe_loadWorkbook <- function(file) {
-    tryCatch(
-      suppressWarnings(loadWorkbook(file = file)),
-      error = function(e) {
-        stop("'", file, "' appears to be open in Excel. Close it first and retry.", call. = FALSE)
-      }
-    )
-  }
+  # safe_loadWorkbook <- function(file) {
+  #   tryCatch(
+  #     suppressWarnings(loadWorkbook(file = file)),
+  #     error = function(e) {
+  #       stop("'", file, "' appears to be open in Excel. Close it first and retry.", call. = FALSE)
+  #     }
+  #   )
+  # }
+  #
+  # ## Open up file with all info
+  # wb <- safe_loadWorkbook("ModelStructure.xlsx")
 
-  ## Open up file with all info
-  wb <- safe_loadWorkbook("ModelStructure.xlsx")
+  wb <- load_model_structure()
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)

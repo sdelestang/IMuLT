@@ -3,6 +3,21 @@
 \name{JitterFit}
 \alias{JitterFit}
 \title{Jitter analysis for an IMuLT fit}
+\usage{
+JitterFit(
+  n = 50,
+  jitter_sd = 0.1,
+  base_seed = 1,
+  grad_thresh = 0.1,
+  min_scale = 1,
+  bounds = TRUE,
+  tol = 0.1,
+  rundir = ".",
+  append = FALSE,
+  plot = TRUE,
+  ...
+)
+}
 \arguments{
 \item{n}{Number of jittered fits.}
 

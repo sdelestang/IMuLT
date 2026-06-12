@@ -3,6 +3,22 @@
 \name{RetroFit}
 \alias{RetroFit}
 \title{Retrospective analysis for an IMuLT fit}
+\usage{
+RetroFit(
+  npeel = 5,
+  rebuild = NULL,
+  refit0 = FALSE,
+  home = NULL,
+  workbook = "ModelStructure.xlsx",
+  quantities = c("LegalBio", "Recruits"),
+  relative = c(LegalBio = "VirginLegalBio"),
+  grad_thresh = 0.1,
+  rundir = NULL,
+  append = FALSE,
+  plot = TRUE,
+  ...
+)
+}
 \arguments{
 \item{npeel}{Number of years to peel (peels run 0..npeel; 0 = full model).}
 
@@ -21,20 +37,27 @@ rest, for strict comparability.}
 runs. NULL (default) searches up to two levels up and down from
 the working directory and confirms the choice interactively.}
 
+\item{workbook}{Name of the model-structure workbook. Default
+"ModelStructure.xlsx".}
+
+\item{quantities}{Names of REPORTed quantities to track. Vectors are used as
+is; matrices (e.g. LegalBio, Nyear x Narea) are summed across
+areas. Default c("LegalBio", "Recruits").}
+
+\item{relative}{Optional named character vector mapping a tracked quantity to
+the REPORTed field holding its virgin value. Default
+c(LegalBio = "VirginLegalBio") expresses legal biomass as a
+fraction of virgin legal biomass using EACH PEEL'S OWN
+re-estimated B0 (summed over areas) - true depletion - so Mohn's
+rho is computed on the depletion series. Set NULL for absolute.
+Unnamed quantities (e.g. Recruits) stay absolute.}
+
+\item{grad_thresh}{max|grad| convergence flag.}
+
 \item{rundir}{Output folder for Retro.txt / Retro.png. NULL (default) writes
 to a "RetroFit" subfolder beside \code{workbook} (i.e. under \code{home}).}
 
 \item{append, plot}{Output controls.}
-
-\item{workbook}{Name of the model-structure workbook. Default
-"ModelStructure.xlsx".}
-
-\item{quantities}{Names of REPORTed vector quantities to track, e.g.
-"MatBio" (mature biomass) and "Recruits".}
-
-\item{grad_thresh}{max|grad| convergence flag.}
-
-\item{rundir, append, plot}{Output controls (written to the launch directory).}
 
 \item{...}{Forwarded to FitModel. Not \code{report}.}
 }
@@ -51,7 +74,8 @@ Each peel is built fresh by running \code{BuildInputFiles()} in the parent folde
 that holds \code{ModelStructure.xlsx}, with the terminal year reduced by the peel.
 \code{RetroFit} locates and confirms that parent folder, anchors the working
 directory there before every peel, and restores the directory and the
-overwritten globals on exit.
+overwritten globals on exit. Quantities named in \code{relative} are shown as a
+fraction of each peel's own re-estimated virgin (true depletion).
 }
 \examples{
 \dontrun{
@@ -59,15 +83,15 @@ overwritten globals on exit.
 # holds ModelStructure.xlsx, confirms it, then peels the terminal year 1..5.
 full_end <- Data$Year1 + Data$Nyear - 1
 retro <- RetroFit(
-  npeel   = 5,
-  rebuild = function(peel) {
+  npeel    = 5,
+  rebuild  = function(peel) {
     rundir <- BuildInputFiles(end_override = full_end - peel)  # wd is `home`
-    setwd(rundir)
-    LoadData(); LoadPars()
+    setwd(rundir); LoadData(); LoadPars()
   },
   quantities = c("MatBio", "Recruits"),
+  relative   = c(MatBio = "VirginBiomass"),  # MatBio as depletion (own B0)
   mxph = MaxPhase)
 retro$rho     # Mohn's rho per quantity
-retro$plot    # peel overlay, rho in the facet strip labels
+retro$plot    # peel overlay, rho + interpretation in the facet strip labels
 }
 }

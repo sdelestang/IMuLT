@@ -21,8 +21,8 @@ Reads initial parameter values, bounds, and estimation phases from all
 model input files and prepares them for the optimisation routine. This
 function must be called before running the model estimation. Prints a
 parameter summary table to the console showing counts of estimated,
-linked, and offset parameters per group, followed by a detailed listing
-of any linked parameters to aid in diagnosing mis-specified links.
+mirrored, and linked parameters per group, followed by a detailed listing
+of any linked parameters to aid in diagnosing miss-specified links.
 }
 \details{
 The function:
@@ -33,10 +33,10 @@ The function:
 \item Handles special cases (e.g., single area models)
 \item Records which parameters are active for output tracking
 \item Prints a summary table of parameter groups with columns for
-Total, Estimated, Phases, Linked (positive links = copy), and
+Total, Estimated, Phases, Mirrored (positive links = copy), and
 Offset (negative links = additive offset)
-\item Lists each linked parameter individually, showing source and
-target within the group, to help catch mis-specified link indices
+\item Lists each mirrored parameter individually, showing source and
+target within the group, to help catch miss-specified link indices
 }
 
 Parameter groups loaded include:

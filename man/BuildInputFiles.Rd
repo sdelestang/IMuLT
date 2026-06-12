@@ -4,7 +4,7 @@
 \alias{BuildInputFiles}
 \title{Build IMuLT Model Input Files from Excel Template}
 \usage{
-BuildInputFiles()
+BuildInputFiles(end_override = NULL)
 }
 \value{
 NULL (invisibly). Creates a new directory containing all model input files.
@@ -19,10 +19,10 @@ generates a complete set of properly formatted input files in a new run director
 The function requires a ModelStructure.xlsx file in the current working directory.
 This Excel workbook must contain the following sheets:
 \itemize{
-\item dynamics - Model dynamics and temporal settings
-\item area - Spatial structure and management zones
-\item times - Time step specifications
-\item fleetcode - Fleet definitions
+\item Dynamics - Model dynamics and temporal settings
+\item Area - Spatial structure and management zones
+\item Times - Time step specifications
+\item Fleetcode - Fleet definitions
 \item Catch - Catch data by year, time step, and fleet
 \item CPUE - Catch-per-unit-effort indices
 \item LengthFreq - Length frequency data

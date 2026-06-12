@@ -3,6 +3,24 @@
 \name{ProfileLT}
 \alias{ProfileLT}
 \title{True likelihood profile for an IMuLT model fit}
+\usage{
+ProfileLT(
+  group,
+  pos,
+  lower = NULL,
+  upper = NULL,
+  step = NULL,
+  se = NULL,
+  label = NULL,
+  rundir = ".",
+  baseline = "Output/BigSave.lda",
+  append = FALSE,
+  plot = TRUE,
+  fast = FALSE,
+  newtonSteps = 0,
+  ...
+)
+}
 \arguments{
 \item{group}{Character name of the parameter block, e.g. "MainPars". Must be
 one of names(InitialVars) that maps to a PARAMETER_VECTOR.}

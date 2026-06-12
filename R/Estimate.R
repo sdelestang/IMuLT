@@ -231,18 +231,32 @@ csemod <- function(x){
 #' @export
 choose_model <- function(pattern = 'Run') {
   x <- list.files(pattern = pattern)
-    if(length(x)>1){
-    choice <- menu(x, title = "Choose a model:")
-    if (choice == 0) {
-      cat(paste("OK, the default model is", x[1], "\n"))
+
+  if (length(x) == 0)
+    stop("No items matching pattern '", pattern, "' in ", getwd())
+
+  if (length(x) > 1) {
+    menu_txt <- paste0(seq_along(x), ": ", x, collapse = "\n")
+    cat("Choose a model:\n", menu_txt, "\n", sep = "")   # printed to console
+
+    ans <- svDialogs::dlg_input(
+      message = paste0("Choose a model by number:\n\n", menu_txt)
+    )$res
+
+    choice <- suppressWarnings(as.integer(ans))
+
+    if (length(choice) == 0 || is.na(choice) || choice < 1 || choice > length(x)) {
       selected <- x[1]
+      cat(paste0("OK, defaulting to ", selected, "\n"))
     } else {
       selected <- x[choice]
-      cat(paste("Model", selected, "has been chosen\n"))
+      cat(paste0("Model ", selected, " has been chosen\n"))
     }
-    } else { selected <- x[1]
-             cat(paste("Only one model present.", selected, "has been chosen\n"))
-    }
+  } else {
+    selected <- x[1]
+    cat(paste0("Only one model present. ", selected, " has been chosen\n"))
+  }
+
   setwd(file.path(getwd(), selected))
   invisible(selected)
 }

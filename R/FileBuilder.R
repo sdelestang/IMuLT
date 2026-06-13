@@ -52,6 +52,12 @@
 #' @export
 BuildInputFiles <- function(end_override = NULL){
 
+  # Ensure the wd is set to the same location as ModelStructure.xls
+  MSdir <- find_model_file()
+  if(getwd()!=MSdir) { message("Changing working doirectory to .../ModelStructure.xls")
+      setwd(MSdir)
+  }
+
   suppressPackageStartupMessages({
     library(dplyr, quietly = T)
     library(magrittr, quietly = T)

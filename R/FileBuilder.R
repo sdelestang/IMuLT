@@ -1047,7 +1047,7 @@ for(r in 1:nrow(gauge4)){
     tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','selectivity'), tdat, 2)
     pos2 <- find(c("#",'Selectivity'), tdat, -1)
-    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    tdat <- tdat[pos1:pos2,c(1:4,sum(!is.na(tdat[pos1,]) & tdat[pos1,]!=''))  ]
     for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
     colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
     tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")

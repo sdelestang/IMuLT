@@ -1332,8 +1332,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-
-
         # ---- BFGS gradient revert guard ─────────────────────────────────
         # Keep BFGS solution if NLL improved, even if gradient worsened —
         # nlminb will polish from the better location. Only revert if BFGS

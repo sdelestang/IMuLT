@@ -1332,18 +1332,43 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        # ---- BFGS gradient revert guard ─────────────────────────────────
-        # If BFGS degraded the gradient (common in tight basins on restart
-        # >= 2 where the cold-start Hessian approximation overshoots), revert
-        # to the pre-BFGS parameters so nlminb starts from the better point.
-        if (bfgs_grad > pre_bfgs_grad) {
-          cat("  BFGS degraded gradient (", round(pre_bfgs_grad, 4), "->",
-              round(bfgs_grad, 4), ") — reverting to pre-BFGS parameters\n",
-              sep = "")
-          fit_bfgs$par   <- bfgs_start
-          fit_bfgs$value <- model$fn(bfgs_start)
-        }
 
+
+        # ---- BFGS gradient revert guard ─────────────────────────────────
+        # Keep BFGS solution if NLL improved, even if gradient worsened —
+        # nlminb will polish from the better location. Only revert if BFGS
+        # degraded BOTH NLL and gradient.
+        bfgs_nll_improved  <- fit_bfgs$value < fn_check
+        bfgs_grad_improved <- bfgs_grad <= pre_bfgs_grad
+
+        if (!bfgs_nll_improved && !bfgs_grad_improved) {
+          cat("  BFGS degraded both NLL (", round(fn_check, 4), "->",
+              round(fit_bfgs$value, 4), ") and gradient (",
+              round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+              ") — reverting to pre-BFGS parameters\n", sep = "")
+          fit_bfgs$par   <- bfgs_start
+          fit_bfgs$value <- fn_check
+        } else {
+          if (bfgs_nll_improved && !bfgs_grad_improved) {
+            cat("  BFGS improved NLL (", round(fn_check, 4), "->",
+                round(fit_bfgs$value, 4), ") but degraded gradient (",
+                round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                ") — keeping, nlminb will polish\n", sep = "")
+          } else if (!bfgs_nll_improved && bfgs_grad_improved) {
+            cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
+                round(bfgs_grad, 4), ") but degraded NLL (",
+                round(fn_check, 4), "->", round(fit_bfgs$value, 4),
+                ") — keeping\n", sep = "")
+          } else {
+            cat("  BFGS improved both NLL (", round(fn_check, 4), "->",
+                round(fit_bfgs$value, 4), ") and gradient (",
+                round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                ")\n", sep = "")
+          }
+          # Update prev_grad tracking to reflect the actual BFGS gradient
+          # so the stall detector sees the true current state
+          pre_bfgs_grad <- bfgs_grad
+        }
         # ---- Step B: nlminb from BFGS solution ──────────────────────────
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")

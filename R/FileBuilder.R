@@ -851,7 +851,7 @@ print("Building Control File")
     fleetyr <- fleetyr[egap$season%in%startseason:endseason,]
     pars <- sort(unique(as.vector(as.matrix(fleetyr))))
 
-    egappar_sum <- egappar %>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex)) %>% group_by(yearlink, Sex,form,uniq) %>% summarise(num=length(Sex), .groups = 'drop') %>% ungroup() %>% mutate(type=case_when(form=='logistic'~3, form=='doublelogistic'~9, form=='knife'~4)) %>% as.data.frame() %>% arrange(Sex) %>% ungroup() %>% mutate(pattern=as.numeric(rownames(.))-1, Pointer=pattern) %>% dplyr::select(pattern, type, Sex, num, Pointer, uniq, yearlink)
+    egappar_sum <- egappar %>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex)) %>% group_by(yearlink,Sex,form,uniq) %>% summarise(num=length(Sex), .groups = 'drop') %>% ungroup() %>% mutate(type=case_when(form=='logistic'~3, form=='doublelogistic'~9, form=='knife'~4)) %>% as.data.frame() %>% arrange(Sex) %>% ungroup() %>% mutate(pattern=as.numeric(rownames(.))-1, Pointer=pattern) %>% dplyr::select(pattern, type, Sex, num, Pointer, uniq, yearlink)
 
 egappar_sumog <- egappar_sum
 for(p in pars){
@@ -898,7 +898,7 @@ for(p in pars){
 
     tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
 
-    tegappar <- egappar %>% mutate(hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(uniq) %>% mutate(phase=ifelse(Link==0,phase, -abs(phase)))
+    tegappar <- egappar %>% mutate(order=1:nrow(egappar), hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(order,lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(order) %>% mutate(phase=ifelse(Link==0,phase, -abs(phase))) %>% dplyr::select(-order)
     ## Now make the multiple links
     tegapparog <- tegappar
     for(p in pars){

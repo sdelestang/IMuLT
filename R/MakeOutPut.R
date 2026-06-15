@@ -181,22 +181,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
 
-  # file_path <- "../../ModelStructure.xlsx"
-  # # Test workbook and inform user that it is open
-  # is_file_locked <- function(path) {
-  #   tryCatch({
-  #     con <- file(path, open = "a")  # "a" = append, requires exclusive access
-  #     close(con)
-  #     FALSE  # not locked
-  #   }, error = function(e) {
-  #     TRUE   # locked / open elsewhere
-  #   })
-  # }
-  #
-  # if (is_file_locked(file_path)) {
-  #   stop("ModelStructure.xlsx is currently open in another application. Please close it and try again.")
-  # } else {  wb <- loadWorkbook(file = file_path)  }
-
   wb <- load_model_structure()
 
   #This is the location of the data input files and their associated parameters
@@ -216,7 +200,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
 ## Get names of Pars
   MainParsName <- readWorkbook(wb,sheet='MainParameters', startRow = 2)$comment
   RecParName <- paste0('Rec_',readWorkbook(wb,sheet='Recruitment', startRow = 2)$description)
-  RecParName <- RecParName[2:length(RecParName)] ## Shorten for rec_devs and spatial rec_devs
+  RecParName <- RecParName[3:length(RecParName)] ## Shorten for rec_devs and spatial rec_devs
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)

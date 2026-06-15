@@ -2142,6 +2142,8 @@ Type objective_function<Type>::operator() ()
       Type sdlog  = sqrt(log(Type(1.0) + square(EffparsPrior(r,2)/EffparsPrior(r,1))));
       EffParPriorPen += -dnorm(log(efpars(r,0)), mulog, sdlog, true) + log(efpars(r,0));
     }
+    // Soft lower bound — applied once per parameter alongside the prior
+    EffParPriorPen += exp(-10.0 * efpars(r,0));
   }
 
   //// Deal with Migrate Pars  ///////

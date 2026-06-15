@@ -1058,7 +1058,7 @@ for(r in 1:nrow(gauge4)){
     tdat  <- read.table(paste(floc,'/RETAINSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','retention'), tdat, 2)
     pos2 <- find(c("#",'retention',"-"), tdat, -1)
-    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,]) & tdat[pos1,]!=''))  ]
     for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
     colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
     tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
@@ -1068,7 +1068,7 @@ for(r in 1:nrow(gauge4)){
     tdat  <- read.table(paste(floc,'/SELEXSPEC.DAT',sep=''),comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
     pos1 <- find(c("#",'Specifications','for','Fleet'), tdat, 2)
     pos2 <- find(c("#",'Specifications','for','legal'), tdat, -1)
-    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,])))  ]
+    tdat <- tdat[pos1:pos2,c(1:4, sum(!is.na(tdat[pos1,]) & tdat[pos1,]!=''))  ]
     for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
     colnames(tdat) <- c("Sex","Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
     tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")
@@ -1079,7 +1079,7 @@ for(r in 1:nrow(gauge4)){
     tdat[tdat==''&!is.na(tdat)] <- NA
     pos1 <- find(c("#",'Discard','mortality'), tdat, 2)
     pos2 <- find(c("#",'Recruitment_deviations'), tdat, -1)
-    tdat <- tdat[pos1:pos2,c(1:3, sum(!is.na(tdat[pos1,])))  ]
+    tdat <- tdat[pos1:pos2,c(1:3, sum(!is.na(tdat[pos1,]) & tdat[pos1,]!=''))  ]
     for(proj in 2:projectseason){  tdat <- cbind(tdat, nm=tdat[,ncol(tdat)])  }
     colnames(tdat) <- c("Age","Fleet","Step:",(endseason+1):(endseason+projectseason))
     tmp <- c(tmp, "#",paste(colnames(tdat),collapse = "\t"),"\n")

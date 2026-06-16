@@ -405,11 +405,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   ids$link <- as.numeric(row.names(ids))-1
   fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
+  fleet4$Descrip <- fleets$description[match(fleet4$Fleet, (fleets$fleet-1))]
 
   for(f in unique(fleet4$Fleet)){
     if(length(unique(fleet4$Sex))==1) { fleet4$sex <- 'Sex 1' } else { fleet4$sex <- c('F','M')[(fleet4$Sex+1)]}
     fleet5 <- fleet4 %>% filter(Fleet==f)
-    filename <- filenametopath(rundir,paste0('Fleet.',(f+1),"_Selectivity.png"))
+    filename <- filenametopath(rundir,paste0('Fleet ',unique(fleet5$Fleet)+1," ", unique(fleet5$Descrip), "_Selectivity.png"))
     plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=c(1,1))
     sel2 <- sel[(1+fleet5$link),]
@@ -427,7 +428,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
       theme(legend.position = "bottom") +
       guides(colour = guide_legend(nrow = 2))
     print(p)
-    caption <- paste("Selectivity curves estimated by the model.")
+    caption <- paste(unique(fleet5$Descrip),"Selectivity curves estimated by the model.")
     addplot(filen=filename,rundir=rundir,category="Selectivity_Retention",caption=caption)
   }
 
@@ -947,7 +948,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
                              axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
                        ylab('Catch rate (kg/pot)'))}
             }
-    caption <- paste(unique(tdat3$aSex), unique(tdat3$Areaname), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    caption <- paste(unique(tdat3$aSex), unique(tdat3$tdat2$Descrip), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 

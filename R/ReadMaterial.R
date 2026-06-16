@@ -2365,14 +2365,14 @@ Parssolved <- function(InitialVars){
     tmp_nsum <- paste(unique(tmp_n[tmp_n>0]),collapse = ' ')
     pos <- which(tmp_n>0)
     npos <- length(pos)
-    if(max(tmp_n)>MaxPhase) MaxPhase <<- max(tmp_n)
+    if(length(tmp_n)>0) if(max(tmp_n)>MaxPhase) MaxPhase <<- max(tmp_n)
     if(length(pos)>0) {
       if(par!="MainPars") pos <-1
       if(!exists('parsolve')) { parsolve <- data.frame(Parameter=par,Number=npos,Phases=tmp_nsum)} else parsolve <- rbind(parsolve,data.frame(Parameter=par,Number=npos,Phases=tmp_nsum))
-    }}
+    }
+  }
   if(!exists('parsolve')) {parsolve <- NA}
   write.table(parsolve,'Output/Parameters_solved.txt',quote = F, sep='\t',row.names = F)
- # print(parsolve)
 }
 
 #' Copy Data to Clipboard for Excel Pasting

@@ -2170,6 +2170,9 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
 
  Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power")+1;
  NPuerPow <- as.numeric(RecruitFile[Index,1])
+ PuerPowPars <- rep(0,NPuerPow)
+ PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
+ PuerPowPhase <- rep(-99,NPuerPow)
  if(NPuerPow>0){
    PuerPowPars <- rep(0,NPuerPow)
    PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
@@ -2183,10 +2186,6 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
    }
    write("Puerulus power parameters",EchoFile,append=T)
    write(PuerPowPars,EchoFile,append=T,ncol=NPuerPow)
- } else {
-   PuerPowPars <- 1
-   PuerPowBnd <- matrix(1,nrow=1,ncol=2)
-   PuerPowPhase <- -99
  }
  if(is.na(sum(PuerPowPars))) { warning("\nThere are NA's in Puerulus Pars\n", call. = FALSE); OK <- 0   }
 

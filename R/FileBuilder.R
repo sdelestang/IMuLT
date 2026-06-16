@@ -54,7 +54,7 @@ BuildInputFiles <- function(end_override = NULL){
 
   # Ensure the wd is set to the same location as ModelStructure.xls
   MSdir <- gsub('/ModelStructure.xlsx','',find_model_file())
-  if(getwd()!=MSdir) { message("Changing working doirectory to .../ModelStructure.xls")
+  if(getwd()!=MSdir) { message("Changing working directory back to .../ModelStructure.xls")
     setwd(MSdir)
   }
 

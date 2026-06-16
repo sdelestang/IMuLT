@@ -393,7 +393,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   fleetareatmp <- fleetarea %>% dplyr::select(Area=areaname, Fleet=fleet, FleetType=fleettype)
   addtable(intable=fleetareatmp,filen="Fleets.csv",rundir=rundir,category="Data",caption="Fleet Descriptions")
 
-  ### Selectivity
+  #### Selectivity ####
   print("Making Selectivity and Retention Plots")
   fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
   sel <- findNclean(c('Full','Selectivity'), dat, 1)
@@ -948,7 +948,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
                              axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
                        ylab('Catch rate (kg/pot)'))}
             }
-    caption <- paste(unique(tdat3$aSex), unique(tdat3$tdat2$Descrip), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    caption <- paste(unique(tdat3$aSex), unique(tdat3$Descrip), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 

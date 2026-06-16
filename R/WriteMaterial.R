@@ -240,6 +240,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     if (ParName != "dummy") {
       print(ParName)
       ThePar <- InitialVars[[ParName]]
+      if (length(ThePar$Initial) == 0) next   # Fixes a blank Par
       link_vec <- switch(ParName,
                          "MainPars"    = Data$MparsLink,
                          "RecruitPars" = Data$RecparsLink,

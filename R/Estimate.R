@@ -72,17 +72,14 @@
 #' }
 #'
 #' @keywords internal
-SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
+SetInitialAndPhases <- function(ParOld, parameters, InitialVars, CurrPhase)
 {
-
-  # Pointer to old parameters
   Ipnt <- 0
-  SinglePhase<-function(Est,Bnd,Phase,CurrPhase)
+  SinglePhase <- function(Est, Bnd, Phase, CurrPhase)
   {
     map <- NULL
     estVec <- NULL; lowBnd <- NULL; uppBnd <- NULL
     Npar <- length(Est)
-
     for (Ipar in 1:Npar)
     {
       if (Phase[Ipar] > 0 & Phase[Ipar] <= (CurrPhase-1))
@@ -92,13 +89,13 @@ SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
       }
       if (Phase[Ipar] > 0 & Phase[Ipar] <= CurrPhase)
       {
-        map <- c(map,Ipar)
-        estVec <- c(estVec,Est[Ipar])
-        lowBnd <- c(lowBnd,Bnd[Ipar,1])
-        uppBnd <- c(uppBnd,Bnd[Ipar,2])
+        map <- c(map, Ipar)
+        estVec <- c(estVec, Est[Ipar])
+        lowBnd <- c(lowBnd, Bnd[Ipar,1])
+        uppBnd <- c(uppBnd, Bnd[Ipar,2])
       }
       else
-        map <- c(map,as.factor(NA))
+        map <- c(map, as.factor(NA))
     }
     ReturnObj <- NULL
     ReturnObj$map <- as.factor(map)
@@ -109,46 +106,46 @@ SetInitialAndPhases <- function(ParOld,parameters,InitialVars,CurrPhase)
     return(ReturnObj)
   }  # SinglePhase
 
+  # ── Map-building loop ────────────────────────────────────────────────────
   map <- list()
   estvec <- NULL; lowBnd <- NULL; uppBnd <- NULL
+
   for (ParName in names(parameters))
   {
     if (ParName != "dummy")
     {
-      if (length(InitialVars[[ParName]]$Initial) >0)
+      if (length(InitialVars[[ParName]]$Initial) > 0)
       {
-        ThePar <- InitialVars[[ParName]]
-        PhaseOut <- SinglePhase(ThePar$Initial,ThePar$Bnd,ThePar$Phase,CurrPhase)
+        ThePar   <- InitialVars[[ParName]]
+        PhaseOut <- SinglePhase(ThePar$Initial, ThePar$Bnd, ThePar$Phase, CurrPhase)
         parameters[[ParName]] <- PhaseOut$Est
-        map <- append(map,list(ParName=PhaseOut$map))
-        estvec <- c(estvec,PhaseOut$estVec)
-        lowBnd <- c(lowBnd,PhaseOut$lowBnd)
-        uppBnd <- c(uppBnd,PhaseOut$uppBnd)
+        map[[ParName]] <- PhaseOut$map        # named directly
+        estvec <- c(estvec, PhaseOut$estVec)
+        lowBnd <- c(lowBnd, PhaseOut$lowBnd)
+        uppBnd <- c(uppBnd, PhaseOut$uppBnd)
       }
-      else
-      {
-        estvec <- c(estvec,0)
-        map <- append(map,list(ParName=factor(NA)))
-      }
+      # else: zero-length block — omit from map entirely
     }
-    else
+    else  # dummy
     {
-      if(max(as.vector(sapply(map, function(x) max(as.numeric(!is.na(x))))))==0) {
-        map <- append(map,list(dummy=factor(1)))
-        estvec <- c(estvec,0)
-        lowBnd <- c(lowBnd,-1)
-        uppBnd <- c(uppBnd,1)
-      } else { map <- append(map,list(dummy=factor(NA)))}
+      if (max(as.vector(sapply(map, function(x) max(as.numeric(!is.na(x)))))) == 0) {
+        map[["dummy"]] <- factor(1)
+        estvec <- c(estvec, 0)
+        lowBnd <- c(lowBnd, -1)
+        uppBnd <- c(uppBnd,  1)
+      } else {
+        map[["dummy"]] <- factor(NA)
+      }
     }
   }
-  names(map) <- names(parameters)
-  # dummy
+  # names(map) <- names(parameters)  # removed — map is named inline above
+
   ReturnObj <- NULL
-  ReturnObj$map = map
+  ReturnObj$map        <- map
   ReturnObj$parameters <- parameters
-  ReturnObj$EstVec <- estvec
-  ReturnObj$lowBnd <- lowBnd
-  ReturnObj$uppBnd <- uppBnd
+  ReturnObj$EstVec     <- estvec
+  ReturnObj$lowBnd     <- lowBnd
+  ReturnObj$uppBnd     <- uppBnd
   return(ReturnObj)
 }
 

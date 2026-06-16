@@ -2208,10 +2208,10 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  if(is.na(sum(GrowthPars))) { warning("\nThere are NA's in Growth Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+1;
- if(MoveSpecs$NmovePars>0){
-   MovePars <- rep(0,MoveSpecs$NmovePars)
-   MoveBnd <- matrix(0,nrow=MoveSpecs$NmovePars,ncol=2)
-   MovePhase <- rep(-99,MoveSpecs$NmovePars)
+ MovePars <- rep(0,MoveSpecs$NmovePars)
+ MoveBnd <- matrix(0,nrow=MoveSpecs$NmovePars,ncol=2)
+ MovePhase <- rep(-99,MoveSpecs$NmovePars)
+if(MoveSpecs$NmovePars>0){
    for (Ipar in 1:MoveSpecs$NmovePars)
     {
      MovePars[Ipar] <- as.numeric(MoveFile[Index+Ipar,3])

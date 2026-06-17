@@ -111,7 +111,7 @@
 #' @seealso \code{\link{LoadOutputData}} for loading outputs without report generation
 #'
 #' @export
-MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
+MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
 
   suppressPackageStartupMessages({
     library(makehtml)
@@ -403,7 +403,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
   ids$name <- paste(ids[,(infpos+1)],ids[,(infpos+2)])
   ids <- data.frame(link=NA, name=unique(ids$name))
   ids$link <- as.numeric(row.names(ids))-1
-  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
+  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link') %>% group_by(Fleet) %>% mutate(name=unique(name)[!is.na(unique(name))])
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
   fleet4$Descrip <- fleets$description[match(fleet4$Fleet, (fleets$fleet-1))]
 
@@ -962,20 +962,25 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
 
   if(nrow(fcreepsd)>0) {fcreep <- cbind(fcreep,fcreepsd) %>% mutate(Match=paste(id,Year))} else{
     fcreep %<>% mutate(SE=0, upr=Predicted, lwr=Predicted, Match=paste(id,Year)) }
-  tdat <- expand.grid(area=1:nareas, year=yr)
-  fcre <- fleetarea %>% filter(group=='comm')
-  tdat$fcreep <- fcre$effic.creep[match(tdat$area, fcre$newarea)]
-  fcreep %<>% rename(est=Predicted, fcreep=id, year=Year) %>% dplyr::select(est,fcreep,year,lwr,upr)
-  tdat %<>% left_join(fcreep, by=c('year', 'fcreep'))
-  fleetarea1 <- fleetarea %>% group_by(newarea, areaname) %>% summarise(cnt=length(newarea))
-  tdat %<>% mutate(locname=fleetarea1$areaname[match(area,fleetarea1$newarea)])
+  #tdat <- expand.grid(area=1:nareas, year=yr)
+  tdat <- expand.grid(year=yr, fleet=fleetarea$fleet)
+  tdat$descrip <- fleetarea$description[match(tdat$fleet, fleetarea$fleet)]
+  tdat$effcreeplink <- fleetarea$effic.creep[match(tdat$fleet, fleetarea$fleet)]
+  #fcre <- fleetarea %>% filter(group=='comm')
+  fcre <- fleetarea %>% filter(effic.creep>0)
+  #tdat$fcreep <- fcre$effic.creep[match(tdat$area, fcre$newarea)]
+  #tdat$fcreep <- fcre$effic.creep[match(tdat$area, fcre$newarea)]
+  fcreep %<>% rename(est=Predicted, effcreeplink=id, year=Year) %>% dplyr::select(est,effcreeplink,year,lwr,upr)
+  tdat %<>% left_join(fcreep, by=c('year', 'effcreeplink')) %>% mutate(est=ifelse(is.na(est),1,est),lwr=ifelse(is.na(lwr),1,lwr),upr=ifelse(is.na(upr),1,upr))
+  #fleetarea1 <- fleetarea %>% group_by(newarea, areaname, description) %>% summarise(cnt=length(newarea))
+  #tdat %<>% mutate(locname=fleetarea1$description[match(area,fleetarea1$newarea)])
   suppressWarnings(print(ggplot(data=tdat, aes(year, est)) +
                            geom_errorbar(aes(ymin=lwr,ymax=upr),colour='grey70')+
                            geom_line() + geom_point(size=0.5)+
                            scale_color_manual(values = c("red")) +
                            #geom_errorbar(aes(ymin=mn-sd, ymax=mn+sd, color=name) , width=.2,position=position_dodge(0.05)) +
                            labs(x="Year",y="Fishing efficiency")+
-                           facet_wrap(~locname) + theme_bw()))
+                           facet_wrap(~descrip) + theme_bw()))
 
   caption <- "Estimated (95% CI grey) compounding commercial fishing efficiency for each model area."
   addplot(filen=filename,rundir=rundir,category="Fishing_Efficiency",caption=caption)
@@ -1745,7 +1750,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='x',openfile=TRUE){
     mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
     ungroup()
 
-  pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) > 0)) %>%
+  pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) != 0)) %>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
            Group    = sub("_[0-9]+$", "", OrigParameter),
            GroupIdx = suppressWarnings(as.numeric(sub(".*_", "", OrigParameter))),

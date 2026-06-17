@@ -898,7 +898,7 @@ for(p in pars){
 
     tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
 
-    tegappar <- egappar %>% mutate(order=1:nrow(egappar), hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(order,lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(order) %>% mutate(phase=ifelse(Link==0,phase, -abs(phase))) %>% dplyr::select(-order)
+    tegappar <- egappar %>% mutate(order=1:nrow(egappar), hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(order,lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(order) %>% mutate(phase=ifelse(Link<=0,phase, -abs(phase))) %>% dplyr::select(-order)
     ## Now make the multiple links
     tegapparog <- tegappar
     for(p in pars){

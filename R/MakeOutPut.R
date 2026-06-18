@@ -403,7 +403,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   ids$name <- paste(ids[,(infpos+1)],ids[,(infpos+2)])
   ids <- data.frame(link=NA, name=unique(ids$name))
   ids$link <- as.numeric(row.names(ids))-1
-  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link') %>% group_by(Fleet) %>% mutate(name=unique(name)[!is.na(unique(name))])
+  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
+  fleet3$name[is.na(fleet3$name)] <- fleet3$name[!is.na(fleet3$name)][match(fleet3$link[is.na(fleet3$name)], fleet3$link[!is.na(fleet3$name)])]
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
   fleet4$Descrip <- fleets$description[match(fleet4$Fleet, (fleets$fleet-1))]
 
@@ -1775,7 +1776,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   plot_df <- pars %>%
     mutate(across(c(Estimate, SD, Gradient, lwrBound, uprBound,
                     PriorType, PriorMean, PriorSD, Initial),~ as.numeric(na_if(as.character(.), "-")))) %>%
-    filter(!is.na(SD), SD > 0, as.numeric(Link) == 0)
+    filter(!is.na(SD), SD > 0, as.numeric(Link) <= 0)
 
   npars_per_page <- 8
   npar_total <- nrow(plot_df)

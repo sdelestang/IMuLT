@@ -194,8 +194,8 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       for (int Isize=0;Isize<MaxLen; Isize++) {
         ActSelex(IselPattern,Isize) =  (1.0/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)))) * (1.0/(1.0+exp(-p4*(dat.MidLenBin(Isex,Isize)-p3))));
         if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
-      // for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
-      //  ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+       for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
+        ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
     }
 
     /*

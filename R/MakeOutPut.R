@@ -404,7 +404,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   ids <- data.frame(link=NA, name=unique(ids$name))
   ids$link <- as.numeric(row.names(ids))-1
   fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
-  fleet3$name[is.na(fleet3$name)] <- fleet3$name[!is.na(fleet3$name)][match(fleet3$link[is.na(fleet3$name)], fleet3$link[!is.na(fleet3$name)])]
+  fleet3 <- fleet3 %>% group_by(Fleet) %>%mutate(name = ifelse(is.na(name), name[!is.na(name)][1], name)) %>% ungroup()
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
   fleet4$Descrip <- fleets$description[match(fleet4$Fleet, (fleets$fleet-1))]
 
@@ -1751,23 +1751,26 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
     mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
     ungroup()
 
-  pars %<>% filter(!is.na(Estpar_cnt) | (suppressWarnings(as.numeric(Link)) != 0)) %>%
+  pars %<>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
            Group    = sub("_[0-9]+$", "", OrigParameter),
            GroupIdx = suppressWarnings(as.numeric(sub(".*_", "", OrigParameter))),
            Link_num = suppressWarnings(as.numeric(Link))) %>%
     group_by(Group) %>%
     mutate(
-      Var = row_number(),
       Resolved = case_when(
         Link_num > 0 ~ round(Estimate[match(Link_num, GroupIdx)], 3),
         Link_num < 0 ~ round(Estimate[match(abs(Link_num), GroupIdx)] + Estimate, 3),
         TRUE ~ NA_real_)) %>%
     ungroup() %>%
+    filter(!is.na(Estpar_cnt) | Link_num != 0) %>%
+    group_by(Group) %>%
+    mutate(Var = row_number()) %>%
+    ungroup() %>%
     mutate(Gradient = round(suppressWarnings(as.numeric(Gradient)), 6),
            Resolved = replace_na(as.character(Resolved), "-"),
            Gradient = replace_na(as.character(Gradient), "-"),
-           SD = replace_na(as.character(SD), "-")) %>%
+           SD       = replace_na(as.character(SD), "-")) %>%
     select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
            PriorType, PriorMean, PriorSD, Initial, Link)
 

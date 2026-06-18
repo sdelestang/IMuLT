@@ -2007,23 +2007,9 @@ Type objective_function<Type>::operator() ()
   Type QRedsPar;
   Type SigmaR;
   int Link;
-  //vector <Type> LogRinitial(Narea);
-  //Type Finitial;
 
-  //int BurnIn = 0;
-  //for(int Iarea=0;Iarea<Narea;Iarea++){ if(BurnIn<BurnInVec(Iarea)) BurnIn=BurnInVec(Iarea); }
-  //dataset.BurnIn=BurnIn;
 
   ////// Deal with mainpars ///////
-  // Adjust main parameters to account for linked parameters and linked offset
-  for(int mp=0;mp<MparsLink.size();mp++){
-    if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1);
-    if(MparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
-      Link = -1 * MparsLink(mp);
-      MainPars(mp) += MainPars(Link-1);
-      }
-      }
-
   // Apply priors on Main Pars if requested
   Type MainParPriorPen = 0;
   Type ScaleMP = 0;
@@ -2048,16 +2034,16 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-  //// Deal with Recruitment Pars  ///////
-  // Adjust parameters to account for linked parameters
-  for(int mp=0;mp<RecparsLink.size();mp++){
-    if(RecparsLink(mp)>0) RecruitPars(mp)=RecruitPars(RecparsLink(mp)-1);
-    if(RecparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
-      Link = -1 * RecparsLink(mp);
-      RecruitPars(mp) += RecruitPars(Link-1);
+  // Adjust main parameters to account for linked parameters and linked offset
+  for(int mp=0;mp<MparsLink.size();mp++){
+    if(MparsLink(mp)>0) MainPars(mp)=MainPars(MparsLink(mp)-1);
+    if(MparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * MparsLink(mp);
+      MainPars(mp) += MainPars(Link-1);
     }
-    }
+  }
 
+  //// Deal with Recruitment Pars  ///////
   // Apply priors on Rec Pars if requested
   Type RecParPriorPen = 0;
   int nrowRP = RecparsPrior.rows();
@@ -2080,16 +2066,16 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-  //// Deal with Selectivity Pars  ///////
-  // Adjust  parameters to account for linked parameters
-  for(int mp=0;mp<SelparsLink.size();mp++){
-    if(SelparsLink(mp)>0) SelPars(mp)=SelPars(SelparsLink(mp)-1);
-    if(SelparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
-      Link = -1 * SelparsLink(mp);
-      SelPars(mp) += SelPars(Link-1);
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<RecparsLink.size();mp++){
+    if(RecparsLink(mp)>0) RecruitPars(mp)=RecruitPars(RecparsLink(mp)-1);
+    if(RecparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * RecparsLink(mp);
+      RecruitPars(mp) += RecruitPars(Link-1);
     }
-    }
+  }
 
+  //// Deal with Selectivity Pars  ///////
   // Apply priors on Select Pars if requested
   Type SelParPriorPen = 0;
   int nrowSP = SelparsPrior.rows();
@@ -2112,16 +2098,16 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-  //// Deal with Efficiency Pars  ///////
-  // Adjust parameters to account for linked parameters
-  for(int mp=0;mp<EffparsLink.size();mp++){
-    if(EffparsLink(mp)>0) efpars(mp)=efpars(EffparsLink(mp)-1);
-    if(EffparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
-      Link = -1 * EffparsLink(mp);
-      efpars(mp) += efpars(Link-1);
+  // Adjust  parameters to account for linked parameters
+  for(int mp=0;mp<SelparsLink.size();mp++){
+    if(SelparsLink(mp)>0) SelPars(mp)=SelPars(SelparsLink(mp)-1);
+    if(SelparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * SelparsLink(mp);
+      SelPars(mp) += SelPars(Link-1);
     }
-    }
+  }
 
+    //// Deal with Efficiency Pars  ///////
   // Apply priors on Rec Pars if requested
   Type EffParPriorPen = 0;
   int nrowEP = EffparsPrior.rows();
@@ -2146,16 +2132,16 @@ Type objective_function<Type>::operator() ()
     EffParPriorPen += exp(-10.0 * efpars(r,0));
   }
 
-  //// Deal with Migrate Pars  ///////
   // Adjust parameters to account for linked parameters
-  for(int mp=0;mp<MoveparsLink.size();mp++){
-    if(MoveparsLink(mp)>0) MovePars(mp)=MovePars(MoveparsLink(mp)-1);
-    if(MoveparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
-      Link = -1 * MoveparsLink(mp);
-      MovePars(mp) += MovePars(Link-1);
+  for(int mp=0;mp<EffparsLink.size();mp++){
+    if(EffparsLink(mp)>0) efpars(mp)=efpars(EffparsLink(mp)-1);
+    if(EffparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * EffparsLink(mp);
+      efpars(mp) += efpars(Link-1);
     }
   }
 
+  //// Deal with Migrate Pars  ///////
   // Apply priors on Rec Pars if requested
   Type MoveParPriorPen = 0;
   nrowMP = MoveparsPrior.rows();
@@ -2179,7 +2165,16 @@ Type objective_function<Type>::operator() ()
   }
 
 
-  // Split MainPars out into their various groups
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<MoveparsLink.size();mp++){
+    if(MoveparsLink(mp)>0) MovePars(mp)=MovePars(MoveparsLink(mp)-1);
+    if(MoveparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * MoveparsLink(mp);
+      MovePars(mp) += MovePars(Link-1);
+    }
+  }
+
+    // Split MainPars out into their various groups
   Rbar = MainPars(0);
   for(int Iarea=0;Iarea<Narea;Iarea++){
     for (int Iage=0;Iage<Nage;Iage++){

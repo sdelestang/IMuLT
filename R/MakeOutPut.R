@@ -1798,6 +1798,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
         xseq <- seq(xmin, xmax, length.out = 200)
 
         mle_dens <- dnorm(xseq, row$Estimate, row$SD)
+        mle_dens <- mle_dens / max(mle_dens)          ## NEW: scale to peak = 1
 
         prior_dens <- rep(0, length(xseq))
         if (row$PriorType == 1)
@@ -1812,6 +1813,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
           sdlog <- sqrt(log(1 + (row$PriorSD / row$PriorMean)^2))
           prior_dens <- dlnorm(pmax(xseq, 1e-10), mulog, sdlog)
         }
+        if (max(prior_dens) > 0) prior_dens <- prior_dens / max(prior_dens)   ## NEW
 
         curve_list[[i]] <- data.frame(
           Parameter = row$Parameter,
@@ -1820,6 +1822,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
           Type = rep(c("max. likelihood", "prior"), each = length(xseq))
         )
       }
+
       curve_df <- do.call(rbind, curve_list)
       curve_df$Parameter <- factor(curve_df$Parameter, levels = sub_df$Parameter)
       sub_df$Parameter <- factor(sub_df$Parameter, levels = sub_df$Parameter)
@@ -1847,7 +1850,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
           linewidth = c(0.5,      1.2,     NA,      0.6),
           size      = c(NA,       NA,      3,       NA)))) +
         facet_wrap(~ Parameter, scales = "free", ncol = 2) +
-        labs(x = "Parameter value", y = "Density") +
+        labs(x = "Parameter value", y = "Relative density") +
         theme_bw() +
         theme(legend.position = "top",
               strip.text   = element_text(size = 9),

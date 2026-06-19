@@ -134,3 +134,63 @@ ExpandSelectPars <- function(wb, startseason, endseason){
 
   tegappar
 }
+
+#' Get descriptive names for Selectivity link patterns
+#'
+#' Internal helper mirroring the pattern-numbering logic in
+#' BuildInputFiles (egappar_sum) so MakeOutPut's selectivity plot
+#' legends can label each pattern with its Excel comment directly,
+#' rather than re-parsing whitespace-flattened text out of
+#' SELEXSPEC.dat (which breaks whenever comment word-counts differ
+#' between blocks, e.g. "Area 22" vs "Cameras").
+#'
+#' @param wb workbook object
+#' @param startseason,endseason numeric
+#' @return data.frame(link, name) -- one row per selectivity pattern.
+#'   `link` is 0-indexed, matching the link/pointer values written to
+#'   SELEXSPEC.dat and read back via fleet2.
+#' @keywords internal
+GetSelectPatternNames <- function(wb, startseason, endseason){
+
+  egap <- readWorkbook(wb, sheet='Selectivity', startRow = 2)
+  egappar <- egap %>%
+    filter(!is.na(yearlink)) %>%
+    mutate(uniq=paste(sex,yearlink)) %>%
+    dplyr::select(!starts_with('fleet')) %>%
+    mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex))
+
+  fleetyr <- egap %>% dplyr::select(starts_with('fleet'))
+  if(ncol(fleetyr)==1){
+    tfleetyr <- fleetyr
+    colnames(tfleetyr) <- 'fleet999'
+    fleetyr <- cbind(fleetyr, tfleetyr)
+  }
+  fleetyr <- fleetyr[egap$season %in% startseason:endseason,]
+  pars <- sort(unique(as.vector(as.matrix(fleetyr))))
+
+  ## One row per pattern (yearlink/sex/form block) -- same grouping and
+  ## ordering as BuildInputFiles' egappar_sum, plus the descriptive comment
+  egappar_sum <- egappar %>%
+    group_by(yearlink, Sex, form, uniq) %>%
+    summarise(num=length(Sex), comment=dplyr::first(comment), .groups='drop') %>%
+    as.data.frame() %>%
+    arrange(Sex) %>%
+    mutate(pattern=as.numeric(rownames(.))-1) %>%
+    dplyr::select(pattern, Sex, uniq, yearlink, comment)
+
+  ## Duplicate blocks for decimal yearlinks (time-varying selectivity),
+  ## carrying the source block's comment through to the duplicate
+  egappar_sumog <- egappar_sum
+  for(p in pars){
+    if(!p %in% egappar_sum$yearlink){
+      reps <- which(egappar_sumog$yearlink == floor(p))
+      tmpe <- egappar_sum[reps,]
+      tmpe$uniq <- paste(substr(tmpe$uniq,1,1), p)
+      tmpe$pattern <- max(egappar_sum$pattern) + (1:nrow(tmpe))
+      tmpe$yearlink <- p
+      egappar_sum <- rbind(egappar_sum, tmpe)
+    }
+  }
+
+  data.frame(link = egappar_sum$pattern, name = egappar_sum$comment)
+}

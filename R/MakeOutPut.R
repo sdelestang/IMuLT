@@ -394,16 +394,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   addtable(intable=fleetareatmp,filen="Fleets.csv",rundir=rundir,category="Data",caption="Fleet Descriptions")
 
   #### Selectivity ####
-  #### Selectivity ####
   print("Making Selectivity and Retention Plots")
   fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
   sel <- findNclean(c('Full','Selectivity'), dat, 1)
   sel <- sel[,2:ncol(sel)]
-  ids <- findNclean(c('#','Selectivity','Parameters'), selx, 2, char = T)
-  infpos <- which(trimws(as.character(ids[1,])) == 'p1')
-  ids$name <- paste(ids[,(infpos+1)],ids[,(infpos+2)])
-  ids <- data.frame(link=NA, name=unique(ids$name))
-  ids$link <- as.numeric(row.names(ids))-1
+  ids <- GetSelectPatternNames(wb, startseason, endseason)
   fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
   fleet3 <- fleet3 %>% group_by(Fleet) %>%mutate(name = ifelse(is.na(name), name[!is.na(name)][1], name)) %>% ungroup()
   fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))

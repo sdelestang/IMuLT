@@ -898,18 +898,7 @@ for(p in pars){
 
     tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
 
-    tegappar <- egappar %>% mutate(order=1:nrow(egappar), hash='#',id2=paste(uniq,id,comment)) %>% dplyr::select(order,lwr,upr,par,phase,Link,useprior, mnprior, sdprior, hash,form,id2,yearlink,uniq) %>% arrange(order) %>% mutate(phase=ifelse(Link<=0,phase, -abs(phase))) %>% dplyr::select(-order)
-    ## Now make the multiple links
-    tegapparog <- tegappar
-    for(p in pars){
-      if(!p%in%tegapparog$yearlink){
-        reps <- which(tegapparog$yearlink==floor(p))
-        tmpe <- tegapparog[reps,]
-        tmpe$uniq <- paste(substr(tmpe$uniq,1,1), p)
-        tmpe$yearlink <- p
-        tegappar <- rbind(tegappar, tmpe)
-      }
-    }
+    tegappar <- ExpandSelectPars(wb, startseason, endseason)
 
     for(i in 1:nrow(tegappar)){
       tmp <- c(tmp, paste(tegappar[i,], collapse = "\t"),"\n")}
@@ -917,11 +906,15 @@ for(p in pars){
     tmp <- c(tmp, "# selectivity\n", negappar,"\n")
     for(i in 1:negappar){
       tmpegappar <- tegappar[tegappar$uniq==unique(tegappar$uniq)[i],]
-      if(unique(tmpegappar$form)=='logistic')  qselect <- 1.0/(1.0+exp(-tmpegappar$par[grepl('slope',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect',tmpegappar$id)])))
-      if(unique(tmpegappar$form)=='doublelogistic')  {qselect <- (1.0/(1.0+exp(-tmpegappar$par[grepl('slope1',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect1',tmpegappar$id)]))))*(1.0/(1.0+exp(-tmpegappar$par[grepl('slope2',tmpegappar$id)]*(lens-tmpegappar$par[grepl('inflect2',tmpegappar$id)]))))
-      qselect <- qselect/max(qselect)}
+      if(unique(tmpegappar$form)=='logistic')
+        qselect <- 1.0/(1.0+exp(-tmpegappar$par[grepl('slope',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect',tmpegappar$id2)])))
+      if(unique(tmpegappar$form)=='doublelogistic'){
+        qselect <- (1.0/(1.0+exp(-tmpegappar$par[grepl('slope1',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect1',tmpegappar$id2)]))))*(1.0/(1.0+exp(-tmpegappar$par[grepl('slope2',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect2',tmpegappar$id2)]))))
+        qselect <- qselect/max(qselect)}
       qselect <- round(qselect,4)
       tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
+
+
 
     gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
 

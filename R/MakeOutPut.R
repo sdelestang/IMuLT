@@ -204,8 +204,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
-  SelectParName <- readWorkbook(wb,sheet='Selectivity', startRow = 2)$comment
-  SelectParName <- paste0('Sel_',SelectParName[!is.na(SelectParName)])
+  SelectParName <- ExpandSelectPars(wb, startseason, endseason)
+  SelectParName <- paste0('Sel_', SelectParName$id2)
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
@@ -1750,6 +1750,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
     group_by(Parameter) %>%
     mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
     ungroup()
+
 
   pars %<>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),

@@ -57,8 +57,6 @@ ExpandSelectPars <- function(wb, startseason, endseason){
     dplyr::select(!starts_with('fleet')) %>%
     mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex))
 
-  ## Decimal yearlink values used anywhere in the fleet/season grid --
-  ## these are the time-varying duplicate blocks (e.g. 1.1, 1.2...)
   fleetyr <- egap %>% dplyr::select(starts_with('fleet'))
   if(ncol(fleetyr)==1){
     tfleetyr <- fleetyr
@@ -69,16 +67,16 @@ ExpandSelectPars <- function(wb, startseason, endseason){
   pars <- sort(unique(as.vector(as.matrix(fleetyr))))
 
   ## Per-parameter row table, exactly as written to SELEXSPEC.dat
+  ## (keep raw `id` here -- needed for the order safety check below)
   tegappar <- egappar %>%
     mutate(order=1:nrow(egappar), hash='#', id2=paste(uniq, id, comment)) %>%
     dplyr::select(order, lwr, upr, par, phase, Link, useprior, mnprior,
-                  sdprior, hash, form, id2, yearlink, uniq) %>%
+                  sdprior, hash, form, id, id2, yearlink, uniq) %>%
     arrange(order) %>%
     mutate(phase=ifelse(Link<=0, phase, -abs(phase))) %>%
     dplyr::select(-order)
 
   ## Duplicate blocks for any decimal yearlink not already present
-  ## (time-varying selectivity within a yearlink group)
   tegapparog <- tegappar
   for(p in pars){
     if(!p %in% tegapparog$yearlink){
@@ -89,6 +87,50 @@ ExpandSelectPars <- function(wb, startseason, endseason){
       tegappar <- rbind(tegappar, tmpe)
     }
   }
+
+  ## --- Safety check: enforce canonical parameter order within each block ---
+  ## Downstream code matches parameters by string content (id2), not row
+  ## position, but the *written* order in SELEXSPEC.dat (and therefore the
+  ## SelPars_n indexing TMB uses) depends on whatever row order survives
+  ## here. Force a fixed, known-good order per selectivity form so a
+  ## differently-ordered Excel sheet can't silently scramble the .dat file.
+  canonical_order <- list(
+    logistic       = c('p1','p2'),
+    doublelogistic = c('p1','p2','p3','p4')
+  )
+
+  block_ids <- unique(tegappar$uniq)
+  ordered_list <- vector("list", length(block_ids))
+  for(b in seq_along(block_ids)){
+    blk <- tegappar[tegappar$uniq == block_ids[b], ]
+    form_type <- unique(blk$form)
+
+    if(length(form_type) != 1){
+      warning(sprintf("ExpandSelectPars: block '%s' has mixed/ambiguous form values (%s) -- order not checked",
+                      block_ids[b], paste(form_type, collapse=', ')))
+      ordered_list[[b]] <- blk
+      next
+    }
+
+    expected <- canonical_order[[form_type]]
+    if(is.null(expected)){
+      warning(sprintf("ExpandSelectPars: block '%s' has unrecognised form '%s' -- order not checked",
+                      block_ids[b], form_type))
+      ordered_list[[b]] <- blk
+      next
+    }
+
+    if(!setequal(blk$id, expected) || length(blk$id) != length(expected)){
+      warning(sprintf("ExpandSelectPars: block '%s' (form=%s) parameter ids don't match expected set.\n  Found:    %s\n  Expected: %s",
+                      block_ids[b], form_type,
+                      paste(blk$id, collapse=', '), paste(expected, collapse=', ')))
+      ordered_list[[b]] <- blk
+      next
+    }
+
+    ordered_list[[b]] <- blk[match(expected, blk$id), ]
+  }
+  tegappar <- do.call(rbind, ordered_list)
 
   tegappar
 }

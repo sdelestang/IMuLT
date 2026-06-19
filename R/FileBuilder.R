@@ -907,14 +907,12 @@ for(p in pars){
     for(i in 1:negappar){
       tmpegappar <- tegappar[tegappar$uniq==unique(tegappar$uniq)[i],]
       if(unique(tmpegappar$form)=='logistic')
-        qselect <- 1.0/(1.0+exp(-tmpegappar$par[grepl('slope',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect',tmpegappar$id2)])))
+        qselect <- 1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p2']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p1'])))
       if(unique(tmpegappar$form)=='doublelogistic'){
-        qselect <- (1.0/(1.0+exp(-tmpegappar$par[grepl('slope1',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect1',tmpegappar$id2)]))))*(1.0/(1.0+exp(-tmpegappar$par[grepl('slope2',tmpegappar$id2)]*(lens-tmpegappar$par[grepl('inflect2',tmpegappar$id2)]))))
+        qselect <- (1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p2']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p1']))))*(1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p4']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p3']))))
         qselect <- qselect/max(qselect)}
       qselect <- round(qselect,4)
       tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
-
-
 
     gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
 

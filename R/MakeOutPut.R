@@ -1875,34 +1875,58 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
   corfile <- filenametopath(rundir, "CorrelationMatrix.csv")
   if (file.exists(corfile)) {
     cormat <- as.matrix(read.csv(corfile, row.names = 1))
+
+    ## Build Par_N -> descriptive name lookup from the pars table
+    par_name_lookup <- pars %>%
+      mutate(par_idx = suppressWarnings(as.integer(as.numeric(Estpar_cnt)))) %>%
+      filter(!is.na(par_idx)) %>%
+      mutate(par_id = paste0("Par_", par_idx)) %>%
+      select(par_id, Parameter) %>%
+      distinct(par_id, .keep_all = TRUE)
+    name_map <- setNames(par_name_lookup$Parameter, par_name_lookup$par_id)
+
+    ## Order by numeric suffix
     par_order <- rownames(cormat)
-    par_nums <- as.numeric(gsub("\\D+", "", par_order))
-    par_order <- par_order[order(par_nums)]
-    # Melt for ggplot
+    par_order <- par_order[order(as.numeric(gsub("\\D+", "", par_order)))]
+
+    ## Melt to long format
     cor_df <- expand.grid(Par1 = rownames(cormat), Par2 = colnames(cormat),
                           stringsAsFactors = FALSE)
     cor_df$r <- as.vector(cormat)
 
-    # Apply numeric ordering
+    ## Apply numeric ordering then replace with descriptive names
     cor_df$Par1 <- factor(cor_df$Par1, levels = par_order)
     cor_df$Par2 <- factor(cor_df$Par2, levels = par_order)
 
-    # Only plot upper triangle
+    cor_df$Par1_label <- ifelse(as.character(cor_df$Par1) %in% names(name_map),
+                                name_map[as.character(cor_df$Par1)],
+                                as.character(cor_df$Par1))
+    cor_df$Par2_label <- ifelse(as.character(cor_df$Par2) %in% names(name_map),
+                                name_map[as.character(cor_df$Par2)],
+                                as.character(cor_df$Par2))
+
+    ## Preserve the numeric order in the label factors
+    label_order1 <- unique(cor_df$Par1_label[order(cor_df$Par1)])
+    label_order2 <- unique(cor_df$Par2_label[order(cor_df$Par2)])
+    cor_df$Par1_label <- factor(cor_df$Par1_label, levels = label_order1)
+    cor_df$Par2_label <- factor(cor_df$Par2_label, levels = label_order2)
+
+    ## Upper triangle only
     cor_df <- cor_df[as.numeric(cor_df$Par1) < as.numeric(cor_df$Par2), ]
 
-    p <- ggplot(cor_df, aes(x = Par1, y = Par2, fill = r)) +
+    p <- ggplot(cor_df, aes(x = Par1_label, y = Par2_label, fill = r)) +
       geom_tile() +
       scale_fill_gradient2(low = "blue", mid = "white", high = "red",
                            midpoint = 0, limits = c(-1, 1), name = "r") +
       geom_text(data = cor_df[abs(cor_df$r) > 0.85, ],
                 aes(label = round(r, 2)), size = 2.5) +
       theme_bw() +
-      theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 6),
-            axis.text.y = element_text(size = 6)) +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 6),
+            axis.text.y = element_text(angle = 0,  hjust = 1,              size = 6)) +
       labs(x = "", y = "")
 
     filename <- filenametopath(rundir, "parameter_correlations.png")
-    plotprep(width = 10, height = 9, filename = filename, cex = 0.9, verbose = FALSE)
+    plotprep(width = 14, height = 13, filename = filename, cex = 0.9, verbose = FALSE)
     parset(plots = c(1, 1))
     suppressWarnings(print(p))
     caption <- "Parameter correlation matrix. Values shown where |r| > 0.85."

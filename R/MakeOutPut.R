@@ -1752,7 +1752,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
     mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
     ungroup()
 
-
   pars %<>%
     mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
            Group    = sub("_[0-9]+$", "", OrigParameter),
@@ -1774,7 +1773,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
            Gradient = replace_na(as.character(Gradient), "-"),
            SD       = replace_na(as.character(SD), "-")) %>%
     select(Var, Parameter, Estimate, SD, Resolved, Gradient, lwrBound, uprBound,
-           PriorType, PriorMean, PriorSD, Initial, Link)
+           PriorType, PriorMean, PriorSD, Initial, Link, Estpar_cnt)
 
   ## plot parameters
   ## Parameter distribution plots

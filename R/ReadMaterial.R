@@ -949,26 +949,38 @@ ReadReprodFile <- function(ReprodFile,GeneralSpecs,DataSpecs)
   Index <- MatchTable(ReprodFile,Char1="#",Char2="Specifications",Char4="fecundity")+1;
   FecSpec <-  ReprodFile[(Index+1):(Index+NageArea),1:(GeneralSpecs$Nyear+2)];
 
-  ## Make MatFem object
-  nyears <- GeneralSpecs$BurnIn+GeneralSpecs$Nyear+GeneralSpecs$MaxProjYr+1
-  MatFem <- array(1,dim=c(GeneralSpecs$Nage,GeneralSpecs$Narea,nyears,GeneralSpecs$MaxLen))
+  nyears <- GeneralSpecs$BurnIn + GeneralSpecs$Nyear + GeneralSpecs$MaxProjYr + 1
+  MatFem <- array(1, dim = c(GeneralSpecs$Nage, GeneralSpecs$Narea, nyears, GeneralSpecs$MaxLen))
   Mlbin <- GeneralSpecs$MidLenBin[1,][1:GeneralSpecs$MaxLen]
-  for (Iage in 0:(GeneralSpecs$Nage-1)){
-    for (Iarea in 0:(GeneralSpecs$Narea-1)){
-      for (IyearLong in 1:nyears){
-        if(IyearLong<=GeneralSpecs$BurnIn) Iyear <- GeneralSpecs$BurnIn+1
-        if(IyearLong>GeneralSpecs$BurnIn+GeneralSpecs$Nyear) Iyear <- GeneralSpecs$Nyear
-        MatPoint <- as.numeric(MatSpec[MatSpec[,1]==Iage & MatSpec[,2]==Iarea, Iyear+2])
-        Maturity <- rep(1,GeneralSpecs$Nlen[1])
-        if(MatPoint>=0) Maturity <- 1/(1+exp((Mlbin-Matpars$Par_a[MatPoint+1])/Matpars$Par_b[MatPoint+1]))
-        MulPoint <- as.numeric(MulSpec[MulSpec[,1]==Iage & MulSpec[,2]==Iarea, Iyear+2])
-        Multiple <- rep(1,GeneralSpecs$Nlen[1])
-        if(MatPoint>=0) Multiple <- Mulpars$Par_c[MulPoint+1]/(1+exp((Mlbin-Mulpars$Par_a[MulPoint+1])/Mulpars$Par_b[MulPoint+1]))
-        FecPoint <- as.numeric(FecSpec[FecSpec[,1]==Iage & FecSpec[,2]==Iarea, Iyear+2])
-        Fecundity <- rep(1,GeneralSpecs$Nlen[1])
-        if(FecPoint>=0) Fecundity <- Fecpars$Par_a[FecPoint+1]*Mlbin^Fecpars$Par_b[FecPoint+1]
-        MatFem[Iage+1,Iarea+1,IyearLong,] <- Maturity * Multiple * Fecundity
-      }}}
+
+  for (Iage in 0:(GeneralSpecs$Nage - 1)) {
+    for (Iarea in 0:(GeneralSpecs$Narea - 1)) {
+      for (IyearLong in 1:nyears) {
+
+        if (IyearLong <= GeneralSpecs$BurnIn) {
+          Iyear <- 1
+        } else if (IyearLong > GeneralSpecs$BurnIn + GeneralSpecs$Nyear) {
+          Iyear <- GeneralSpecs$Nyear
+        } else {
+          Iyear <- IyearLong - GeneralSpecs$BurnIn
+        }
+
+        MatPoint <- as.numeric(MatSpec[MatSpec[,1] == Iage & MatSpec[,2] == Iarea, Iyear + 2])
+        Maturity <- rep(1, GeneralSpecs$Nlen[1])
+        if (MatPoint >= 0) Maturity <- 1 / (1 + exp((Mlbin - Matpars$Par_a[MatPoint + 1]) / Matpars$Par_b[MatPoint + 1]))
+
+        MulPoint <- as.numeric(MulSpec[MulSpec[,1] == Iage & MulSpec[,2] == Iarea, Iyear + 2])
+        Multiple <- rep(1, GeneralSpecs$Nlen[1])
+        if (MulPoint >= 0) Multiple <- Mulpars$Par_c[MulPoint + 1] / (1 + exp((Mlbin - Mulpars$Par_a[MulPoint + 1]) / Mulpars$Par_b[MulPoint + 1]))
+
+        FecPoint <- as.numeric(FecSpec[FecSpec[,1] == Iage & FecSpec[,2] == Iarea, Iyear + 2])
+        Fecundity <- rep(1, GeneralSpecs$Nlen[1])
+        if (FecPoint >= 0) Fecundity <- Fecpars$Par_a[FecPoint + 1] * Mlbin ^ Fecpars$Par_b[FecPoint + 1]
+
+        MatFem[Iage + 1, Iarea + 1, IyearLong, ] <- Maturity * Multiple * Fecundity
+      }
+    }
+  }
 
   write("Egg Production\nAge Area Year Lbins\n",EchoFile,append=T)
   for (Iage in 1:(GeneralSpecs$Nage)){

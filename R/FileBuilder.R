@@ -781,8 +781,8 @@ print("Building Control File")
 
     rec %<>% dplyr::select(Use.Parameters,lower,upper,est,Phase,Link,useprior,mnprior,sdprior,description) %>% mutate(Use.Parameters=ifelse(Use.Parameters==1,'','#'), description =paste('#', description ))
     ## Remove the Rec deviations
-    rec <- rec[3:nrow(rec),]
-    npars <- length(unique(areas$AreaCode))+nsizecomp*2
+    rec <- rec[2:nrow(rec),]
+    npars <- (length(unique(areas$AreaCode))-1)+nsizecomp*2
     if(nrow(rec)!=npars) warning("Number of recruitment pars for size at recruitment does not match recruitment areas defined in Area tab. \nThey have been truncated.")
     rec <- rec[1:npars,]
     for(a in 1:nrow(rec)){ tmp <- c(tmp, paste(rec[a,],collapse='\t'), "\n")  }

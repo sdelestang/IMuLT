@@ -48,7 +48,7 @@ copy_model_structure <- function(dest_path = ".") {
   src <- get_model_structure_path()
   dest <- file.path(dest_path, "ModelStructure.xlsx")
   f <- list.files(dest_path, include.dirs = FALSE, full.names = TRUE, recursive = TRUE, pattern = "ModelStructure.xlsx")
-  if(length(f)>0)  Archive <- toupper(dlg_input(paste0("ModelStructure.xlsx already exists. Archive it first? (Y or N)")
+  if(length(f)>0)  Archive <- toupper(svDialogs::dlg_input(paste0("ModelStructure.xlsx already exists. Archive it first? (Y or N)")
   )$res)
   if (Archive == 'Y') {
     invisible(file.rename("ModelStructure.xlsx", "ModelStructureArchive.xlsx"))

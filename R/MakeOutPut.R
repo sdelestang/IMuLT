@@ -111,7 +111,7 @@
 #' @seealso \code{\link{LoadOutputData}} for loading outputs without report generation
 #'
 #' @export
-MakeOutPut <- function(is95=TRUE,folder_name='s',openfile=TRUE){
+MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   suppressPackageStartupMessages({
     library(makehtml)

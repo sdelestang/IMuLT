@@ -1,4 +1,17 @@
 
+find_model_dir <- function(pattern = "Run", up = 3L) {
+  d <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)
+  for (i in 0:up) {
+    hits <- list.files(d, pattern = pattern)
+    if (length(hits) > 0) return(d)
+    parent <- dirname(d)
+    if (parent == d) break          # hit the drive root
+    d <- parent
+  }
+  stop("Could not find any items matching pattern '", pattern,
+       "' in the working directory or its ", up, " parents.")
+}
+
 
 find_model_file <- function(filename = "ModelStructure.xlsx", up = 3L) {
   d <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)

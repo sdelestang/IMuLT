@@ -11,7 +11,8 @@ ProjectModel(
   report = TRUE,
   is95 = TRUE,
   folder_name = "",
-  openfile = TRUE
+  openfile = TRUE,
+  ProjType = NULL
 )
 }
 \arguments{
@@ -44,6 +45,18 @@ prompts interactively, defaulting to \code{"resultProj"}. Ignored if
 
 \item{openfile}{Whether to open the HTML report on completion. Default
 TRUE. Ignored if \code{report = FALSE}.}
+
+\item{ProjType}{Integer, \code{1} or \code{2}, or \code{NULL} (default).
+If \code{NULL}, uses whatever \code{ProjType} PROJECTIONS.DAT specified
+(parsed by \code{ReadProjFile()} at \code{LoadData()} time, travelling
+with \code{Data} inside \code{BigSave.lda}). If set, overrides
+\code{Data$ProjType} for this run only -- e.g. \code{ProjectModel(ProjType = 2)}
+runs a harvest-rate-based projection even if PROJECTIONS.DAT specified
+catch-based (1), without needing to edit or regenerate the file. Since
+both the catch and harvest-rate schedules are always parsed into
+\code{Data} regardless of the file's ProjType flag, overriding here is
+safe as long as the schedule you actually want was populated in
+PROJECTIONS.DAT.}
 }
 \value{
 Invisibly, a list with elements:

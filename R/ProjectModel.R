@@ -30,6 +30,17 @@
 #'   \code{report = FALSE}.
 #' @param openfile Whether to open the HTML report on completion. Default
 #'   TRUE. Ignored if \code{report = FALSE}.
+#' @param ProjType Integer, \code{1} or \code{2}, or \code{NULL} (default).
+#'   If \code{NULL}, uses whatever \code{ProjType} PROJECTIONS.DAT specified
+#'   (parsed by \code{ReadProjFile()} at \code{LoadData()} time, travelling
+#'   with \code{Data} inside \code{BigSave.lda}). If set, overrides
+#'   \code{Data$ProjType} for this run only -- e.g. \code{ProjectModel(ProjType = 2)}
+#'   runs a harvest-rate-based projection even if PROJECTIONS.DAT specified
+#'   catch-based (1), without needing to edit or regenerate the file. Since
+#'   both the catch and harvest-rate schedules are always parsed into
+#'   \code{Data} regardless of the file's ProjType flag, overriding here is
+#'   safe as long as the schedule you actually want was populated in
+#'   PROJECTIONS.DAT.
 #'
 #' @return Invisibly, a list with elements:
 #' \itemize{
@@ -84,7 +95,7 @@
 #' @export
 ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
                          save = TRUE, report = TRUE, is95 = TRUE,
-                         folder_name = '', openfile = TRUE) {
+                         folder_name = '', openfile = TRUE, ProjType = NULL) {
 
   # ── Locate and load the completed fit ─────────────────────────────────────
   bigsave_path <- find_model_file(bigsave_file, up = up)
@@ -109,14 +120,29 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
   parameters <- BigSave$parameters
   ReportOrig <- BigSave$Report
 
-  # MatBio (and the other REPORT()'d arrays) are always sized to
-  # BurnIn+Nyear+MaxProjYr+1 -- MaxProjYr is the array's maximum capacity, not
+  # ── Optional ProjType override ──────────────────────────────────────────
+  # Both the catch and harvest-rate schedules are always parsed into Data
+  # regardless of what PROJECTIONS.DAT's own ProjType flag says (see
+  # ReadProjFile()), so switching which one actually drives this run is safe
+  # here without touching the file.
+  if (!is.null(ProjType)) {
+    if (!ProjType %in% c(1, 2))
+      stop("ProjectModel: ProjType must be 1 (catch-based) or 2 ",
+           "(harvest-rate-based).", call. = FALSE)
+    cat("Overriding PROJECTIONS.DAT's ProjType (", Data$ProjType,
+        ") with ProjType =", ProjType, "\n")
+    Data$ProjType <- ProjType
+  }
+
+  # LegalBioAll (and the other REPORT()'d arrays) are always sized to
+  # BurnIn+Nyear+MaxProjYr -- MaxProjYr is the array's maximum capacity, not
   # how many years this run actually filled in. Index the real last computed
   # year explicitly rather than tail(x,1), or you'll read an unfilled zero
   # slot whenever MaxProjYr > the number of years actually run.
   last_hist <- Data$BurnIn + Data$Nyear
-  cat("Original fit MatBio, final assessment year:",
-      round(ReportOrig$MatBio[last_hist], 3), "\n")
+  relbio_hist <- sum(ReportOrig$LegalBioAll[last_hist,]) / sum(ReportOrig$VirginLegalBio)
+  cat("Original fit relative biomass (B/B0), final assessment year:",
+      round(relbio_hist, 3), "\n")
 
   if (is.null(Data$Nproj) || Data$Nproj == 0)
     warning("Data$Nproj is 0 \u2014 PROJECTIONS.DAT specified no projection ",
@@ -127,7 +153,7 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
   Data$DoProject <- 1
 
   cat("Making projection model object (DoProject = 1, Nproj =",
-      Data$Nproj, ")\n")
+      Data$Nproj, ", ProjType =", Data$ProjType, ")\n")
   model <- MakeADFun(Data, parameters, map = map, DLL = "IMuLT", silent = TRUE)
 
   model$par <- bestvals
@@ -138,8 +164,9 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
   Report <- model$report()
 
   last_proj <- Data$BurnIn + Data$Nyear + Data$Nproj
-  cat("Projected MatBio, final projection year:",
-      round(Report$MatBio[last_proj], 3), "\n")
+  relbio_proj <- sum(Report$LegalBioAll[last_proj,]) / sum(Report$VirginLegalBio)
+  cat("Projected relative biomass (B/B0), final projection year:",
+      round(relbio_proj, 3), "\n")
 
   # ── Save ─────────────────────────────────────────────────────────────────
   outdir <- dirname(bigsave_path)

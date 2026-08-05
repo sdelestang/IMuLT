@@ -4,7 +4,15 @@
 \alias{ProjectModel}
 \title{Project a Fitted IMuLT Model Forward}
 \usage{
-ProjectModel(bigsave_file = "Output/BigSave.lda", up = 3L, save = TRUE)
+ProjectModel(
+  bigsave_file = "Output/BigSave.lda",
+  up = 3L,
+  save = TRUE,
+  report = TRUE,
+  is95 = TRUE,
+  folder_name = "",
+  openfile = TRUE
+)
 }
 \arguments{
 \item{bigsave_file}{Character. Name/relative path of the saved fit to
@@ -20,6 +28,22 @@ directory. Default 3.}
 \item{save}{Logical. If \code{TRUE} (default), writes the projection
 results to \code{"Output/BigSaveProj.lda"} (in the same \code{Output/}
 folder as \code{bigsave_file}).}
+
+\item{report}{Logical. If \code{TRUE} (default), builds the HTML
+projection report described above straight after the projection run,
+using the \code{Report}/\code{Data} objects already in memory (no reload
+from disk).}
+
+\item{is95}{Logical. Use 95\\% CIs (\code{TRUE}, default) or 68\\% (\code{FALSE})
+where relevant in the report.}
+
+\item{folder_name}{Name for the report folder inside \code{Summary/}. A
+\code{"Proj"} suffix is appended if not already present. Blank (default)
+prompts interactively, defaulting to \code{"resultProj"}. Ignored if
+\code{report = FALSE}.}
+
+\item{openfile}{Whether to open the HTML report on completion. Default
+TRUE. Ignored if \code{report = FALSE}.}
 }
 \value{
 Invisibly, a list with elements:
@@ -34,9 +58,11 @@ model (\code{DoProject} set to 1)
 }
 \description{
 Loads a completed model fit and re-evaluates it with the projection years
-switched on (\code{Data$DoProject <- 1}), returning a report extended
-beyond the assessment period according to the specifications parsed from
-PROJECTIONS.DAT.
+switched on (\code{Data$DoProject <- 1}), then (by default) builds an HTML
+report from the result covering the projection specification, the
+selectivity/retention/legal-size patterns actually used in the projection
+years, the input catch or harvest-rate schedule, discards, fishing
+efficiency, legal biomass, and mature (egg-production proxy) biomass.
 }
 \details{
 \code{Data$Nproj}, \code{Data$ProjType}, \code{Data$ProjHarvestRate},
@@ -56,6 +82,16 @@ MLE (\code{BigSave$best}), so the objective value should match the
 original fit (the projection years add no likelihood contribution) and the
 projected years reflect a straightforward forward simulation, not a
 re-estimated one.
+
+The report step works directly off the in-memory \code{Report}/\code{Data}
+objects rather than text output files -- there is no projection equivalent
+of \code{WriteOutput()} yet. Only fields confirmed to actually extend into
+the projection years are used: \code{LegalBioAll}, \code{LegalBioAllbySex},
+\code{MatureBioAllbySex}, \code{MatBio}, \code{MatBioArea},
+\code{DiscardWt}, \code{DeadDiscardWt}, \code{Hrate}, \code{CpueEcreep},
+\code{VirginLegalBio}, \code{ActSelex}, \code{ActReten}, \code{ActLegal}.
+An "Index" (CPUE fit) tab is deliberately omitted, since there is no
+future CPUE data to fit against.
 }
 \examples{
 \dontrun{
@@ -68,5 +104,5 @@ print(proj$ReportOrig$MatBio)
 }
 \seealso{
 \code{\link{FitModel}}, \code{\link{choose_model}},
-\code{\link{find_model_file}}
+\code{\link{find_model_file}}, \code{\link{MakeOutPut}}
 }

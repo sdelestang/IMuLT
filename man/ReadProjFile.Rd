@@ -13,6 +13,11 @@ ReadProjFile(ProjFile, GeneralSpecs, Phi1)
 
 \item{Phi1}{Array of discard mortality rates from assessment period to be
 extended into projection years (fleet × age × year × step)}
+
+\item{Catch1}{Array of observed catch from ReadDataFile() (year × step ×
+fleet), already dimensioned \code{Nyear+MaxProjYr} on the year axis with the
+projection-year rows at zero. Overlaid with the projected catch column
+from PROJECTIONS.DAT.}
 }
 \value{
 List containing projection specifications:
@@ -26,6 +31,16 @@ List containing projection specifications:
 (sex × age × fleet × projection_year × step)
 \item Phi - Extended discard mortality array including projection years
 (fleet × age × \verb{[assessment_years + projection_years]} × step)
+\item ProjType - 1 = catch-based projection, 2 = harvest-rate/effort-based
+\item Catch - Catch array (year × step × fleet) with the projection-year
+rows filled in from the "catch" column of PROJECTIONS.DAT (unchanged
+from \code{Catch1} elsewhere)
+\item ProjHarvestRate - Array of imposed harvest rates
+(projection_year × step × fleet), filled in from the "Hrate" column of
+PROJECTIONS.DAT. Populated regardless of ProjType (harmless when
+ProjType == 1, since the compiled model then never reads it) so the
+scenario can be switched with a one-line change to PROJECTIONS.DAT
+without re-deriving either schedule.
 }
 }
 \description{
@@ -55,6 +70,15 @@ in the projection file.
 All pointer arrays have dimensions matching the assessment period structure
 but indexed to projection years. Calendar years in projections are calculated
 as: Nyear + Year1 + projection_year - 1.
+
+\strong{Projection type and schedule} ("# Specifications for projections
+(1=Catch;2=Harvestrate)" followed by a data block of
+Year/Step/Fleet/Catch/Hrate rows). Both the catch and harvest-rate columns
+are always parsed and stored (into Catch and ProjHarvestRate respectively)
+regardless of ProjType, so which scenario actually runs is controlled
+entirely by the ProjType flag passed through to the compiled model -- e.g.
+switching ProjType from 1 to 2 to compare a catch-based projection against
+a harvest-rate-based one doesn't require re-deriving either schedule.
 
 All specifications are written to Echo.out for verification. If Nproj = 0,
 no projections are performed and arrays remain at default values.

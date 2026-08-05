@@ -4,7 +4,7 @@
 \alias{choose_model}
 \title{Choose and Set a Model Directory}
 \usage{
-choose_model(pattern = "Run")
+choose_model(pattern = "Run", up = 3L)
 }
 \arguments{
 \item{pattern}{Character. Pattern passed to \code{list.files()} to filter

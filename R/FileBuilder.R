@@ -880,7 +880,8 @@ for(p in pars){
       Yrlinks <- fleetyr[,(SFleets-1)==Selid$Fleet[i]]
       Sexegappar_sum <- egappar_sum %>% filter(Sex==Selid$Sex[i])
       Pointers <- Sexegappar_sum$Pointer[match(Yrlinks,Sexegappar_sum$yearlink)]
-      Semat[i,] <- Pointers}
+      if(length(Pointers)==length(startseason:endseason)) {  Semat[i,] <- Pointers } else { warning('Seasons needed for fleet assignment are not all present in the year link assignment on the selectivity tab. Ensure the entire timescale is represented'); break  }
+      }
 
     iswhite <- readWorkbook(wb,sheet='IsMorph', startRow = 2)
 
@@ -1083,9 +1084,9 @@ for(r in 1:nrow(gauge4)){
     tdat <- tdat[pos1:pos2,c(1:4)]
     names(tdat) <- Names
     tdat %<>% filter(`#Year`==max(`#Year`)) %>% mutate(prop=as.numeric(catch)/sum(as.numeric(catch))) %>%
-      mutate(catch=round(projectcatch*prop,1)) %>% dplyr::select(-prop)
+      mutate(catch=round(projectcatch*prop,1)) %>% dplyr::select(-prop) %>% mutate(Hrate=dynamics$value[tolower(dynamics$object)=='projectedhr'])
 
-    tmp <- c(tmp, "\n# Specifications for projections (1=catch;2=effort;3=?)\n",1,"\n#\n# Catch data (kg) - Number of observations\n", projectseason*nrow(tdat), "\n")
+    tmp <- c(tmp, "\n# Specifications for projections (1=Catch;2=HarvestRate)\n",dynamics$value[tolower(dynamics$object)=='whichproject'],"\n#\n# Catch data (kg) / Harvest Rate - Number of observations\n", projectseason*nrow(tdat), "\n")
     tmp <- c(tmp,paste(colnames(tdat), collapse = "\t"), "\n")
 
     for(i in 1:projectseason){

@@ -35,6 +35,8 @@ struct dataSet{
   int MaxProjYr;
   int Nproj;
   int DoProject;
+  int ProjType;                  // 1 = catch-based projection, 2 = harvest-rate/effort-based
+  array<Type> ProjHarvestRate;   // Imposed harvest rate by (proj_year, step, fleet) when ProjType==2
   vector<int> Nlen;
   matrix <int> SelSpec;
   matrix <int> RetSpec;

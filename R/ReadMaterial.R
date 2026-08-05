@@ -1804,6 +1804,10 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #' @param GeneralSpecs List from ReadGeneralFile() containing model dimensions
 #' @param Phi1 Array of discard mortality rates from assessment period to be
 #'   extended into projection years (fleet × age × year × step)
+#' @param Catch1 Array of observed catch from ReadDataFile() (year × step ×
+#'   fleet), already dimensioned `Nyear+MaxProjYr` on the year axis with the
+#'   projection-year rows at zero. Overlaid with the projected catch column
+#'   from PROJECTIONS.DAT.
 #'
 #' @return List containing projection specifications:
 #' \itemize{
@@ -1816,6 +1820,16 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #'     (sex × age × fleet × projection_year × step)
 #'   \item Phi - Extended discard mortality array including projection years
 #'     (fleet × age × `[assessment_years + projection_years]` × step)
+#'   \item ProjType - 1 = catch-based projection, 2 = harvest-rate/effort-based
+#'   \item Catch - Catch array (year × step × fleet) with the projection-year
+#'     rows filled in from the "catch" column of PROJECTIONS.DAT (unchanged
+#'     from \code{Catch1} elsewhere)
+#'   \item ProjHarvestRate - Array of imposed harvest rates
+#'     (projection_year × step × fleet), filled in from the "Hrate" column of
+#'     PROJECTIONS.DAT. Populated regardless of ProjType (harmless when
+#'     ProjType == 1, since the compiled model then never reads it) so the
+#'     scenario can be switched with a one-line change to PROJECTIONS.DAT
+#'     without re-deriving either schedule.
 #' }
 #'
 #' @details
@@ -1841,11 +1855,20 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #' but indexed to projection years. Calendar years in projections are calculated
 #' as: Nyear + Year1 + projection_year - 1.
 #'
+#' **Projection type and schedule** ("# Specifications for projections
+#' (1=Catch;2=Harvestrate)" followed by a data block of
+#' Year/Step/Fleet/Catch/Hrate rows). Both the catch and harvest-rate columns
+#' are always parsed and stored (into Catch and ProjHarvestRate respectively)
+#' regardless of ProjType, so which scenario actually runs is controlled
+#' entirely by the ProjType flag passed through to the compiled model -- e.g.
+#' switching ProjType from 1 to 2 to compare a catch-based projection against
+#' a harvest-rate-based one doesn't require re-deriving either schedule.
+#'
 #' All specifications are written to Echo.out for verification. If Nproj = 0,
 #' no projections are performed and arrays remain at default values.
 #'
 #' @keywords internal
-ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
+ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1,Catch1)
 {
   print("READ IN THE PROJECTION FILE")
   Index <- MatchTable(ProjFile,Char1="#",Char2="Number",Char3="of",Char4="projection")+1;
@@ -1983,6 +2006,45 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
       }
   write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
 
+  # ── Projection type + catch / harvest-rate schedule ────────────────────
+  # "# Specifications for projections (1=Catch;2=Harvestrate)" -> ProjType
+  Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="projections")+1
+  ProjType <- as.numeric(ProjFile[Index,1])
+  if (!ProjType %in% c(1,2))
+    stop("ReadProjFile: unrecognised ProjType ", ProjType,
+         " (expected 1 = catch or 2 = harvest rate/effort).", call. = FALSE)
+
+  Catch <- Catch1
+  ProjHarvestRate <- array(0,dim=c(GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep,GeneralSpecs$Nfleet))
+
+  if (Nproj > 0)
+  {
+    # "# Catch data (kg) / Harvest Rate - Number of observations" -- matched
+    # on column 3 == "data" so it doesn't matter what precedes it.
+    Index <- MatchTable(ProjFile,Char1="#",Char3="data")
+    Nobs  <- as.numeric(ProjFile[Index+1,1])
+    Index <- Index + 2
+
+    # Rows are #Year  step  fleet  catch  Hrate -- both columns are always
+    # present and always parsed, regardless of ProjType.
+    if (Nobs > 0)
+    for (Iobs in 1:Nobs)
+    {
+      YearRow  <- as.numeric(ProjFile[Index+Iobs,1]) - GeneralSpecs$Year1 + 1  # absolute row: 1..Nyear+MaxProjYr
+      Step     <- as.numeric(ProjFile[Index+Iobs,2])
+      Fleet    <- as.numeric(ProjFile[Index+Iobs,3])
+      CatchVal <- as.numeric(ProjFile[Index+Iobs,4])
+      HrateVal <- as.numeric(ProjFile[Index+Iobs,5])
+
+      Catch[YearRow,Step,Fleet] <- CatchVal
+      ProjHarvestRate[YearRow-GeneralSpecs$Nyear,Step,Fleet] <- HrateVal
+    }
+
+    write(paste("Projection type (1=catch, 2=harvest rate):", ProjType),EchoFile,append=T)
+    write("Projected catch / harvest rate schedule (Year Step Fleet Catch Hrate)",EchoFile,append=T)
+    if (Nobs > 0) write(t(as.matrix(ProjFile[(Index+1):(Index+Nobs),1:5])),EchoFile,append=T,ncolumns=5)
+  }
+
   write("READ IN THE PROJECTION FILE\n\n",EchoFile,append=T)
 
   ReturnObj <- NULL
@@ -1991,6 +2053,9 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1)
   ReturnObj$RetPntFut <- RetPntFut
   ReturnObj$LegalFleetPntFut <- LegalFleetPntFut
   ReturnObj$Phi <- Phi
+  ReturnObj$ProjType <- ProjType
+  ReturnObj$Catch <- Catch
+  ReturnObj$ProjHarvestRate <- ProjHarvestRate
 
   return(ReturnObj)
 
@@ -2536,7 +2601,9 @@ LoadData <- function() {
   Data <<- append(Data,ReproSpecs)
 
     # Read in the projections file
-  ProjectSpecs <<- ReadProjFile(ProjFile,GeneralSpecs,Data$Phi1)
+  ProjectSpecs <<- ReadProjFile(ProjFile,GeneralSpecs,Data$Phi1,Data$Catch)
+  Data$Catch <<- ProjectSpecs$Catch    # overlay projection-year catch (ProjType==1)
+  ProjectSpecs$Catch <- NULL           # avoid a duplicate 'Catch' entry on append
   Data <<- append(Data,ProjectSpecs)
 
   # Read in the Selectivity file

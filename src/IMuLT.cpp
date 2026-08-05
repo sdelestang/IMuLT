@@ -657,6 +657,14 @@ template <class Type>
        for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
         if (dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = Feqn2(Ifleet,Istep);
       }
+     else if (Iyear >= dat.Nyear && dat.ProjType == 2)
+      {
+       // Harvest-rate (effort) based projection: Hrate is imposed directly from
+       // PROJECTIONS.DAT rather than solved from a target catch via Hybrid().
+       for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
+        if (dat.Area_fleet(Iarea,Ifleet)==1)
+         Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = dat.ProjHarvestRate(Iyear-dat.Nyear,Istep,Ifleet);
+      }
      else
       {
        HratePass = Hybrid(dat, N, selretwght, selexF, retainF, M, Iarea, Iyear, Istep, MWhitesPar);
@@ -1842,6 +1850,8 @@ Type objective_function<Type>::operator() ()
   DATA_INTEGER(MaxProjYr); dataset.MaxProjYr = MaxProjYr;
   DATA_INTEGER(Nproj); dataset.Nproj = Nproj;
   DATA_INTEGER(DoProject); dataset.DoProject = DoProject;
+  DATA_INTEGER(ProjType); dataset.ProjType = ProjType;
+  DATA_ARRAY(ProjHarvestRate); dataset.ProjHarvestRate = ProjHarvestRate;
   DATA_INTEGER(Nstep); dataset.Nstep=Nstep;
   DATA_INTEGER(Narea); dataset.Narea=Narea;
   DATA_INTEGER(Nage); dataset.Nage=Nage;
@@ -2742,13 +2752,19 @@ if(thedata.IsTagData==1){
   // add Penalties derived from parameter priors
   neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen;
 
-  // Now do projections
+  // Now do projections.
+  // ProjType==1 (catch-based): dataset.Catch already holds the projected catch
+  // schedule from PROJECTIONS.DAT (Data$Catch was extended into the projection
+  // years by ReadProjFile()/LoadData() before MakeADFun() was called), so
+  // OneTimeStep() -> Hybrid() solves for the harvest rate that takes it, the
+  // same way it does for the assessment period.
+  // ProjType==2 (harvest-rate/effort-based): OneTimeStep() reads
+  // dat.ProjHarvestRate directly instead of calling Hybrid() -- see the
+  // Iyear >= dat.Nyear branch there.
   if (DoProject==1)
   for (int Iyear=Nyear;Iyear<Nyear+Nproj;Iyear++)
    for (int Istep=0;Istep<Nstep;Istep++)
     {
-     dataset.Catch(Iyear,Istep,0) = 10000;
-     Catch(Iyear,Istep,0) = dataset.Catch(Iyear,Istep,0);
      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
     } // year and season
 

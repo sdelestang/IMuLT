@@ -494,7 +494,7 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
 
   make_html(replist = reportlist, rundir = rundir, width = 800, openfile = openfile,
             runnotes = runnotes, verbose = FALSE, packagename = "makehtml",
-            htmlname = "IMuLT Projection")
+            htmlname = "IMuLTProjection")
 
   invisible(NULL)
 }

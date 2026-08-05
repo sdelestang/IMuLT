@@ -28,27 +28,23 @@
 #' }
 #'
 #' @details
-#' \code{Data$Nproj}, \code{Data$SelPntFut}, \code{Data$RetPntFut},
-#' \code{Data$LegalFleetPntFut} and \code{Data$Phi} are already parsed from
-#' PROJECTIONS.DAT by \code{ReadProjFile()} inside \code{LoadData()}, and
-#' travel with \code{Data} inside \code{BigSave.lda} — so nothing needs to be
-#' re-read here. This function only needs to flip \code{Data$DoProject} to 1
-#' and rebuild the AD model so the C++ side runs its projection loop instead
-#' of stopping at \code{Nyear}.
+#' \code{Data$Nproj}, \code{Data$ProjType}, \code{Data$ProjHarvestRate},
+#' \code{Data$Catch} (extended into the projection years),
+#' \code{Data$SelPntFut}, \code{Data$RetPntFut}, \code{Data$LegalFleetPntFut}
+#' and \code{Data$Phi} are already parsed from PROJECTIONS.DAT by
+#' \code{ReadProjFile()} inside \code{LoadData()}, and travel with
+#' \code{Data} inside \code{BigSave.lda} — so nothing needs to be re-read
+#' here. This function only needs to flip \code{Data$DoProject} to 1 and
+#' rebuild the AD model so the C++ side runs its projection loop instead of
+#' stopping at \code{Nyear}. \code{Data$ProjType} (1 = catch-based,
+#' 2 = harvest-rate-based) controls which schedule the compiled model
+#' actually uses for the projection years.
 #'
 #' No re-optimisation happens here: the model is evaluated once at the saved
 #' MLE (\code{BigSave$best}), so the objective value should match the
 #' original fit (the projection years add no likelihood contribution) and the
 #' projected years reflect a straightforward forward simulation, not a
 #' re-estimated one.
-#'
-#' \strong{Caveat (current IMuLT.cpp):} the \code{DoProject == 1} loop does
-#' not yet read the "Catch data" block at the foot of PROJECTIONS.DAT — it
-#' currently applies a hardcoded placeholder catch to fleet 1 in every
-#' step/year of the projection. Until that part of the .cpp is wired up to
-#' read \code{dataset.Catch} for the projection years from the file, the
-#' catch schedule you set in PROJECTIONS.DAT will not be reflected in the
-#' projected report, whatever \code{ProjSpecs} (1 = catch; 2 = effort) says.
 #'
 #' @examples
 #' \dontrun{
@@ -87,8 +83,14 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L, save = TR
   parameters <- BigSave$parameters
   ReportOrig <- BigSave$Report
 
+  # MatBio (and the other REPORT()'d arrays) are always sized to
+  # BurnIn+Nyear+MaxProjYr+1 -- MaxProjYr is the array's maximum capacity, not
+  # how many years this run actually filled in. Index the real last computed
+  # year explicitly rather than tail(x,1), or you'll read an unfilled zero
+  # slot whenever MaxProjYr > the number of years actually run.
+  last_hist <- Data$BurnIn + Data$Nyear
   cat("Original fit MatBio, final assessment year:",
-      round(tail(ReportOrig$MatBio, 1), 3), "\n")
+      round(ReportOrig$MatBio[last_hist], 3), "\n")
 
   if (is.null(Data$Nproj) || Data$Nproj == 0)
     warning("Data$Nproj is 0 \u2014 PROJECTIONS.DAT specified no projection ",
@@ -109,8 +111,9 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L, save = TR
   cat("Extracting projection report\n")
   Report <- model$report()
 
+  last_proj <- Data$BurnIn + Data$Nyear + Data$Nproj
   cat("Projected MatBio, final projection year:",
-      round(tail(Report$MatBio, 1), 3), "\n")
+      round(Report$MatBio[last_proj], 3), "\n")
 
   # ── Save ─────────────────────────────────────────────────────────────────
   if (save) {

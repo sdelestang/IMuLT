@@ -1472,9 +1472,19 @@ vector<Type> DiscardByFleet(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, 
   for (int Isex=0;Isex<dat.Nsex;Isex++) {
     for (int Iage=0;Iage<dat.Nage;Iage++) {
       if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-      SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
-      RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-      LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      if (Iyear < dat.Nyear)
+       {
+        SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+        RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+        LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+       }
+      else
+       {
+        // Projection years: same branch OneTimeStep() uses for Iyear>=Nyear.
+        SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
+        RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
+        LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
+       }
       for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
         selexF(Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
         retainF(Isex,Iage,Ilen) = ActReten(RetPointer,Ilen) * ActLegal(LegalPointer,Ilen);
@@ -2263,8 +2273,8 @@ Type objective_function<Type>::operator() ()
  // matrix<Type> SHarvestRate76(Nyear,Nzone);                                                 // Harvest rate by year and zone of all lobster > 76 mm
   matrix<Type> HrateYA(Nyear,Narea);                                                       // Store summed HR by year and area
   array<Type> CatchCheck(Nyear+MaxProjYr,Nstep,Nfleet);                                              // Check
-  array<Type> DiscardWt(Nyear,Nstep,Nfleet);       DiscardWt.setZero();
-  array<Type> DeadDiscardWt(Nyear,Nstep,Nfleet);    DeadDiscardWt.setZero();
+  array<Type> DiscardWt(Nyear+MaxProjYr,Nstep,Nfleet);       DiscardWt.setZero();
+  array<Type> DeadDiscardWt(Nyear+MaxProjYr,Nstep,Nfleet);    DeadDiscardWt.setZero();
   matrix<Type> ActSelex(NselPatterns,MaxLen);
   matrix<Type> ActReten(NretPatterns,MaxLen);
   matrix<Type> ActLegal(NlegalPatterns,MaxLen);
@@ -2560,34 +2570,9 @@ if(thedata.IsTagData==1){
 //           }}}
 
 
-   // Legal Biomass at predetermined time-step. Including Burn In.
-   //// This is used as an output * //// ----------------------------------------------------------------------------------
-   int YearAdjusted;
-   LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
-   for (int Iyear=-BurnIn;Iyear<Nyear;Iyear++){
-     if (Iyear <= 0) { YearAdjusted = 0; } else { YearAdjusted = Iyear; }
-     for (int Iarea=0;Iarea<Narea;Iarea++){
-       for (int Isex=0;Isex<Nsex;Isex++){
-         for (int Iage=0;Iage<Nage;Iage++){
-             for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
-               LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-               LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-               if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
-           }}}}
-
-   // Simon post-hoc discard calculation
-   vector<Type> DiscXX(2);
-   int DiscArea;
-   for (int Iyear=0;Iyear<Nyear;Iyear++)
-     for (int Istep=0;Istep<Nstep;Istep++)
-       for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
-       {
-         DiscArea = Fleet_area(Ifleet);
-         DiscXX = DiscardByFleet(dataset,N,Z,Hrate,ActSelex,ActReten,ActLegal,
-                                 WeightLen,DiscArea,Ifleet,Iyear,Istep,QRedsPar);
-         DiscardWt(Iyear,Istep,Ifleet) = DiscXX(0);
-         DeadDiscardWt(Iyear,Istep,Ifleet) = DiscXX(1);
-       }
+   // Legal Biomass, Discards: computed after the projection loop below (once
+   // N is populated for the projection years too) -- see "Post-projection
+   // summaries" further down.
 
    // Simon's Cumulative catch reduced by average M based on time caught
   CumCatch.setZero();
@@ -2768,6 +2753,42 @@ if(thedata.IsTagData==1){
      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
     } // year and season
 
+  // ── Post-projection summaries ───────────────────────────────────────────
+  // Both computed here (rather than before the projection loop, as they used
+  // to be) so N is already populated for the projection years too. Upper
+  // bound extends to Nyear+Nproj when DoProject==1, else stays at Nyear
+  // exactly as before.
+  int NyearSummary = (DoProject==1) ? (Nyear+Nproj) : Nyear;
+
+  // Legal Biomass at predetermined time-step. Including Burn In.
+  //// This is used as an output * //// ----------------------------------------------------------------------------------
+  int YearAdjusted;
+  LegalBioAll.setZero(); LegalBioAllbySex.setZero(); MatureBioAllbySex.setZero();
+  for (int Iyear=-BurnIn;Iyear<NyearSummary;Iyear++){
+    if (Iyear <= 0) { YearAdjusted = 0; } else { YearAdjusted = Iyear; }
+    for (int Iarea=0;Iarea<Narea;Iarea++){
+      for (int Isex=0;Isex<Nsex;Isex++){
+        for (int Iage=0;Iage<Nage;Iage++){
+            for (int Ilen=0;Ilen<Nlen(Isex);Ilen++){
+              LegalBioAll(BurnIn+Iyear,Iarea) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+              LegalBioAllbySex(BurnIn+Iyear,Iarea,Isex) += LegalRef(Isex,Ilen)*N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+              if(Iage>=MatAge(Iarea)) MatureBioAllbySex(BurnIn+Iyear,Iarea,Isex) += N(Iarea,BurnIn+Iyear,BioTimeStep,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);}
+          }}}}
+
+  // Simon post-hoc discard calculation
+  vector<Type> DiscXX(2);
+  int DiscArea;
+  for (int Iyear=0;Iyear<NyearSummary;Iyear++)
+    for (int Istep=0;Istep<Nstep;Istep++)
+      for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
+      {
+        DiscArea = Fleet_area(Ifleet);
+        DiscXX = DiscardByFleet(dataset,N,Z,Hrate,ActSelex,ActReten,ActLegal,
+                                WeightLen,DiscArea,Ifleet,Iyear,Istep,QRedsPar);
+        DiscardWt(Iyear,Istep,Ifleet) = DiscXX(0);
+        DeadDiscardWt(Iyear,Istep,Ifleet) = DiscXX(1);
+      }
+
 
   if (DoProject==0 || DoProject==1)
    {
@@ -2776,7 +2797,20 @@ if(thedata.IsTagData==1){
     REPORT(MatBio);
     REPORT(MatBioArea);
     REPORT(RecruitmentByArea);
-    REPORT(Hrate)
+    REPORT(Hrate);
+    REPORT(CpueEcreep);
+    REPORT(PredCpue);
+    REPORT(MaxProjYr);
+    REPORT(VirginBio);
+    REPORT(VirginLegalBio);
+    REPORT(LegalBio);
+    REPORT(LegalBioAllbySex);
+    REPORT(MatureBioAllbySex);
+    REPORT(DiscardWt);
+    REPORT(DeadDiscardWt);
+    REPORT(ActSelex);
+    REPORT(ActReten);
+    REPORT(ActLegal);
     }
 
   if (DoProject==0)
@@ -2798,11 +2832,6 @@ if(thedata.IsTagData==1){
 
     REPORT(N);
     REPORT(CatchCheck);
-    REPORT(DiscardWt);
-    REPORT(DeadDiscardWt);
-  	REPORT(ActSelex);
-    REPORT(ActLegal);
-  	REPORT(ActReten);
   	REPORT(ActMove);
   	REPORT(ActGrowth);
     REPORT(Feqn2);
@@ -2815,7 +2844,6 @@ if(thedata.IsTagData==1){
   	REPORT(LengthLikeComps);
   	REPORT(LarvalLike)
   	REPORT(LarvalLikeComps);
-  	REPORT(PredCpue);
   	REPORT(SigmaCpue);
   	REPORT(CpueQ);
   	REPORT(PredNumbers);
@@ -2830,14 +2858,11 @@ if(thedata.IsTagData==1){
     REPORT(PuerulusByArea);
    // REPORT(sLegalBio);
    // REPORT(sLegalBio76);
-    REPORT(HarvestRate);
    // REPORT(SHarvestRate);
    // REPORT(HarvestRateArea);
    // REPORT(HarvestRateZn);
    // REPORT(SHarvestRate76);
    // REPORT(LegalBio76);
-    REPORT(LegalBioAllbySex);
-    REPORT(MatureBioAllbySex);
     REPORT(CumCatch);
     REPORT(Weighted_CpueLike);
     REPORT(Weighted_NumbersLike);
@@ -2849,8 +2874,6 @@ if(thedata.IsTagData==1){
     REPORT(RecapNum);
     REPORT(TagLike1);
     REPORT(TagLike2);
-    REPORT(LegalBio);
-    REPORT(LegalBioAll);
     REPORT(HRint);
     REPORT(HrateYA);
     REPORT(ActRecruitAreaSexDist);
@@ -2865,12 +2888,9 @@ if(thedata.IsTagData==1){
     REPORT(VirginNvec);
     REPORT(VirginBioAtLen);
     REPORT(BiasMult);
-    REPORT(VirginBio);
-    REPORT(VirginLegalBio);
     REPORT(CurrentBio);
     REPORT(M);
     REPORT(GrowthOut);
-    REPORT(CpueEcreep);
     REPORT(MainParPriorPen);
     REPORT(RecParPriorPen);
     REPORT(SelParPriorPen);

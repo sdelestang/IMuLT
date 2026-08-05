@@ -39,27 +39,23 @@ beyond the assessment period according to the specifications parsed from
 PROJECTIONS.DAT.
 }
 \details{
-\code{Data$Nproj}, \code{Data$SelPntFut}, \code{Data$RetPntFut},
-\code{Data$LegalFleetPntFut} and \code{Data$Phi} are already parsed from
-PROJECTIONS.DAT by \code{ReadProjFile()} inside \code{LoadData()}, and
-travel with \code{Data} inside \code{BigSave.lda} — so nothing needs to be
-re-read here. This function only needs to flip \code{Data$DoProject} to 1
-and rebuild the AD model so the C++ side runs its projection loop instead
-of stopping at \code{Nyear}.
+\code{Data$Nproj}, \code{Data$ProjType}, \code{Data$ProjHarvestRate},
+\code{Data$Catch} (extended into the projection years),
+\code{Data$SelPntFut}, \code{Data$RetPntFut}, \code{Data$LegalFleetPntFut}
+and \code{Data$Phi} are already parsed from PROJECTIONS.DAT by
+\code{ReadProjFile()} inside \code{LoadData()}, and travel with
+\code{Data} inside \code{BigSave.lda} — so nothing needs to be re-read
+here. This function only needs to flip \code{Data$DoProject} to 1 and
+rebuild the AD model so the C++ side runs its projection loop instead of
+stopping at \code{Nyear}. \code{Data$ProjType} (1 = catch-based,
+2 = harvest-rate-based) controls which schedule the compiled model
+actually uses for the projection years.
 
 No re-optimisation happens here: the model is evaluated once at the saved
 MLE (\code{BigSave$best}), so the objective value should match the
 original fit (the projection years add no likelihood contribution) and the
 projected years reflect a straightforward forward simulation, not a
 re-estimated one.
-
-\strong{Caveat (current IMuLT.cpp):} the \code{DoProject == 1} loop does
-not yet read the "Catch data" block at the foot of PROJECTIONS.DAT — it
-currently applies a hardcoded placeholder catch to fleet 1 in every
-step/year of the projection. Until that part of the .cpp is wired up to
-read \code{dataset.Catch} for the projection years from the file, the
-catch schedule you set in PROJECTIONS.DAT will not be reflected in the
-projected report, whatever \code{ProjSpecs} (1 = catch; 2 = effort) says.
 }
 \examples{
 \dontrun{

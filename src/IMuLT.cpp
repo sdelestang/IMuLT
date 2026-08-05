@@ -2790,7 +2790,7 @@ if(thedata.IsTagData==1){
       }
 
 
-  if (DoProject==0 || DoProject==1)
+  if (DoProject==1)
    {
     REPORT(HarvestRate);
     REPORT(LegalBioAll);
@@ -2811,6 +2811,16 @@ if(thedata.IsTagData==1){
     REPORT(ActSelex);
     REPORT(ActReten);
     REPORT(ActLegal);
+    REPORT(N);
+    REPORT(Z);
+
+    ADREPORT(MatBio);
+    ADREPORT(MatBioArea);
+    //ADREPORT(RecruitmentByArea);
+    ADREPORT(LegalBioAll);
+    ADREPORT(Hrate);
+    //ADREPORT(PredCpue.col(0));
+    ADREPORT(CpueEcreep);
     }
 
   if (DoProject==0)
@@ -2830,7 +2840,28 @@ if(thedata.IsTagData==1){
     //if(VarTypes(8)==1) {ADREPORT(HarvestRate);}
     //if(VarTypes(9)==1) {ADREPORT(HarvestRate);}
 
+    REPORT(HarvestRate);
+    REPORT(LegalBioAll);
+    REPORT(MatBio);
+    REPORT(MatBioArea);
+    REPORT(RecruitmentByArea);
+    REPORT(Hrate);
+    REPORT(CpueEcreep);
+    REPORT(PredCpue);
+    REPORT(MaxProjYr);
+    REPORT(VirginBio);
+    REPORT(VirginLegalBio);
+    REPORT(LegalBio);
+    REPORT(LegalBioAllbySex);
+    REPORT(MatureBioAllbySex);
+    REPORT(DiscardWt);
+    REPORT(DeadDiscardWt);
+    REPORT(ActSelex);
+    REPORT(ActReten);
+    REPORT(ActLegal);
     REPORT(N);
+    REPORT(Z);
+
     REPORT(CatchCheck);
   	REPORT(ActMove);
   	REPORT(ActGrowth);
@@ -2881,7 +2912,6 @@ if(thedata.IsTagData==1){
     REPORT(ActRecDev);
     REPORT(Recruits);
     REPORT(neglogL);
-    REPORT(Z);
     REPORT(Select);
     REPORT(RecruitFrac);
     REPORT(RecruitPars);

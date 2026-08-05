@@ -2813,6 +2813,7 @@ if(thedata.IsTagData==1){
     REPORT(ActLegal);
     REPORT(N);
     REPORT(Z);
+    REPORT(WeightLen);
 
     ADREPORT(MatBio);
     ADREPORT(MatBioArea);
@@ -2861,6 +2862,7 @@ if(thedata.IsTagData==1){
     REPORT(ActLegal);
     REPORT(N);
     REPORT(Z);
+    REPORT(WeightLen);
 
     REPORT(CatchCheck);
   	REPORT(ActMove);

@@ -1084,7 +1084,7 @@ for(r in 1:nrow(gauge4)){
     tdat <- tdat[pos1:pos2,c(1:4)]
     names(tdat) <- Names
     tdat %<>% filter(`#Year`==max(`#Year`)) %>% mutate(prop=as.numeric(catch)/sum(as.numeric(catch))) %>%
-      mutate(catch=round(projectcatch*prop,1)) %>% dplyr::select(-prop) %>% mutate(Hrate=dynamics$value[tolower(dynamics$object)=='projectedhr'])
+      mutate(catch=round(projectcatch*1000*prop,1)) %>% dplyr::select(-prop) %>% mutate(Hrate=dynamics$value[tolower(dynamics$object)=='projectedhr'])
 
     tmp <- c(tmp, "\n# Specifications for projections (1=Catch;2=HarvestRate)\n",dynamics$value[tolower(dynamics$object)=='whichproject'],"\n#\n# Catch data (kg) / Harvest Rate - Number of observations\n", projectseason*nrow(tdat), "\n")
     tmp <- c(tmp,paste(colnames(tdat), collapse = "\t"), "\n")

@@ -53,7 +53,7 @@ template <class Type>
  array<Type> Z_rate2(Nsex,Nage,MaxLen);
 
  max_harvest_rate = 3.0;
- F_tune = 20;
+ F_tune = 5;
 
  // Total catch
  TotalCatch = 0;
@@ -2813,6 +2813,8 @@ if(thedata.IsTagData==1){
     REPORT(ActLegal);
     REPORT(N);
     REPORT(Z);
+    REPORT(M);
+    REPORT(MWhitesPar);
     REPORT(WeightLen);
 
     ADREPORT(MatBio);

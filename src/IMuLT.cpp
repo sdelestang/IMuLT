@@ -96,6 +96,18 @@ template <class Type>
           {
            RetainTemp = selexF(Ifleet,Isex,Iage,Isize) * (retainF(Ifleet,Isex,Iage,Isize)+dat.Phi(Ifleet,Iage,YearPass,StepPass)*(1.0-retainF(Ifleet,Isex,Iage,Isize)));
            Z_rate(Isex,Iage,Isize) += Hrate(Ifleet) * RetainTemp;
+
+           // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
+           // Fires only for area 6 (0-based AreaPass==5), final tuning pass, a handful of
+           // size bins spanning the selectivity/legal-size transition zone.
+           if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
+               (Isize==27||Isize==29||Isize==30||Isize==31||Isize==32||Isize==34||Isize==37||Isize==44||Isize==47)) {
+             std::cout << "[HybridDebugZ] Year=" << YearPass << " Fleet=" << Ifleet << " Isize=" << Isize
+                       << " selexF=" << asDouble(selexF(Ifleet,Isex,Iage,Isize))
+                       << " retainF=" << asDouble(retainF(Ifleet,Isex,Iage,Isize))
+                       << " RetainTemp=" << asDouble(RetainTemp)
+                       << " Z_rate=" << asDouble(Z_rate(Isex,Iage,Isize)) << "\n";
+           }
 	      }
         Z_rate2(Isex,Iage,Isize) = (1-exp(-Z_rate(Isex,Iage,Isize)))/Z_rate(Isex,Iage,Isize);
        }
@@ -138,6 +150,14 @@ template <class Type>
         join1=1.0/(1.0+exp(30.0*(temp-0.95*max_harvest_rate)));
         Hrate(Ifleet)=join1*temp + (1.0-join1)*max_harvest_rate;
 //        if (tune_F = F_tune-1 & YearPass < 3) std::cout << "test " << Ifleet << " " << YearPass << " " << StepPass << " " << dat.Catch(YearPass,StepPass,Ifleet) << " " << Z_adjuster2 << " " << Hrate(Ifleet) << "\n";
+
+        // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
+        if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1) {
+          std::cout << "[HybridDebugHrate] Year=" << YearPass << " Fleet=" << Ifleet
+                    << " Catch=" << asDouble(dat.Catch(YearPass,StepPass,Ifleet))
+                    << " Z_adjuster2=" << asDouble(Z_adjuster2)
+                    << " Hrate=" << asDouble(Hrate(Ifleet)) << "\n";
+        }
        }
     }
   } // Tune
@@ -2813,9 +2833,10 @@ if(thedata.IsTagData==1){
     REPORT(ActLegal);
     REPORT(N);
     REPORT(Z);
+    REPORT(WeightLen);
     REPORT(M);
     REPORT(MWhitesPar);
-    REPORT(WeightLen);
+    REPORT(QRedsPar);
 
     ADREPORT(MatBio);
     ADREPORT(MatBioArea);
@@ -2924,6 +2945,8 @@ if(thedata.IsTagData==1){
     REPORT(BiasMult);
     REPORT(CurrentBio);
     REPORT(M);
+    REPORT(MWhitesPar);
+    REPORT(QRedsPar);
     REPORT(GrowthOut);
     REPORT(MainParPriorPen);
     REPORT(RecParPriorPen);

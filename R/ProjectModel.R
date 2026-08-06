@@ -397,68 +397,82 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
                    paste("Combined proportion of encountered animals actually retained",
                          "(selectivity x high-grading x legal size), by fleet."))
 
-  #### Catches (ProjType 1) or Harvest Rate schedule (ProjType 2) ####
-  if (ProjType == 1) {
-    print("Making projected Catch schedule")
-    rows <- list()
-    for (f in 1:Nfleet) for (yr in projyears) for (st in 1:Nstep) {
-      v <- Data$Catch[.row_year1(yr), st, f]
-      if (!is.na(v)) rows[[length(rows)+1]] <- data.frame(fleet=f, year=yr, step=st, catch=v)
-    }
-    catchdf <- bind_rows(rows) %>%
-      mutate(areaname = fleetarea$areaname[match(fleet, fleetarea$fleet)],
-             descrip  = fleetarea$description[match(fleet, fleetarea$fleet)]) %>%
-      filter(catch > 0)
-    if (nrow(catchdf) > 0) {
-      filename <- filenametopath(rundir, "Projected_Catch.png")
-      plotprep(width = 10, height = 8, filename = filename, cex = 0.9, verbose = FALSE)
-      parset(plots = c(1,1))
-      print(ggplot(catchdf %>% group_by(year, areaname) %>% summarise(CatchT = sum(catch)/1000, .groups="drop"),
-                   aes(x = year, y = CatchT, fill = areaname)) +
-              geom_bar(stat = "identity", position = "stack") +
-              viridis::scale_fill_viridis(discrete = TRUE) +
-              scale_x_continuous(breaks = .int_breaks) +
-              ylab("Catch (t)") + xlab("Year") +
-              theme(panel.background = element_rect(fill = "white", colour = NA),
-                    panel.border = element_rect(fill = NA, colour = "grey20")))
-      caption <- "Input catch schedule for the projection years, by area (ProjType 1)."
-      addplot(filen = filename, rundir = rundir, category = "Catches", caption = caption)
+  #### Catches and Harvest Rate schedules -- both always shown regardless of
+  #### ProjType (PROJECTIONS.DAT carries both columns in every row), so you
+  #### can see what the non-driving one does too ####
+  print("Making projected Catch schedule")
+  rows <- list()
+  for (f in 1:Nfleet) for (yr in projyears) for (st in 1:Nstep) {
+    v <- Data$Catch[.row_year1(yr), st, f]
+    if (!is.na(v)) rows[[length(rows)+1]] <- data.frame(fleet=f, year=yr, step=st, catch=v)
+  }
+  catchdf <- bind_rows(rows) %>%
+    mutate(areaname = fleetarea$areaname[match(fleet, fleetarea$fleet)],
+           descrip  = fleetarea$description[match(fleet, fleetarea$fleet)]) %>%
+    filter(catch > 0)
+  if (nrow(catchdf) > 0) {
+    filename <- filenametopath(rundir, "Projected_Catch.png")
+    plotprep(width = 10, height = 8, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1,1))
+    print(ggplot(catchdf %>% group_by(year, areaname) %>% summarise(CatchT = sum(catch)/1000, .groups="drop"),
+                 aes(x = year, y = CatchT, fill = areaname)) +
+            geom_bar(stat = "identity", position = "stack") +
+            viridis::scale_fill_viridis(discrete = TRUE) +
+            scale_x_continuous(breaks = .int_breaks) +
+            ylab("Catch (t)") + xlab("Year") +
+            theme(panel.background = element_rect(fill = "white", colour = NA),
+                  panel.border = element_rect(fill = NA, colour = "grey20")))
+    catch_caption <- if (ProjType == 1)
+      "Input catch schedule for the projection years, by area (ProjType 1 -- this is what drives the projection)."
+    else
+      paste("Reference catch schedule for the projection years, by area (ProjType 2 -- Harvest",
+            "Rate is what actually drives this projection; these numbers are scaled from the last",
+            "historical year's catch proportions to the target projected catch level, shown here",
+            "for context, not as a realized/fitted value).")
+    addplot(filen = filename, rundir = rundir, category = "Catches", caption = catch_caption)
 
-      catchtab <- catchdf %>% group_by(year, descrip) %>% summarise(catch = sum(catch), .groups = "drop") %>%
-        pivot_wider(names_from = year, values_from = catch, values_fill = 0)
-      addtable(intable = catchtab, filen = "Projected_Catch.csv", rundir = rundir,
-               category = "Catches", caption = "Catch (kg) applied by fleet and projection year (ProjType 1 -- this is the input schedule, not a fitted/realized value).")
-    }
-  } else {
-    print("Making projected Harvest Rate schedule")
-    rows <- list()
-    for (f in 1:Nfleet) for (ys in seq_along(projyears)) for (st in 1:Nstep) {
-      v <- Data$ProjHarvestRate[ys, st, f]
-      if (!is.na(v) && v > 0) rows[[length(rows)+1]] <-
-        data.frame(fleet=f, year=projyears[ys], step=st, hrate=v)
-    }
-    hrdf <- bind_rows(rows) %>%
-      mutate(descrip = fleetarea$description[match(fleet, fleetarea$fleet)])
-    if (nrow(hrdf) > 0) {
-      filename <- filenametopath(rundir, "Projected_HarvestRate_input.png")
-      plotprep(width = 10, height = 8, filename = filename, cex = 0.9, verbose = FALSE)
-      parset(plots = c(1,1))
-      print(ggplot(hrdf, aes(x = year, y = hrate, colour = descrip)) +
-              geom_line(linewidth = 0.8) + geom_point() +
-              scale_x_continuous(breaks = .int_breaks) +
-              ylab("Input harvest rate") + xlab("Year") + theme_bw())
-      caption <- "Input harvest-rate schedule for the projection years, by fleet (ProjType 2)."
-      addplot(filen = filename, rundir = rundir, category = "Catches", caption = caption)
+    catchtab <- catchdf %>% group_by(year, descrip) %>% summarise(catch = sum(catch), .groups = "drop") %>% mutate(catch=round(catch/1000,1)) %>%
+      pivot_wider(names_from = year, values_from = catch, values_fill = 0)
+    colnames(catchtab) <- substr('X', '.',colnames(catchtab))
+    catchtab_caption <- if (ProjType == 1)
+      "Catch (t) applied by fleet and projection year (ProjType 1 -- this is the input schedule, not a fitted/realized value)."
+    else
+      "Reference catch (t) by fleet and projection year (ProjType 2 -- context only, not what the imposed harvest rate actually produces)."
+    addtable(intable = catchtab, filen = "Projected_Catch.csv", rundir = rundir,
+             category = "Catches", caption = catchtab_caption)
+  }
 
-      hrtab <- hrdf %>% group_by(year, descrip) %>% summarise(hrate = mean(hrate), .groups = "drop") %>%
-        pivot_wider(names_from = year, values_from = hrate, values_fill = 0)
-      addtable(intable = hrtab, filen = "Projected_HarvestRate_input.csv", rundir = rundir,
-               category = "Catches",
-               caption = paste("Input harvest rate by fleet and projection year (ProjType 2). The",
-                                "catch this actually produces is not yet computed/reported for",
-                                "harvest-rate-driven projections -- see Discards' caveat about",
-                                "realized-catch reconstruction not being available."))
-    }
+  print("Making projected Harvest Rate schedule")
+  rows <- list()
+  for (f in 1:Nfleet) for (ys in seq_along(projyears)) for (st in 1:Nstep) {
+    v <- Data$ProjHarvestRate[ys, st, f]
+    if (!is.na(v) && v > 0) rows[[length(rows)+1]] <-
+      data.frame(fleet=f, year=projyears[ys], step=st, hrate=v)
+  }
+  hrdf <- bind_rows(rows) %>%
+    mutate(descrip = fleetarea$description[match(fleet, fleetarea$fleet)])
+  if (nrow(hrdf) > 0) {
+    filename <- filenametopath(rundir, "Projected_HarvestRate_input.png")
+    plotprep(width = 10, height = 8, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1,1))
+    print(ggplot(hrdf, aes(x = year, y = hrate, colour = descrip)) +
+            geom_line(linewidth = 0.8) + geom_point() +
+            scale_x_continuous(breaks = .int_breaks) +
+            ylab("Input harvest rate") + xlab("Year") + theme_bw())
+    hrate_caption <- if (ProjType == 2)
+      "Input harvest-rate schedule for the projection years, by fleet (ProjType 2 -- this is what drives the projection)."
+    else
+      "Reference harvest-rate schedule for the projection years, by fleet (ProjType 1 -- Catch is what actually drives this projection; shown here for context)."
+    addplot(filen = filename, rundir = rundir, category = "Catches", caption = hrate_caption)
+
+    hrtab <- hrdf %>% group_by(year, descrip) %>% summarise(hrate = mean(hrate), .groups = "drop") %>%
+      pivot_wider(names_from = year, values_from = hrate, values_fill = 0)
+    hrtab_caption <- if (ProjType == 2)
+      "Input harvest rate by fleet and projection year (ProjType 2 -- this is what drives the projection)."
+    else
+      "Reference harvest rate by fleet and projection year (ProjType 1 -- context only, not what actually drives this projection)."
+    addtable(intable = hrtab, filen = "Projected_HarvestRate_input.csv", rundir = rundir,
+             category = "Catches", caption = hrtab_caption)
   }
 
   #### Discards ####
@@ -490,38 +504,6 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
                 axis.text.x = element_text(angle = 45)))
   caption <- "Projected discards (black) and dead discards (red) by area. Last assessment year included for continuity."
   addplot(filen = filename, rundir = rundir, category = "Discards", caption = caption)
-
-  #### Harvest Rate ####
-  print("Making Harvest Rate")
-  hr_rows <- list()
-  for (f in 1:Nfleet) for (yr in c(projyears[1]-1, projyears)) for (st in 1:Nstep) {
-    ri <- .row_burnin(yr)
-    if (ri < 1 || ri > dim(Report$Hrate)[1]) next
-    se <- if (!is.null(SDse$Hrate)) SDse$Hrate[ri, st, f] else NA_real_
-    hr_rows[[length(hr_rows)+1]] <- data.frame(
-      year = yr, step = st, fleet = f, Hrate = Report$Hrate[ri, st, f], se = se)
-  }
-  hratedf <- bind_rows(hr_rows) %>%
-    mutate(descrip = fleetarea$description[match(fleet, fleetarea$fleet)]) %>%
-    filter(!is.na(descrip)) %>%
-    group_by(fleet) %>% filter(any(Hrate > 0)) %>% ungroup() %>%
-    mutate(lwr = pmax(Hrate - se*SclErr, 0), upr = Hrate + se*SclErr)
-  filename <- filenametopath(rundir, "Projected_Harvest_Rate.png")
-  plotprep(width = 10, height = 10, filename = filename, cex = 0.9, verbose = FALSE)
-  parset(plots = c(1,1))
-  p <- ggplot(hratedf, aes(x = year, y = Hrate))
-  if (!is.null(SDse$Hrate)) p <- p + geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey70", alpha = 0.5)
-  p <- p + geom_line() + geom_point(size = 0.75) +
-    geom_vline(xintercept = projyears[1]-0.5, linetype = "dashed", colour = "grey50") +
-    facet_wrap(~descrip, scales = "free_y") +
-    scale_x_continuous(breaks = .int_breaks) +
-    theme(panel.background = element_rect(fill = "white", colour = NA),
-          panel.border = element_rect(fill = NA, colour = "grey20"),
-          axis.text.x = element_text(angle = 45)) +
-    ylab("Harvest rate") + xlab("Year")
-  print(p)
-  caption <- "Projected harvest rate by fleet (fleets with zero harvest rate throughout are omitted). Last assessment year included for continuity."
-  addplot(filen = filename, rundir = rundir, category = "Harvest_Rate", caption = caption)
 
   #### Fishing Efficiency ####
   print("Making Fishing Efficiency")
@@ -633,6 +615,39 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
                    "length-based egg-production curve, which does not yet extend into projection years),",
                    "by area, projected forward.")
   addplot(filen = filename, rundir = rundir, category = "Egg_Production", caption = caption)
+
+  #### Harvest Rate ####
+  print("Making Harvest Rate")
+  hr_rows <- list()
+  for (f in 1:Nfleet) for (yr in c(projyears[1]-1, projyears)) for (st in 1:Nstep) {
+    ri <- .row_burnin(yr)
+    if (ri < 1 || ri > dim(Report$Hrate)[1]) next
+    se <- if (!is.null(SDse$Hrate)) SDse$Hrate[ri, st, f] else NA_real_
+    hr_rows[[length(hr_rows)+1]] <- data.frame(
+      year = yr, step = st, fleet = f, Hrate = Report$Hrate[ri, st, f], se = se)
+  }
+  hratedf <- bind_rows(hr_rows) %>%
+    mutate(descrip = fleetarea$description[match(fleet, fleetarea$fleet)]) %>%
+    filter(!is.na(descrip)) %>%
+    group_by(fleet) %>% filter(any(Hrate > 0)) %>% ungroup() %>%
+    mutate(lwr = pmax(Hrate - se*SclErr, 0), upr = Hrate + se*SclErr)
+  filename <- filenametopath(rundir, "Projected_Harvest_Rate.png")
+  plotprep(width = 10, height = 10, filename = filename, cex = 0.9, verbose = FALSE)
+  parset(plots = c(1,1))
+  p <- ggplot(hratedf, aes(x = year, y = Hrate))
+  if (!is.null(SDse$Hrate)) p <- p + geom_ribbon(aes(ymin = lwr, ymax = upr), fill = "grey70", alpha = 0.5)
+  p <- p + geom_line() + geom_point(size = 0.75) +
+    geom_vline(xintercept = projyears[1]-0.5, linetype = "dashed", colour = "grey50") +
+    facet_wrap(~descrip, scales = "free_y") +
+    expand_limits(y = 0) +
+    scale_x_continuous(breaks = .int_breaks) +
+    theme(panel.background = element_rect(fill = "white", colour = NA),
+          panel.border = element_rect(fill = NA, colour = "grey20"),
+          axis.text.x = element_text(angle = 45)) +
+    ylab("Harvest rate") + xlab("Year")
+  print(p)
+  caption <- "Projected harvest rate by fleet (fleets with zero harvest rate throughout are omitted). Last assessment year included for continuity."
+  addplot(filen = filename, rundir = rundir, category = "Harvest_Rate", caption = caption)
 
   #### Finish ####
   endtime <- as.character(Sys.time())

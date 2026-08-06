@@ -12,7 +12,8 @@
   up,
   is95,
   folder_name,
-  openfile
+  openfile,
+  SDrep = NULL
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ working directory rather than from this path.}
 and \code{ModelStructure.xlsx}.}
 
 \item{is95, folder_name, openfile}{See \code{\link{ProjectModel}}.}
+
+\item{SDrep}{Result of \code{TMB::sdreport(model)}, or \code{NULL}
+(default). When provided, CI ribbons (delta-method SEs) are added to
+the Fishing Efficiency, Biomass, and Harvest Rate plots -- the three
+the user asked for, out of everything currently \code{ADREPORT()}'d.}
 }
 \value{
 Invisibly NULL. Called for its side effect of writing the report.

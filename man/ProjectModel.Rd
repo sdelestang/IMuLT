@@ -12,7 +12,8 @@ ProjectModel(
   is95 = TRUE,
   folder_name = "",
   openfile = TRUE,
-  ProjType = NULL
+  ProjType = NULL,
+  sdreport = FALSE
 )
 }
 \arguments{
@@ -57,6 +58,15 @@ both the catch and harvest-rate schedules are always parsed into
 \code{Data} regardless of the file's ProjType flag, overriding here is
 safe as long as the schedule you actually want was populated in
 PROJECTIONS.DAT.}
+
+\item{sdreport}{Logical. If \code{TRUE}, calls \code{TMB::sdreport(model)}
+after the projection report is extracted, computing delta-method
+standard errors for the ADREPORT()'d projection quantities (\code{MatBio},
+\code{MatBioArea}, \code{RecruitmentByArea}, \code{LegalBioAll},
+\code{HarvestRate}, \code{PredCpue}, \code{CpueEcreep}). Default
+\code{FALSE}, since this can be slow (a full Hessian at the projection's
+parameter dimension). The result is stored as \code{SDrep} in both the
+returned list and \code{BigSaveProj.lda}.}
 }
 \value{
 Invisibly, a list with elements:
@@ -67,6 +77,8 @@ for comparison
 \item \code{Data} - the \code{Data} list used to build the projection
 model (\code{DoProject} set to 1)
 \item \code{model} - the \code{MakeADFun} object for the projection run
+\item \code{SDrep} - result of \code{TMB::sdreport(model)} if
+\code{sdreport = TRUE}, else \code{NULL}
 }
 }
 \description{

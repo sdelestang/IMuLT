@@ -53,7 +53,7 @@ template <class Type>
  array<Type> Z_rate2(Nsex,Nage,MaxLen);
 
  max_harvest_rate = 3.0;
- F_tune = 5;
+ F_tune = 20;
 
  // Total catch
  TotalCatch = 0;

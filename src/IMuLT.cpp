@@ -665,6 +665,14 @@ template <class Type>
        SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
        RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
        LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
+
+       // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
+       if (dat.DoProject==1 && Ifleet==5 && (Iyear==36||Iyear==37||Iyear==38||Iyear==39)) {
+         std::cout << "[OneTimeStepDebugPtr] Iyear=" << Iyear << " YearAdjust1=" << YearAdjust1
+                   << " FutIndex=" << (YearAdjust1-dat.Nyear)
+                   << " SelPointer=" << SelPointer << " RetPointer=" << RetPointer
+                   << " LegalPointer=" << LegalPointer << "\n";
+       }
 	  }
      for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
        selexF(Ifleet,Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;

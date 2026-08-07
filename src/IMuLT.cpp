@@ -1939,8 +1939,8 @@ Type objective_function<Type>::operator() ()
   DATA_IARRAY(SelPnt); dataset.SelPnt = SelPnt;
   DATA_IARRAY(RetPnt); dataset.RetPnt = RetPnt;
   DATA_IARRAY(LegalFleetPnt); dataset.LegalFleetPnt = LegalFleetPnt;
-  DATA_IARRAY(SelPntFut); dataset.SelPntFut = SelPnt;
-  DATA_IARRAY(RetPntFut); dataset.RetPntFut = RetPnt;
+  DATA_IARRAY(SelPntFut); dataset.SelPntFut = SelPntFut;
+  DATA_IARRAY(RetPntFut); dataset.RetPntFut = RetPntFut;
   DATA_IARRAY(LegalFleetPntFut); dataset.LegalFleetPntFut = LegalFleetPntFut;
   DATA_MATRIX(TimeStepLen); dataset.TimeStepLen=TimeStepLen;
   DATA_ARRAY(Catch); dataset.Catch=Catch;
@@ -2882,6 +2882,10 @@ if(thedata.IsTagData==1){
 
   if (DoProject==0)
    {
+    // ADREPORT(VarOut);
+    // ADREPORT(PredNumbers.col(0));
+    // ADREPORT(PredLarval.col(0));
+    // ADREPORT(PredCpue.col(0));
     if(VarTypes(0)==1) {ADREPORT(MatBio);}
     if(VarTypes(1)==1) {ADREPORT(MatBioArea);}
     if(VarTypes(2)==1) {ADREPORT(RecruitmentByArea);}

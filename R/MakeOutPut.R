@@ -177,7 +177,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   dat  <- read.table("Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   echo  <- read.table("Echo.out",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   selx <- read.table(paste("../SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-  retenx <- read.table(paste("../RETENSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  # RETENSPEC.DAT is not a fixed filename -- resolved via Starter.dat, the
+  # same way the package's own LoadData() does it.
+  starterfile <- read.table("../Starter.dat",comment.char = "?",fill=T,blank.lines.skip=T,stringsAsFactors=F,col.names=1:200)
+  starter <- ReadStarterFile(starterfile)
+  retenx <- read.table(paste0("../", starter$RetainFileName),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
@@ -198,7 +202,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   nareas <- length(unique(areas$AreaCode))
   times <- readWorkbook(wb,sheet='Times', startRow = 2)
   fleets <- readWorkbook(wb,sheet='Fleetcode', startRow = 2)
-## Get names of Pars
+  ## Get names of Pars
   MainParsName <- readWorkbook(wb,sheet='MainParameters', startRow = 2)$comment
   RecParName <- paste0('Rec_',readWorkbook(wb,sheet='Recruitment', startRow = 2)$description)
   RecParName <- RecParName[3:length(RecParName)] ## Shorten for rec_devs and spatial rec_devs
@@ -494,15 +498,17 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   # ── High-grading: Output.RL's "#Retention" block is a genuine, separate,
   # compact pattern table (flat proportion across all bins) -- pointed to by
   # RETENSPEC.DAT via ReadRetenFile()'s RetPnt, structurally mirroring how
-  # SELEXSPEC.DAT points into "#Full Selectivity". ─────────────────────────
+  # SELEXSPEC.DAT points into "#Full Selectivity". Note RETENSPEC.DAT's
+  # header names this column "Step" (no colon), unlike SELEXSPEC.DAT's
+  # "Step:". ─────────────────────────────────────────────────────────────
   retfleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), retenx, 1, char=F)
-  hgpat <- findNclean(c('#','Retention'), dat, 1)
+  hgpat <- findNclean('#Retention', dat, 1)
   hgpat <- hgpat[,2:ncol(hgpat)]
   names(hgpat) <- paste0("lb", seq_len(ncol(hgpat)))
   hg_lb_cols <- names(hgpat)
 
-  hgfleet3 <- retfleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>%
-    rename(fleet = Fleet, sex = Sex, age = Age, tstep = `Step:`) %>%
+  hgfleet3 <- retfleet2 %>% pivot_longer(!c(Sex, Age, Fleet, Step), names_to = 'year', values_to = 'link') %>%
+    rename(fleet = Fleet, sex = Sex, age = Age, tstep = Step) %>%
     mutate(year = as.numeric(year)) %>%
     filter(!is.na(link), link >= 0)
   hg_wide <- cbind(hgfleet3, hgpat[hgfleet3$link + 1, hg_lb_cols, drop = FALSE])
@@ -514,11 +520,20 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   # ── Legal size: Output.RL's "#Legal Selectivity by sex age fleet year
   # tstep" block is a binary (0/1) step function, already fully expanded per
-  # fleet/sex/age/year/tstep -- no pointer/link resolution needed. ─────────
+  # fleet/sex/age/year/tstep -- no pointer/link resolution needed. NOTE this
+  # block's sex/age/fleet/tstep are 1-indexed, unlike sel_wide/hg_wide (which
+  # inherit 0-indexing from SELEXSPEC.DAT/RETENSPEC.DAT) -- converting to
+  # 0-based here so all three tables share one convention, both for the
+  # Combined join below and for the descrip lookup (which already assumes
+  # 0-based via fleets$fleet - 1). ──────────────────────────────────────────
   legal_wide <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)
   names(legal_wide) <- c('sex', 'age', 'fleet', 'year', 'tstep',
                          paste0('lb', 1:(ncol(legal_wide) - 5)))
   legal_wide$year <- as.numeric(legal_wide$year)
+  legal_wide$sex   <- legal_wide$sex   - 1
+  legal_wide$age   <- legal_wide$age   - 1
+  legal_wide$fleet <- legal_wide$fleet - 1
+  legal_wide$tstep <- legal_wide$tstep - 1
   legal_wide$descrip <- fleets$description[match(legal_wide$fleet, fleets$fleet - 1)]
   legal_lb_cols <- grep("^lb", names(legal_wide), value = TRUE)
 
@@ -558,7 +573,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
 
- #### Growth ####
+  #### Growth ####
   print("Making Growth Curves")
   #  grow <- findNclean(c('#Growth','Curves'), dat, 2)
   #  head(grow)
@@ -856,26 +871,26 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     parset(plots=c(1,1))
     if(length(unique(tdat3$aSex))>1) {
       print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-            geom_line()+geom_point()+
-            geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-            facet_grid(Time_step~aSex)+
-            scale_color_manual(values=c("red","black")) +
-            scale_size_manual(values = c(0.5, 0.5)) +
-            theme(panel.background = element_rect(fill = "white",colour = NA),
-                  panel.border = element_rect(fill = NA, colour = "grey20"),
-                  axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-            ylab('Catch rate (kg/pot)')) } else {
-              {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-                       geom_line()+geom_point()+
-                       geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-                       facet_wrap(~Time_step)+
-                       scale_color_manual(values=c("red","black")) +
-                       scale_size_manual(values = c(0.5, 0.5)) +
-                       theme(panel.background = element_rect(fill = "white",colour = NA),
-                             panel.border = element_rect(fill = NA, colour = "grey20"),
-                             axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-                       ylab('Catch rate (kg/pot)'))}
-            }
+              geom_line()+geom_point()+
+              geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+              facet_grid(Time_step~aSex)+
+              scale_color_manual(values=c("red","black")) +
+              scale_size_manual(values = c(0.5, 0.5)) +
+              theme(panel.background = element_rect(fill = "white",colour = NA),
+                    panel.border = element_rect(fill = NA, colour = "grey20"),
+                    axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+              ylab('Catch rate (kg/pot)')) } else {
+                {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+                         geom_line()+geom_point()+
+                         geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+                         facet_wrap(~Time_step)+
+                         scale_color_manual(values=c("red","black")) +
+                         scale_size_manual(values = c(0.5, 0.5)) +
+                         theme(panel.background = element_rect(fill = "white",colour = NA),
+                               panel.border = element_rect(fill = NA, colour = "grey20"),
+                               axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+                         ylab('Catch rate (kg/pot)'))}
+              }
     caption <- paste(unique(tdat3$aSex), unique(tdat3$Descrip), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
@@ -1065,14 +1080,14 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
     tdat2 <- tdat1 %>% filter(Sex==isex) %>% pivot_longer(starts_with("lb"),names_to='albin',values_to = 'prop') %>% mutate(lbin=as.numeric(gsub('lb ','',albin))) %>%  mutate(fname = fleetarea$description[match(Fleet,fleetarea$fleet)]) %>% mutate(source=ifelse(O.P=='O','Observed','Predicted'))
     suppressMessages(print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
-            geom_line()+geom_point(size = 0.9) +
-            ylab('Proportion') +
-            facet_wrap(~fname) +
-            scale_color_manual(values=c("black","red")) +
-            theme(panel.background = element_rect(fill = "white",colour = NA),
-                  panel.border = element_rect(fill = NA, colour = "grey20"),
-                  axis.text.x = element_text(vjust = 0.0, angle = 45))+
-            xlab('Length bin (mm)')
+                             geom_line()+geom_point(size = 0.9) +
+                             ylab('Proportion') +
+                             facet_wrap(~fname) +
+                             scale_color_manual(values=c("black","red")) +
+                             theme(panel.background = element_rect(fill = "white",colour = NA),
+                                   panel.border = element_rect(fill = NA, colour = "grey20"),
+                                   axis.text.x = element_text(vjust = 0.0, angle = 45))+
+                             xlab('Length bin (mm)')
     ))
     caption <- paste('Sex = ',isex, "Catches by fleet, summed over years and time-steps (weighted by observations - Obs, black vs Exp, red).")
     addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
@@ -1103,14 +1118,14 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       plotprep(width=9,height=9,filename=filename,cex=0.9,verbose=FALSE)
       parset(plots=c(1,1), margin = c(.5,.5,.5,.2))
       suppressMessages(print(ggplot(tdat2, aes(x=lbin, y=prop,colour=source)) +
-              geom_line()+geom_point(size = 0.9) +
-              ylab('Proportion') +
-              facet_wrap(~Year) +
-              scale_color_manual(values=c("black","red")) +
-              theme(panel.background = element_rect(fill = "white",colour = NA),
-                    panel.border = element_rect(fill = NA, colour = "grey20"),
-                    axis.text.x = element_text(vjust = 0.0, angle = 45))+
-              xlab('Length bin (mm)') + labs(color = fname)
+                               geom_line()+geom_point(size = 0.9) +
+                               ylab('Proportion') +
+                               facet_wrap(~Year) +
+                               scale_color_manual(values=c("black","red")) +
+                               theme(panel.background = element_rect(fill = "white",colour = NA),
+                                     panel.border = element_rect(fill = NA, colour = "grey20"),
+                                     axis.text.x = element_text(vjust = 0.0, angle = 45))+
+                               xlab('Length bin (mm)') + labs(color = fname)
       ))
       caption <- paste('Sex =',isex, "Fleet =",fname, "Size compositions by fleet, area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
       addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
@@ -1129,14 +1144,14 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       tid$sd <- apply(tmat, 1, funcoutSd)
       nms <- unique(fleetarea$description[match(tid$Fleet, fleetarea$fleet)])
       suppressMessages(print(ggplot(tid,aes(x=Year,y=`Mean width (mm)`, colour=O.P), )+
-              ggtitle(paste(isex,nms))+
-              scale_color_manual(values=c(1,2))+
-              geom_errorbar(data=tid[tid$O.P=='Observed',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), linewidth=0.9)+
-              geom_errorbar(data=tid[tid$O.P=='Predicted',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), colour=2, linewidth=0.6)+
-              geom_line(linewidth = 1)+geom_point(size=2)+
-              theme(panel.background = element_rect(fill = "white",colour = NA),
-                    panel.border = element_rect(fill = NA, colour = "grey20"),
-                    axis.text.x = element_text(vjust = 0.0, angle = 0))))
+                               ggtitle(paste(isex,nms))+
+                               scale_color_manual(values=c(1,2))+
+                               geom_errorbar(data=tid[tid$O.P=='Observed',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), linewidth=0.9)+
+                               geom_errorbar(data=tid[tid$O.P=='Predicted',], aes(ymin=`Mean width (mm)`-sd, ymax=`Mean width (mm)`+sd), width=c(0.2), colour=2, linewidth=0.6)+
+                               geom_line(linewidth = 1)+geom_point(size=2)+
+                               theme(panel.background = element_rect(fill = "white",colour = NA),
+                                     panel.border = element_rect(fill = NA, colour = "grey20"),
+                                     axis.text.x = element_text(vjust = 0.0, angle = 0))))
 
       caption <- paste('Sex =',isex, "Fleet =",ifleet, "Area =", nms, "Median size compositions by fleet/area and year, summed over time-steps (weighted by observations - Obs, black vs Exp, red).")
       addplot(filen=filename,rundir=rundir,category="FittedSizeComp",caption=caption)
@@ -1151,10 +1166,10 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   end <- 3+length(which(grepl('prop',colnames(tdat))))
   nms <-  colnames(tdat)[which(grepl('prop',colnames(tdat)))]
   tryCatch(tdat1 <- tdat %>% group_by(Fleet,Sex,Year,Step) %>% summarise_at(nms, diff) %>%
-    mutate(yrstep = Year+(Step-1)/(max(Step))) %>% as.data.frame(),
-    error = function(e) {
-      stop(paste("Error: likely caused by multiple LF lines for the same fleet, step and sex. Original error:\n ", conditionMessage(e)))
-    })
+             mutate(yrstep = Year+(Step-1)/(max(Step))) %>% as.data.frame(),
+           error = function(e) {
+             stop(paste("Error: likely caused by multiple LF lines for the same fleet, step and sex. Original error:\n ", conditionMessage(e)))
+           })
   pos <- which(grepl('prop', colnames(tdat1)))
   colnames(tdat1)[pos] <- paste('lb',lbinl[1:(length(lbinl)-1)])
   scale <- 0.05
@@ -1295,25 +1310,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     mn <- floor(min(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
 
     filename <- filenametopath(rundir, paste0("Tag_recapt_by_release.png"))
- plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
-  parset(plots = c(1, 1))
-  suppressWarnings(print(
-    ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
-      geom_point(size = 3) +
-      facet_wrap(~RLArea) +
-      coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
-      theme(panel.background = element_rect(fill = "white", colour = NA),
-            panel.border = element_rect(fill = NA, colour = "grey20")) +
-      xlab("log(Total Observed)") + ylab("log(Total Estimated)")
-  ))
-  caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
-  addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-
-  # Plot 2: Pearson residuals by release area, faceted by recapture area
-  for (a in as.numeric(sort(unique(tag$RelArea)))) {
-    tmp <- tag[tag$RelArea == a, ]
-    filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
     plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
     parset(plots = c(1, 1))
     suppressWarnings(print(
@@ -1328,6 +1324,25 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     ))
     caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
     addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    # Plot 2: Pearson residuals by release area, faceted by recapture area
+    for (a in as.numeric(sort(unique(tag$RelArea)))) {
+      tmp <- tag[tag$RelArea == a, ]
+      filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
+      plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
+      parset(plots = c(1, 1))
+      suppressWarnings(print(
+        ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
+          geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
+          geom_point(size = 3) +
+          facet_wrap(~RLArea) +
+          coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
+          theme(panel.background = element_rect(fill = "white", colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20")) +
+          xlab("log(Total Observed)") + ylab("log(Total Estimated)")
+      ))
+      caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
+      addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
     }
     # Plot 2: Pearson residuals by release area, faceted by recapture area
     for (a in as.numeric(sort(unique(tag$RelArea)))) {
@@ -1767,11 +1782,11 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         geom_point(data = sub_df,aes(x = Initial, y = 0, colour = "initial"),
                    shape = 17, size = 3) +
         scale_colour_manual(name   = NULL,
-          breaks = c("max. likelihood", "prior", "initial", "bounds"),
-          values = c("max. likelihood" = "blue",
-                     "prior"           = "black",
-                     "initial"         = "red",
-                     "bounds"          = "orange")) +
+                            breaks = c("max. likelihood", "prior", "initial", "bounds"),
+                            values = c("max. likelihood" = "blue",
+                                       "prior"           = "black",
+                                       "initial"         = "red",
+                                       "bounds"          = "orange")) +
         scale_linewidth_manual(
           values = c("max. likelihood" = 0.5, "prior" = 1.2),
           guide  = "none") +

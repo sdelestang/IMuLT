@@ -2882,10 +2882,6 @@ if(thedata.IsTagData==1){
 
   if (DoProject==0)
    {
-    // ADREPORT(VarOut);
-    // ADREPORT(PredNumbers.col(0));
-    // ADREPORT(PredLarval.col(0));
-    // ADREPORT(PredCpue.col(0));
     if(VarTypes(0)==1) {ADREPORT(MatBio);}
     if(VarTypes(1)==1) {ADREPORT(MatBioArea);}
     if(VarTypes(2)==1) {ADREPORT(RecruitmentByArea);}

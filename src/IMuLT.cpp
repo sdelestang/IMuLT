@@ -96,19 +96,6 @@ template <class Type>
           {
            RetainTemp = selexF(Ifleet,Isex,Iage,Isize) * (retainF(Ifleet,Isex,Iage,Isize)+dat.Phi(Ifleet,Iage,YearPass,StepPass)*(1.0-retainF(Ifleet,Isex,Iage,Isize)));
            Z_rate(Isex,Iage,Isize) += Hrate(Ifleet) * RetainTemp;
-
-           // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
-           // Fleet 6 only (0-based Ifleet==5, the only active fleet in area 6), area 6,
-           // years 2032-2035 (0-based YearPass 36-39), final tuning pass, EVERY size bin.
-           if (dat.DoProject==1 && AreaPass==5 && Ifleet==5 && tune_F==F_tune-1 &&
-               (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
-             std::cout << "[HybridDebugZ] Year=" << YearPass << " Isize=" << Isize
-                       << " N=" << asDouble(N(AreaPass,dat.BurnIn+YearPass,StepPass,Isex,Iage,Isize))
-                       << " selexF=" << asDouble(selexF(Ifleet,Isex,Iage,Isize))
-                       << " retainF=" << asDouble(retainF(Ifleet,Isex,Iage,Isize))
-                       << " RetainTemp=" << asDouble(RetainTemp)
-                       << " Z_rate=" << asDouble(Z_rate(Isex,Iage,Isize)) << "\n";
-           }
 	      }
         Z_rate2(Isex,Iage,Isize) = (1-exp(-Z_rate(Isex,Iage,Isize)))/Z_rate(Isex,Iage,Isize);
        }
@@ -136,16 +123,6 @@ template <class Type>
           if(dat.IsRed(Isex,Iage,AreaPass,StepPass)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
           Z_rate(Isex,Iage,Isize)  = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM + Z_adjuster*(Z_rate(Isex,Iage,Isize)-dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM);
           Z_rate2(Isex,Iage,Isize) = (1-exp(-Z_rate(Isex,Iage,Isize)))/Z_rate(Isex,Iage,Isize);
-
-          // TEMPORARY DEBUG -- the FINAL (post-Z_adjuster-rescaling) Z_rate/Z_rate2, i.e. what
-          // actually feeds the final Hrate below and becomes the officially reported Z.
-          if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
-              (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
-            std::cout << "[HybridDebugZFinal] Year=" << YearPass << " Isize=" << Isize
-                      << " Z_adjuster=" << asDouble(Z_adjuster)
-                      << " Z_rate=" << asDouble(Z_rate(Isex,Iage,Isize))
-                      << " Z_rate2=" << asDouble(Z_rate2(Isex,Iage,Isize)) << "\n";
-          }
          }
 
      // Adjust total exploitable biomass
@@ -161,15 +138,6 @@ template <class Type>
         join1=1.0/(1.0+exp(30.0*(temp-0.95*max_harvest_rate)));
         Hrate(Ifleet)=join1*temp + (1.0-join1)*max_harvest_rate;
 //        if (tune_F = F_tune-1 & YearPass < 3) std::cout << "test " << Ifleet << " " << YearPass << " " << StepPass << " " << dat.Catch(YearPass,StepPass,Ifleet) << " " << Z_adjuster2 << " " << Hrate(Ifleet) << "\n";
-
-        // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
-        if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
-            (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
-          std::cout << "[HybridDebugHrate] Year=" << YearPass << " Fleet=" << Ifleet
-                    << " Catch=" << asDouble(dat.Catch(YearPass,StepPass,Ifleet))
-                    << " Z_adjuster2=" << asDouble(Z_adjuster2)
-                    << " Hrate=" << asDouble(Hrate(Ifleet)) << "\n";
-        }
        }
     }
   } // Tune
@@ -665,27 +633,6 @@ template <class Type>
        SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
        RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
        LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
-
-       // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
-       if (dat.DoProject==1 && Ifleet==5 && (Iyear==36||Iyear==37||Iyear==38||Iyear==39)) {
-         std::cout << "[OneTimeStepDebugPtr] Iyear=" << Iyear << " YearAdjust1=" << YearAdjust1
-                   << " FutIndex=" << (YearAdjust1-dat.Nyear)
-                   << " SelPointer=" << SelPointer << " RetPointer=" << RetPointer
-                   << " LegalPointer=" << LegalPointer << "\n";
-       }
-
-       // TEMPORARY DEBUG -- ONE-TIME raw dump of the full arrays for fleet 6, exactly as
-       // cpp reads them, directly comparable to R's Data$SelPntFut/RetPntFut/LegalFleetPntFut[1,1,6,,1].
-       if (dat.DoProject==1 && Ifleet==5 && Iyear==dat.Nyear && Istep==0) {
-         std::cout << "[RawArrayDump] MaxProjYr=" << dat.MaxProjYr << " Nyear=" << dat.Nyear << "\n";
-         std::cout << "[RawArrayDump] SelPntFut(fleet6):";
-         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.SelPntFut(Isex,Iage,Ifleet,k,Istep);
-         std::cout << "\n[RawArrayDump] RetPntFut(fleet6):";
-         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.RetPntFut(Isex,Iage,Ifleet,k,Istep);
-         std::cout << "\n[RawArrayDump] LegalFleetPntFut(fleet6):";
-         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.LegalFleetPntFut(Isex,Iage,Ifleet,k,Istep);
-         std::cout << "\n";
-       }
 	  }
      for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
        selexF(Ifleet,Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;

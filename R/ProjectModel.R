@@ -428,14 +428,13 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
       paste("Reference catch schedule for the projection years, by area (ProjType 2 -- Harvest",
             "Rate is what actually drives this projection; these numbers are scaled from the last",
             "historical year's catch proportions to the target projected catch level, shown here",
-            "for context, not as a realized/fitted value).")
+            "for context, not as a realised/fitted value).")
     addplot(filen = filename, rundir = rundir, category = "Catches", caption = catch_caption)
 
     catchtab <- catchdf %>% group_by(year, descrip) %>% summarise(catch = sum(catch), .groups = "drop") %>% mutate(catch=round(catch/1000,1)) %>%
       pivot_wider(names_from = year, values_from = catch, values_fill = 0)
-    colnames(catchtab) <- substr('X', '.',colnames(catchtab))
     catchtab_caption <- if (ProjType == 1)
-      "Catch (t) applied by fleet and projection year (ProjType 1 -- this is the input schedule, not a fitted/realized value)."
+      "Catch (t) applied by fleet and projection year (ProjType 1 -- this is the input schedule, not a fitted/realised value)."
     else
       "Reference catch (t) by fleet and projection year (ProjType 2 -- context only, not what the imposed harvest rate actually produces)."
     addtable(intable = catchtab, filen = "Projected_Catch.csv", rundir = rundir,

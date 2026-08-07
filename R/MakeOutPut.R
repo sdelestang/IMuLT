@@ -177,6 +177,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   dat  <- read.table("Output.RL",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   echo  <- read.table("Echo.out",comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   selx <- read.table(paste("../SELEXSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+  retenx <- read.table(paste("../RETENSPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   lbin1  <- read.table(paste("../DATA.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   ctl1  <- read.table(paste("../CONTROL.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
   mov1  <- read.table(paste("../MOVESPEC.DAT",sep=''),comment.char = "?",fill=T,blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
@@ -393,46 +394,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   fleetareatmp <- fleetarea %>% dplyr::select(Area=areaname, Fleet=fleet, FleetType=fleettype)
   addtable(intable=fleetareatmp,filen="Fleets.csv",rundir=rundir,category="Data",caption="Fleet Descriptions")
 
-  #### Selectivity ####
-  print("Making Selectivity and Retention Plots")
-  fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
-  sel <- findNclean(c('Full','Selectivity'), dat, 1)
-  sel <- sel[,2:ncol(sel)]
-  ids <- GetSelectPatternNames(wb, startseason, endseason)
-  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>% left_join(ids, by='link')
-  fleet3 <- fleet3 %>% group_by(Fleet) %>%mutate(name = ifelse(is.na(name), name[!is.na(name)][1], name)) %>% ungroup()
-  fleet4 <- fleet3 %>% group_by(Sex, Fleet, link,name) %>% summarise(minyr=min(year), tsteps=paste(unique(`Step:`),collapse='.')) %>% mutate(name2=paste(name, minyr))
-  fleet4$Descrip <- fleets$description[match(fleet4$Fleet, (fleets$fleet-1))]
-
-  for(f in unique(fleet4$Fleet)){
-    if(length(unique(fleet4$Sex))==1) { fleet4$sex <- 'Sex 1' } else { fleet4$sex <- c('F','M')[(fleet4$Sex+1)]}
-    fleet5 <- fleet4 %>% filter(Fleet==f)
-    filename <- filenametopath(rundir,paste0('Fleet ',unique(fleet5$Fleet)+1," ", unique(fleet5$Descrip), "_Selectivity.png"))
-    plotprep(width=10,height=7,filename=filename,cex=0.9,verbose=FALSE)
-    parset(plots=c(1,1))
-    sel2 <- sel[(1+fleet5$link),]
-    sel_long <- sel2 %>% rename(a0 = Selectivity) %>%                        # rename to bin 1 (or a0 as bin 1)
-      mutate(name2 = fleet5$name2, sex=fleet5$sex) %>%
-      pivot_longer(cols = starts_with("a"), names_to = "bin", values_to = "selectivity") %>%
-      mutate(bin = as.numeric(gsub("a", "", bin)) + 1, bin2 = lbin[bin])
-    p <- ggplot(sel_long, aes(x = bin2, y = selectivity, colour = name2)) +
-      geom_line(linewidth = 1) +
-      scale_colour_viridis_d(name = NULL) +
-      #scale_x_continuous(breaks = seq(0, 40, 5)) +
-      labs(x = "LengthBin (midpoint)", y = "Selectivity") +
-      facet_wrap(~sex)+
-      theme_bw() +
-      theme(legend.position = "bottom") +
-      guides(colour = guide_legend(nrow = 2))
-    print(p)
-    caption <- paste(unique(fleet5$Descrip),"Selectivity curves estimated by the model.")
-    addplot(filen=filename,rundir=rundir,category="Selectivity_Retention",caption=caption)
-  }
-
-  ####  Retention ####
-  ret <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)
-  names(ret) <- c('sex', 'age', 'fleet', 'year', 'tstep',
-                  paste0('lb', 1:(ncol(ret) - 5)))
+  #### Selectivity / High-grading / Legal / Combined (unified grid style, matching the projection report) ####
+  print("Making Selectivity, High-grading, Legal and Combined Plots")
 
   # ── Helper: collapse a vector of integers into compact range notation ────────
   .collapse_ranges <- function(vals) {
@@ -449,181 +412,149 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   # ── Helper: build a readable label from a data frame of metadata rows ────────
+  # (columns expected: sex, age, year, tstep -- one row per instance the
+  # curve applied to; collapses each dimension to a compact range/list)
   .make_label <- function(df) {
-    dims <- list(
-      Fleet  = df$fleet,
-      Sex    = df$sex,
-      Age    = df$age,
-      Year   = df$year,
-      Tstep  = df$tstep
-    )
+    dims <- list(Sex = df$sex, Age = df$age, Year = df$year, Tstep = df$tstep)
     parts <- mapply(function(nm, vals) {
       uv <- sort(unique(vals))
-      if (length(uv) == 1)
-        paste0(nm, " ", uv)
-      else
-        paste0(nm, "s ", .collapse_ranges(uv))
+      if (length(uv) == 1) paste0(nm, " ", uv)
+      else                 paste0(nm, "s ", .collapse_ranges(uv))
     }, names(dims), dims, SIMPLIFY = TRUE)
     paste(parts, collapse = " | ")
   }
 
-  # ── Identify unique curves across the entire retention table ─────────────────
-  lb_cols   <- grep("^lb", names(ret), value = TRUE)
-  curve_key <- apply(as.matrix(ret[, lb_cols]), 1,
-                     function(r) paste(round(r, 8), collapse = "_"))
-  ret$curve_id <- curve_key
+  # ── Helper: hash a matrix of length-bin values into a curve identity ─────────
+  # Two rows with identical values (to 8dp) are treated as the same curve --
+  # this is how "does this fleet's pattern vary by year/tstep/sex" gets
+  # detected automatically, without needing separate pointer/link bookkeeping.
+  .curve_id_hash <- function(mat) {
+    apply(round(as.matrix(mat), 8), 1, function(r) paste(r, collapse = "_"))
+  }
 
-  # ── Plot loop: one figure per fleet (possibly combined sexes) ────────────────
-  for (ft in sort(unique(ret$fleet))) {
+  # ── Unified plotter: one grid (facet_wrap(~descrip)), coloured by curve.
+  # When a fleet's curve never varies (the common case), each panel shows a
+  # single flat-coloured line -- identical in spirit to the projection report's
+  # .plot_proj_curve(). When it does vary (by year/tstep/sex), multiple
+  # coloured lines appear within that one panel, labelled with the range each
+  # applies to -- avoiding a combinatorial explosion of separate plots.
+  .plot_hist_curve <- function(df, lb_cols, value_label, category, caption, filename_stub) {
+    if (nrow(df) == 0) return(invisible(NULL))
+    df$curve_id <- .curve_id_hash(df[, lb_cols, drop = FALSE])
 
-    fleet_dat <- ret %>% filter(fleet == ft)
+    long <- df %>%
+      tidyr::pivot_longer(cols = all_of(lb_cols), names_to = "bin_idx",
+                          names_prefix = "lb", names_transform = list(bin_idx = as.integer),
+                          values_to = "value") %>%
+      mutate(lbin_mm = lbin[bin_idx])
 
-    # Assess complexity per sex: number of unique curves and tsteps
-    sex_summary <- fleet_dat %>%
-      group_by(sex) %>%
-      summarise(
-        n_curves = n_distinct(curve_id),
-        n_tsteps = n_distinct(tstep),
-        .groups  = "drop"
-      )
+    lbl <- df %>% group_by(curve_id) %>%
+      group_map(~ data.frame(curve_id = .y$curve_id, label = .make_label(.x))) %>%
+      bind_rows()
+    long <- left_join(long, lbl, by = "curve_id")
 
-    # Simple case: every sex has exactly 1 unique curve and 1 tstep
-    # → combine all sexes into one figure, sex as colour
-    simple_case <- all(sex_summary$n_curves == 1) &&
-      all(sex_summary$n_tsteps == 1)
+    filename <- filenametopath(rundir, paste0(filename_stub, ".png"))
+    plotprep(width = 12, height = 12, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1,1))
+    print(ggplot(long, aes(x = lbin_mm, y = value, colour = label, group = curve_id)) +
+            geom_line(linewidth = 0.8) +
+            facet_wrap(~descrip) +
+            ylim(0, 1) +
+            labs(x = "Length bin (mm)", y = value_label, colour = NULL) +
+            theme_bw() + theme(legend.position = "bottom"))
+    addplot(filen = filename, rundir = rundir, category = category, caption = caption)
+    invisible(long)
+  }
 
-    if (simple_case) {
+  # ── Selectivity: expand the pattern table (sel) into per-fleet/sex/age/year/
+  # tstep rows via the link/pointer table (fleet3), matching how the model
+  # itself resolves SelPnt -> ActSelex (link+1 = row, 0-indexed pointer). ──────
+  fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
+  sel <- findNclean(c('Full','Selectivity'), dat, 1)
+  sel <- sel[,2:ncol(sel)]
+  ids <- GetSelectPatternNames(wb, startseason, endseason)
+  fleet3 <- fleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>%
+    left_join(ids, by = 'link')
 
-      # One representative row per sex (all rows are identical within sex)
-      plot_rows <- fleet_dat %>%
-        group_by(sex) %>%
-        slice(1) %>%
-        ungroup()
+  sel_mat <- sel %>% rename(lb1 = Selectivity)
+  names(sel_mat)[-1] <- paste0("lb", as.numeric(gsub("a", "", names(sel_mat)[-1])) + 1)
+  sel_lb_cols <- grep("^lb", names(sel_mat), value = TRUE)
 
-      plot_long <- plot_rows %>%
-        tidyr::pivot_longer(
-          cols            = all_of(lb_cols),
-          names_to        = "length_bin",
-          names_prefix    = "lb",
-          names_transform = list(length_bin = as.integer),
-          values_to       = "proportion"
-        ) %>%
-        mutate(
-          length_bin = lbin[length_bin],
-          sex_label  = paste("Sex", sex)
-        )
+  sel_wide <- fleet3 %>%
+    filter(!is.na(link), link >= 0) %>%
+    rename(fleet = Fleet, sex = Sex, age = Age, tstep = `Step:`) %>%
+    mutate(year = as.numeric(year))
+  sel_wide <- cbind(sel_wide, sel_mat[sel_wide$link + 1, sel_lb_cols, drop = FALSE])
+  sel_wide$descrip <- fleets$description[match(sel_wide$fleet, fleets$fleet - 1)]
 
-      filename <- filenametopath(
-        rundir, paste("Fleet", ft, "Retention.png"))
+  .plot_hist_curve(sel_wide, sel_lb_cols, "Selectivity", "Selectivity_Retention",
+                   "Selectivity of the gear applied by the model, by fleet.",
+                   "Selectivity_by_fleet")
 
-      plotprep(width = 12, height = 5,
-               filename = filename, cex = 0.9, verbose = FALSE)
+  # ── High-grading: Output.RL's "#Retention" block is a genuine, separate,
+  # compact pattern table (flat proportion across all bins) -- pointed to by
+  # RETENSPEC.DAT via ReadRetenFile()'s RetPnt, structurally mirroring how
+  # SELEXSPEC.DAT points into "#Full Selectivity". ─────────────────────────
+  retfleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), retenx, 1, char=F)
+  hgpat <- findNclean(c('#','Retention'), dat, 1)
+  hgpat <- hgpat[,2:ncol(hgpat)]
+  names(hgpat) <- paste0("lb", seq_len(ncol(hgpat)))
+  hg_lb_cols <- names(hgpat)
 
-      p <- ggplot(plot_long,
-                  aes(x = length_bin, y = proportion,
-                      colour = sex_label, group = sex_label)) +
-        geom_line(linewidth = 0.8) +
-        scale_y_continuous(limits = c(0, 1)) +
-        scale_colour_discrete(name = "Sex") +
-        labs(
-          title    = paste("Retention \u2014 Fleet", ft),
-          subtitle = paste(n_distinct(plot_long$sex_label), "sex(es), 1 curve each"),
-          x        = "Length bin (mm)",
-          y        = "Proportion retained"
-        ) +
-        theme_bw() +
-        theme(
-          legend.position  = "bottom",
-          legend.direction = "horizontal",
-          strip.background = element_rect(fill = "white"),
-          panel.grid.minor = element_blank()
-        )
+  hgfleet3 <- retfleet2 %>% pivot_longer(!c(Sex, Age, Fleet, `Step:`), names_to = 'year', values_to = 'link') %>%
+    rename(fleet = Fleet, sex = Sex, age = Age, tstep = `Step:`) %>%
+    mutate(year = as.numeric(year)) %>%
+    filter(!is.na(link), link >= 0)
+  hg_wide <- cbind(hgfleet3, hgpat[hgfleet3$link + 1, hg_lb_cols, drop = FALSE])
+  hg_wide$descrip <- fleets$description[match(hg_wide$fleet, fleets$fleet - 1)]
 
-      suppressWarnings(print(p))
+  .plot_hist_curve(hg_wide, hg_lb_cols, "High-grading", "Selectivity_Retention",
+                   "High-grading pattern applied by the model, by fleet.",
+                   "HighGrading_by_fleet")
 
-      caption <- paste0("Retention curves for fleet ", ft,
-                        ". Sexes combined (single invariant curve per sex).")
-      addplot(filen = filename, rundir = rundir,
-              category = "Selectivity_Retention", caption = caption)
+  # ── Legal size: Output.RL's "#Legal Selectivity by sex age fleet year
+  # tstep" block is a binary (0/1) step function, already fully expanded per
+  # fleet/sex/age/year/tstep -- no pointer/link resolution needed. ─────────
+  legal_wide <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)
+  names(legal_wide) <- c('sex', 'age', 'fleet', 'year', 'tstep',
+                         paste0('lb', 1:(ncol(legal_wide) - 5)))
+  legal_wide$year <- as.numeric(legal_wide$year)
+  legal_wide$descrip <- fleets$description[match(legal_wide$fleet, fleets$fleet - 1)]
+  legal_lb_cols <- grep("^lb", names(legal_wide), value = TRUE)
 
-    } else {
+  .plot_hist_curve(legal_wide, legal_lb_cols, "Legal size", "Selectivity_Retention",
+                   "Legal-size assignment applied by the model, by fleet.",
+                   "LegalSize_by_fleet")
 
-      # Complex case: separate figure per sex, faceted by tstep
-      for (sx in sort(unique(fleet_dat$sex))) {
+  # ── Combined: Selectivity x High-grading x Legal size, joined on
+  # (fleet, sex, age, year). tstep is taken from the legal-size side, since
+  # that's the most finely time-resolved of the three. ─────────────────────
+  join_keys <- c("fleet", "sex", "age", "year")
+  sel_for_join <- sel_wide %>% dplyr::select(all_of(join_keys), descrip, all_of(sel_lb_cols)) %>%
+    rename_with(~ paste0(.x, "_sel"), all_of(sel_lb_cols))
+  hg_for_join <- hg_wide %>% dplyr::select(all_of(join_keys), all_of(hg_lb_cols)) %>%
+    rename_with(~ paste0(.x, "_hg"), all_of(hg_lb_cols))
+  legal_for_join <- legal_wide %>% dplyr::select(all_of(join_keys), tstep, all_of(legal_lb_cols)) %>%
+    rename_with(~ paste0(.x, "_legal"), all_of(legal_lb_cols))
 
-        rel_rows <- fleet_dat %>% filter(sex == sx)
-        rel_ids  <- unique(rel_rows$curve_id)
-        if (length(rel_ids) == 0) next
+  combo <- sel_for_join %>%
+    inner_join(hg_for_join, by = join_keys) %>%
+    inner_join(legal_for_join, by = join_keys)
 
-        plot_rows <- ret %>%
-          filter(curve_id %in% rel_ids) %>%
-          group_by(curve_id) %>%
-          slice(1) %>%
-          ungroup()
-
-        plot_long <- plot_rows %>%
-          tidyr::pivot_longer(
-            cols            = all_of(lb_cols),
-            names_to        = "length_bin",
-            names_prefix    = "lb",
-            names_transform = list(length_bin = as.integer),
-            values_to       = "proportion"
-          ) %>%
-          mutate(length_bin = lbin[length_bin])
-
-        curve_labels <- rel_rows %>%
-          group_by(curve_id) %>%
-          group_map(~ {
-            data.frame(
-              curve_id = .y$curve_id,
-              label    = .make_label(.x),
-              stringsAsFactors = FALSE
-            )
-          }) %>%
-          bind_rows()
-
-        plot_long <- left_join(plot_long, curve_labels, by = "curve_id")
-
-        n_tsteps <- n_distinct(plot_long$tstep)
-
-        filename <- filenametopath(
-          rundir, paste("Sex", sx, "Fleet", ft, "Retention.png"))
-
-        plotprep(width = 12, height = 5 * n_tsteps,
-                 filename = filename, cex = 0.9, verbose = FALSE)
-
-        p <- ggplot(plot_long,
-                    aes(x = length_bin, y = proportion,
-                        colour = label, group = curve_id)) +
-          geom_line(linewidth = 0.8) +
-          scale_y_continuous(limits = c(0, 1)) +
-          scale_colour_discrete(name = "Curve applies to") +
-          facet_wrap(~ paste("Tstep", tstep), ncol = 1) +
-          labs(
-            title    = paste("Retention \u2014 Fleet", ft, "| Sex", sx),
-            subtitle = sprintf("%d unique curve(s)", length(rel_ids)),
-            x        = "Length bin (mm)",
-            y        = "Proportion retained"
-          ) +
-          theme_bw() +
-          theme(
-            legend.position  = "bottom",
-            legend.direction = "vertical",
-            legend.text      = element_text(size = 7),
-            legend.key.width = unit(1.5, "cm"),
-            strip.background = element_rect(fill = "white"),
-            panel.grid.minor = element_blank()
-          )
-
-        suppressWarnings(print(p))
-
-        caption <- paste0("Retention curves for fleet ", ft, ", sex ", sx,
-                          ". Each line is a unique curve; legend shows which ",
-                          "ages/years/tsteps share that curve.")
-        addplot(filen = filename, rundir = rundir,
-                category = "Selectivity_Retention", caption = caption)
-      }
+  if (nrow(combo) > 0) {
+    for (i in seq_along(sel_lb_cols)) {
+      combo[[sel_lb_cols[i]]] <- combo[[paste0(sel_lb_cols[i], "_sel")]] *
+        combo[[paste0(hg_lb_cols[i], "_hg")]] *
+        combo[[paste0(legal_lb_cols[i], "_legal")]]
     }
+    combo <- combo %>% dplyr::select(all_of(join_keys), descrip, tstep, all_of(sel_lb_cols))
+
+    .plot_hist_curve(combo, sel_lb_cols, "Overall retained", "Selectivity_Retention",
+                     paste("Combined proportion of encountered animals actually retained",
+                           "(selectivity x high-grading x legal size), by fleet."),
+                     "Combined_retained_by_fleet")
+  } else {
+    print("Skipping Combined Selectivity x High-grading x Legal plot -- no matching (fleet,sex,age,year) rows across the three tables. Check fleet numbering/year alignment between sel_wide, hg_wide and legal_wide if this is unexpected.")
   }
 
 

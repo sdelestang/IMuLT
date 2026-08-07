@@ -673,6 +673,19 @@ template <class Type>
                    << " SelPointer=" << SelPointer << " RetPointer=" << RetPointer
                    << " LegalPointer=" << LegalPointer << "\n";
        }
+
+       // TEMPORARY DEBUG -- ONE-TIME raw dump of the full arrays for fleet 6, exactly as
+       // cpp reads them, directly comparable to R's Data$SelPntFut/RetPntFut/LegalFleetPntFut[1,1,6,,1].
+       if (dat.DoProject==1 && Ifleet==5 && Iyear==dat.Nyear && Istep==0) {
+         std::cout << "[RawArrayDump] MaxProjYr=" << dat.MaxProjYr << " Nyear=" << dat.Nyear << "\n";
+         std::cout << "[RawArrayDump] SelPntFut(fleet6):";
+         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.SelPntFut(Isex,Iage,Ifleet,k,Istep);
+         std::cout << "\n[RawArrayDump] RetPntFut(fleet6):";
+         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.RetPntFut(Isex,Iage,Ifleet,k,Istep);
+         std::cout << "\n[RawArrayDump] LegalFleetPntFut(fleet6):";
+         for (int k=0;k<dat.MaxProjYr;k++) std::cout << " " << dat.LegalFleetPntFut(Isex,Iage,Ifleet,k,Istep);
+         std::cout << "\n";
+       }
 	  }
      for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
        selexF(Ifleet,Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;

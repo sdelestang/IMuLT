@@ -309,7 +309,7 @@ choose_model <- function(pattern = "Run", up = 3L) {
 #'
 #' @export
 UpdatePars <- function(todo=' '){
-  if(todo==' ') {todo <- dlg_list(c('Yes','No','                '),  title=c('Update Parameters?                    '))$res  }
+  if(todo==' ') {todo <- svDialogs::dlg_list(c('Yes','No','                '),  title=c('Update Parameters?                    '))$res  }
   ## Get estimated parameters  KeyWord <- locs$id[i]
   if(todo=='Yes'){
     ## Ensure model final.par exists first
@@ -328,7 +328,7 @@ find <- function(KeyWord, DataFile, Offset){
     return(pos1)}
 
   pout <- read.delim('Output/model final.par',sep='\t',stringsAsFactors =F)
-  unique(pout$name)
+  #unique(pout$name)
   locs <-data.frame(par=c('MainPars', 'RecruitPars','PuerPowPars','RecDevs','Qpars','efpars','RecSpatDevs','MovePars','SelPars'), file=c('CONTROL.DAT', 'RECRUITSPEC.DAT', 'RECRUITSPEC.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','MOVESPEC.DAT','SELEXSPEC.DAT'), id=c('Basic parameters','Recuitment1 parameters','Puerulus Power for','Prespecify_rec_devs','Q parameters','Efficiency parameters','Prespecify_spatial_rec_devs','Movement parameters','Selectivity Parameters'), off=c(1,2,3,2,1,2,2,2,2), col=c(3,3,3,1,3,3,1,3,3))
 
   for (i in 1:nrow(locs)){
@@ -337,8 +337,9 @@ find <- function(KeyWord, DataFile, Offset){
     roff <- locs$off[i]
     coff <- locs$col[i]
     pos <- find(c(unlist(strsplit(locs$id[i],' '))), DataFile, roff)
-    DataFile[pos:(pos+length(ptmp)-1),coff] <- ptmp
-    write.table(DataFile, locs$file[i], na=" ", sep=" ", row.names = F, col.names = F, quote=F)
+    if(length(ptmp)>0){
+      DataFile[pos:(pos+length(ptmp)-1),coff] <- ptmp
+      write.table(DataFile, locs$file[i], na=" ", sep=" ", row.names = F, col.names = F, quote=F)}
     print(paste("Parameters upated: ", locs$par[i]))
   }
 }}

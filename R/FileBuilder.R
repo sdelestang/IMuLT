@@ -155,7 +155,7 @@ tmp <- c(tmp, "# Data Set", "\n", "# First year of the assessment")
 #get latest catch and effort data
 dat <- readWorkbook(wb,sheet='Catch', startRow = 2)
 dat %<>% filter(year%in%startseason:endseason) %>% arrange(year,step,fleet) ## ensure matches the model structure
-tmp <- c(tmp,"\n", startseason, "\n# Last year of the assessment\n", endseason,"\n# Maximum projection years\n", projectseason+5)
+tmp <- c(tmp,"\n", startseason, "\n# Last year of the assessment\n", endseason,"\n# Maximum projection years\n", projectseason)
 
 bin <- areas %>% group_by(AreaCode) %>% summarise(av=floor(mean(burn_in)))
 

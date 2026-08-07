@@ -98,11 +98,12 @@ template <class Type>
            Z_rate(Isex,Iage,Isize) += Hrate(Ifleet) * RetainTemp;
 
            // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
-           // Fires only for area 6 (0-based AreaPass==5), final tuning pass, a handful of
-           // size bins spanning the selectivity/legal-size transition zone.
-           if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
-               (Isize==27||Isize==29||Isize==30||Isize==31||Isize==32||Isize==34||Isize==37||Isize==44||Isize==47)) {
-             std::cout << "[HybridDebugZ] Year=" << YearPass << " Fleet=" << Ifleet << " Isize=" << Isize
+           // Fleet 6 only (0-based Ifleet==5, the only active fleet in area 6), area 6,
+           // years 2032-2035 (0-based YearPass 36-39), final tuning pass, EVERY size bin.
+           if (dat.DoProject==1 && AreaPass==5 && Ifleet==5 && tune_F==F_tune-1 &&
+               (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
+             std::cout << "[HybridDebugZ] Year=" << YearPass << " Isize=" << Isize
+                       << " N=" << asDouble(N(AreaPass,dat.BurnIn+YearPass,StepPass,Isex,Iage,Isize))
                        << " selexF=" << asDouble(selexF(Ifleet,Isex,Iage,Isize))
                        << " retainF=" << asDouble(retainF(Ifleet,Isex,Iage,Isize))
                        << " RetainTemp=" << asDouble(RetainTemp)
@@ -135,6 +136,16 @@ template <class Type>
           if(dat.IsRed(Isex,Iage,AreaPass,StepPass)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
           Z_rate(Isex,Iage,Isize)  = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM + Z_adjuster*(Z_rate(Isex,Iage,Isize)-dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM);
           Z_rate2(Isex,Iage,Isize) = (1-exp(-Z_rate(Isex,Iage,Isize)))/Z_rate(Isex,Iage,Isize);
+
+          // TEMPORARY DEBUG -- the FINAL (post-Z_adjuster-rescaling) Z_rate/Z_rate2, i.e. what
+          // actually feeds the final Hrate below and becomes the officially reported Z.
+          if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
+              (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
+            std::cout << "[HybridDebugZFinal] Year=" << YearPass << " Isize=" << Isize
+                      << " Z_adjuster=" << asDouble(Z_adjuster)
+                      << " Z_rate=" << asDouble(Z_rate(Isex,Iage,Isize))
+                      << " Z_rate2=" << asDouble(Z_rate2(Isex,Iage,Isize)) << "\n";
+          }
          }
 
      // Adjust total exploitable biomass
@@ -152,7 +163,8 @@ template <class Type>
 //        if (tune_F = F_tune-1 & YearPass < 3) std::cout << "test " << Ifleet << " " << YearPass << " " << StepPass << " " << dat.Catch(YearPass,StepPass,Ifleet) << " " << Z_adjuster2 << " " << Hrate(Ifleet) << "\n";
 
         // TEMPORARY DEBUG -- remove once the projection Hrate/discard issue is diagnosed.
-        if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1) {
+        if (dat.DoProject==1 && AreaPass==5 && tune_F==F_tune-1 &&
+            (YearPass==36||YearPass==37||YearPass==38||YearPass==39)) {
           std::cout << "[HybridDebugHrate] Year=" << YearPass << " Fleet=" << Ifleet
                     << " Catch=" << asDouble(dat.Catch(YearPass,StepPass,Ifleet))
                     << " Z_adjuster2=" << asDouble(Z_adjuster2)

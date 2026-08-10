@@ -13,15 +13,20 @@ find_model_dir <- function(pattern = "Run", up = 3L) {
 }
 
 
-find_model_file <- function(filename = "ModelStructure.xlsx", up = 3L) {
+find_model_file <- function(filename = "ModelStructure.xlsx", up = 3L, highest = FALSE) {
   d <- normalizePath(getwd(), winslash = "/", mustWork = TRUE)
+  best <- NULL
   for (i in 0:up) {
     cand <- file.path(d, filename)
-    if (file.exists(cand)) return(cand)
+    if (file.exists(cand)) {
+      if (!highest) return(cand)   # old behaviour: nearest match, unchanged
+      best <- cand                  # highest behaviour: keep overwriting -> ends up topmost hit
+    }
     parent <- dirname(d)
     if (parent == d) break          # hit the drive root
     d <- parent
   }
+  if (!is.null(best)) return(best)
   stop("Could not find '", filename, "' in the working directory or its ", up, " parents.")
 }
 

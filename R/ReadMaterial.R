@@ -1868,146 +1868,150 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 #' no projections are performed and arrays remain at default values.
 #'
 #' @keywords internal
-ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1,Catch1)
+ReadProjFile <- function(ProjFile, GeneralSpecs, Phi1, Catch1, Echo = TRUE)
 {
   print("READ IN THE PROJECTION FILE")
   Index <- MatchTable(ProjFile,Char1="#",Char2="Number",Char3="of",Char4="projection")+1;
   Nproj <- as.numeric(ProjFile[Index,1])
-  #print(Nproj)
 
   Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="gear")+2;
   SelPntFut <- array(-1,dim=c(GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nfleet,GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep))
   Ipnt <- 0
   if (Nproj > 0)
-  for (Isex in 1:GeneralSpecs$Nsex)
-    for (Iage in 1:(GeneralSpecs$Nage))
+    for (Isex in 1:GeneralSpecs$Nsex)
+      for (Iage in 1:(GeneralSpecs$Nage))
+        for (Ifleet in 1:GeneralSpecs$Nfleet)
+          for (Istep in 1:GeneralSpecs$Nstep)
+          {
+            pos <- Index+Ipnt
+            testindex(ProjFile,pos,1,Isex)
+            testindex(ProjFile,pos,2,Iage)
+            testindex(ProjFile,pos,3,Ifleet)
+            testindex(ProjFile,pos,4,Istep)
+            for (Iyear in 1:Nproj) SelPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[pos,4+Iyear])
+            Ipnt <- Ipnt + 1
+          }
+  if (Echo) {
+    write("Specifications for selectivity pointers",EchoFile,append=T)
+    Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
+    OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
+    Ipnt <- 0
+    if (Nproj > 0)
       for (Ifleet in 1:GeneralSpecs$Nfleet)
-        for (Istep in 1:GeneralSpecs$Nstep)
-         {
-          pos <- Index+Ipnt
-          testindex(ProjFile,pos,1,Isex)
-          testindex(ProjFile,pos,2,Iage)
-          testindex(ProjFile,pos,3,Ifleet)
-          testindex(ProjFile,pos,4,Istep)
-          for (Iyear in 1:Nproj) SelPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[pos,4+Iyear])
-          Ipnt <- Ipnt + 1
-         }
-  write("Specifications for selectivity pointers",EchoFile,append=T)
-  Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
-  OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
-  Ipnt <- 0
-  if (Nproj > 0)
-  for (Ifleet in 1:GeneralSpecs$Nfleet)
-   for (Isex in 1:(GeneralSpecs$Nsex))
-    for (Iage in 1:(GeneralSpecs$Nage))
-     for (Iyear in 1:Nproj)
-      {
-       Ipnt <- Ipnt + 1
-       OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear+GeneralSpecs$Year1-1)
-       OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- SelPntFut[Isex,Iage,Ifleet,Iyear,]
-      }
-  write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+        for (Isex in 1:(GeneralSpecs$Nsex))
+          for (Iage in 1:(GeneralSpecs$Nage))
+            for (Iyear in 1:Nproj)
+            {
+              Ipnt <- Ipnt + 1
+              OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear+GeneralSpecs$Year1-1)
+              OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- SelPntFut[Isex,Iage,Ifleet,Iyear,]
+            }
+    write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+  }
 
   Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="retention.")+2;
   RetPntFut <- array(0,dim=c(GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nfleet,GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep))
   Ipnt <- 0
   if (Nproj > 0)
-  for (Isex in 1:GeneralSpecs$Nsex)
-    for (Iage in 1:(GeneralSpecs$Nage))
-      for (Ifleet in 1:GeneralSpecs$Nfleet)
-        for (Istep in 1:GeneralSpecs$Nstep)
-        {
-          pos <- Index+Ipnt
-          testindex(ProjFile,pos,1,Isex)
-          testindex(ProjFile,pos,2,Iage)
-          testindex(ProjFile,pos,3,Ifleet)
-          testindex(ProjFile,pos,4,Istep)
-          for (Iyear in 1:Nproj) RetPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,4+Iyear])
-          Ipnt <- Ipnt + 1
-        }
-  write("Projected Specifications for retention pointers",EchoFile,append=T)
-  Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
-  OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
-  Ipnt <- 0
-  if (Nproj > 0)
-  for (Ifleet in 1:GeneralSpecs$Nfleet)
-    for (Isex in 1:(GeneralSpecs$Nsex))
+    for (Isex in 1:GeneralSpecs$Nsex)
       for (Iage in 1:(GeneralSpecs$Nage))
-        for (Iyear in 1:Nproj)
-        {
-          Ipnt <- Ipnt + 1
-          OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear+GeneralSpecs$Year1-1)
-          OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- RetPntFut[Isex,Iage,Ifleet,Iyear,]
-        }
-  write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+        for (Ifleet in 1:GeneralSpecs$Nfleet)
+          for (Istep in 1:GeneralSpecs$Nstep)
+          {
+            pos <- Index+Ipnt
+            testindex(ProjFile,pos,1,Isex)
+            testindex(ProjFile,pos,2,Iage)
+            testindex(ProjFile,pos,3,Ifleet)
+            testindex(ProjFile,pos,4,Istep)
+            for (Iyear in 1:Nproj) RetPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,4+Iyear])
+            Ipnt <- Ipnt + 1
+          }
+  if (Echo) {
+    write("Projected Specifications for retention pointers",EchoFile,append=T)
+    Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
+    OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
+    Ipnt <- 0
+    if (Nproj > 0)
+      for (Ifleet in 1:GeneralSpecs$Nfleet)
+        for (Isex in 1:(GeneralSpecs$Nsex))
+          for (Iage in 1:(GeneralSpecs$Nage))
+            for (Iyear in 1:Nproj)
+            {
+              Ipnt <- Ipnt + 1
+              OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear+GeneralSpecs$Year1-1)
+              OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- RetPntFut[Isex,Iage,Ifleet,Iyear,]
+            }
+    write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+  }
 
   Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="Fleet")+2;
   LegalFleetPntFut <- array(0,dim=c(GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nfleet,GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep))
   Ipnt <- 0
   if (Nproj > 0)
-  for (Isex in 1:GeneralSpecs$Nsex)
-    for (Iage in 1:(GeneralSpecs$Nage))
-      for (Ifleet in 1:GeneralSpecs$Nfleet)
-        for (Istep in 1:GeneralSpecs$Nstep)
-        {
-          pos <- Index+Ipnt
-          testindex(ProjFile,pos,1,Isex)
-          testindex(ProjFile,pos,2,Iage)
-          testindex(ProjFile,pos,3,Ifleet)
-          testindex(ProjFile,pos,4,Istep)
-          for (Iyear in 1:Nproj) LegalFleetPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,4+Iyear])
-          Ipnt <- Ipnt + 1
-        }
-  write("Projected Specifications for fleet legal pointers",EchoFile,append=T)
-  Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
-  OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
-  Ipnt <- 0
-  if (Nproj > 0)
-  for (Ifleet in 1:GeneralSpecs$Nfleet)
-    for (Isex in 1:(GeneralSpecs$Nsex))
+    for (Isex in 1:GeneralSpecs$Nsex)
       for (Iage in 1:(GeneralSpecs$Nage))
-        for (Iyear in 1:Nproj)
-        {
-          Ipnt <- Ipnt + 1
-          OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear++GeneralSpecs$Year1-1)
-          OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- LegalFleetPntFut[Isex,Iage,Ifleet,Iyear,]
-        }
-  write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+        for (Ifleet in 1:GeneralSpecs$Nfleet)
+          for (Istep in 1:GeneralSpecs$Nstep)
+          {
+            pos <- Index+Ipnt
+            testindex(ProjFile,pos,1,Isex)
+            testindex(ProjFile,pos,2,Iage)
+            testindex(ProjFile,pos,3,Ifleet)
+            testindex(ProjFile,pos,4,Istep)
+            for (Iyear in 1:Nproj) LegalFleetPntFut[Isex,Iage,Ifleet,Iyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,4+Iyear])
+            Ipnt <- Ipnt + 1
+          }
+  if (Echo) {
+    write("Projected Specifications for fleet legal pointers",EchoFile,append=T)
+    Nout <- Nproj*GeneralSpecs$Nfleet*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
+    OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
+    Ipnt <- 0
+    if (Nproj > 0)
+      for (Ifleet in 1:GeneralSpecs$Nfleet)
+        for (Isex in 1:(GeneralSpecs$Nsex))
+          for (Iage in 1:(GeneralSpecs$Nage))
+            for (Iyear in 1:Nproj)
+            {
+              Ipnt <- Ipnt + 1
+              OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Nyear+GeneralSpecs$Year1-1)
+              OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- LegalFleetPntFut[Isex,Iage,Ifleet,Iyear,]
+            }
+    write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
+  }
 
-  write("discard mortality",EchoFile,append=T)
   Phi <- Phi1
   Index <- MatchTable(ProjFile,Char1="#",Char2="Discard",Char3="mortality")+1;
   Ipnt <- 0
   if (Nproj > 0)
-  for (Iage in 1:(GeneralSpecs$Nage))
-    for (Ifleet in 1:GeneralSpecs$Nfleet)
-      for (Istep in 1:GeneralSpecs$Nstep)
-      {
-        Ipnt <- Ipnt + 1
-        pos <- Index+Ipnt
-        ControlFile[498,]
-        testindex(ProjFile,pos,1,Iage)
-        testindex(ProjFile,pos,2,Ifleet)
-        testindex(ProjFile,pos,3,Istep)
-        for (Iyear in 1:Nproj) Phi[Ifleet,Iage,Iyear+GeneralSpecs$Nyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,3+Iyear])
-      }
-
-  Nout <- (Nproj+GeneralSpecs$Nyear)*GeneralSpecs$Nfleet*(GeneralSpecs$Nage)
-  OutM <- matrix(0,nrow=Nout,ncol=3+GeneralSpecs$Nstep)
-  Ipnt <- 0
-  if (Nproj > 0)
-  for (Ifleet in 1:GeneralSpecs$Nfleet)
     for (Iage in 1:(GeneralSpecs$Nage))
-      for (Iyear in 1:(GeneralSpecs$Nyear+Nproj))
-      {
-        Ipnt <- Ipnt + 1
-        OutM[Ipnt,1:3]  <- c(Ifleet-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
-        OutM[Ipnt,(4:(3+GeneralSpecs$Nstep))] <- Phi[Ifleet,Iage,Iyear,]
-      }
-  write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
+      for (Ifleet in 1:GeneralSpecs$Nfleet)
+        for (Istep in 1:GeneralSpecs$Nstep)
+        {
+          Ipnt <- Ipnt + 1
+          pos <- Index+Ipnt
+          testindex(ProjFile,pos,1,Iage)
+          testindex(ProjFile,pos,2,Ifleet)
+          testindex(ProjFile,pos,3,Istep)
+          for (Iyear in 1:Nproj) Phi[Ifleet,Iage,Iyear+GeneralSpecs$Nyear,Istep] <- as.numeric(ProjFile[Index+Ipnt,3+Iyear])
+        }
+  if (Echo) {
+    write("discard mortality",EchoFile,append=T)
+    Nout <- (Nproj+GeneralSpecs$Nyear)*GeneralSpecs$Nfleet*(GeneralSpecs$Nage)
+    OutM <- matrix(0,nrow=Nout,ncol=3+GeneralSpecs$Nstep)
+    Ipnt <- 0
+    if (Nproj > 0)
+      for (Ifleet in 1:GeneralSpecs$Nfleet)
+        for (Iage in 1:(GeneralSpecs$Nage))
+          for (Iyear in 1:(GeneralSpecs$Nyear+Nproj))
+          {
+            Ipnt <- Ipnt + 1
+            OutM[Ipnt,1:3]  <- c(Ifleet-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
+            OutM[Ipnt,(4:(3+GeneralSpecs$Nstep))] <- Phi[Ifleet,Iage,Iyear,]
+          }
+    write(t(OutM),EchoFile,append=T,ncol=3+GeneralSpecs$Nstep)
+  }
 
   # ── Projection type + catch / harvest-rate schedule ────────────────────
-  # "# Specifications for projections (1=Catch;2=Harvestrate)" -> ProjType
   Index <- MatchTable(ProjFile,Char1="#",Char2="Specifications",Char3="for",Char4="projections")+1
   ProjType <- as.numeric(ProjFile[Index,1])
   if (!ProjType %in% c(1,2))
@@ -2019,33 +2023,31 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1,Catch1)
 
   if (Nproj > 0)
   {
-    # "# Catch data (kg) / Harvest Rate - Number of observations" -- matched
-    # on column 3 == "data" so it doesn't matter what precedes it.
     Index <- MatchTable(ProjFile,Char1="#",Char3="data")
     Nobs  <- as.numeric(ProjFile[Index+1,1])
     Index <- Index + 2
 
-    # Rows are #Year  step  fleet  catch  Hrate -- both columns are always
-    # present and always parsed, regardless of ProjType.
     if (Nobs > 0)
-    for (Iobs in 1:Nobs)
-    {
-      YearRow  <- as.numeric(ProjFile[Index+Iobs,1]) - GeneralSpecs$Year1 + 1  # absolute row: 1..Nyear+MaxProjYr
-      Step     <- as.numeric(ProjFile[Index+Iobs,2])
-      Fleet    <- as.numeric(ProjFile[Index+Iobs,3])
-      CatchVal <- as.numeric(ProjFile[Index+Iobs,4])
-      HrateVal <- as.numeric(ProjFile[Index+Iobs,5])
+      for (Iobs in 1:Nobs)
+      {
+        YearRow  <- as.numeric(ProjFile[Index+Iobs,1]) - GeneralSpecs$Year1 + 1
+        Step     <- as.numeric(ProjFile[Index+Iobs,2])
+        Fleet    <- as.numeric(ProjFile[Index+Iobs,3])
+        CatchVal <- as.numeric(ProjFile[Index+Iobs,4])
+        HrateVal <- as.numeric(ProjFile[Index+Iobs,5])
 
-      Catch[YearRow,Step,Fleet] <- CatchVal
-      ProjHarvestRate[YearRow-GeneralSpecs$Nyear,Step,Fleet] <- HrateVal
+        Catch[YearRow,Step,Fleet] <- CatchVal
+        ProjHarvestRate[YearRow-GeneralSpecs$Nyear,Step,Fleet] <- HrateVal
+      }
+
+    if (Echo) {
+      write(paste("Projection type (1=catch, 2=harvest rate):", ProjType),EchoFile,append=T)
+      write("Projected catch / harvest rate schedule (Year Step Fleet Catch Hrate)",EchoFile,append=T)
+      if (Nobs > 0) write(t(as.matrix(ProjFile[(Index+1):(Index+Nobs),1:5])),EchoFile,append=T,ncolumns=5)
     }
-
-    write(paste("Projection type (1=catch, 2=harvest rate):", ProjType),EchoFile,append=T)
-    write("Projected catch / harvest rate schedule (Year Step Fleet Catch Hrate)",EchoFile,append=T)
-    if (Nobs > 0) write(t(as.matrix(ProjFile[(Index+1):(Index+Nobs),1:5])),EchoFile,append=T,ncolumns=5)
   }
 
-  write("READ IN THE PROJECTION FILE\n\n",EchoFile,append=T)
+  if (Echo) write("READ IN THE PROJECTION FILE\n\n",EchoFile,append=T)
 
   ReturnObj <- NULL
   ReturnObj$Nproj <- Nproj
@@ -2058,9 +2060,7 @@ ReadProjFile <- function(ProjFile,GeneralSpecs,Phi1,Catch1)
   ReturnObj$ProjHarvestRate <- ProjHarvestRate
 
   return(ReturnObj)
-
 }
-
 
 #' Read Initial Parameter Values, Bounds, and Estimation Phases
 #'

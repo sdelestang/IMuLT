@@ -119,31 +119,38 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
          call. = FALSE)
   BigSave <- ee$BigSave
 
-  need <- c("Data", "map", "best", "parameters", "Report")
-  miss <- need[!need %in% names(BigSave)]
-  if (length(miss))
-    stop("ProjectModel: BigSave is missing ", paste(miss, collapse = ", "),
-         " \u2014 was it saved by FitModel(..., report = TRUE)?", call. = FALSE)
-
   Data       <- BigSave$Data
   map        <- BigSave$map
   bestvals   <- BigSave$best
   parameters <- BigSave$parameters
   ReportOrig <- BigSave$Report
 
-  # ── Optional ProjType override ──────────────────────────────────────────
-  # Both the catch and harvest-rate schedules are always parsed into Data
-  # regardless of what PROJECTIONS.DAT's own ProjType flag says (see
-  # ReadProjFile()), so switching which one actually drives this run is safe
-  # here without touching the file.
+  # Find projections file and reload
+  ProjFilePath <- find_model_file("PROJECTIONS.DAT", up = 5L, highest = TRUE)
+  ProjFile <- read.table(ProjFilePath, comment.char = "?", fill = TRUE,
+                         blank.lines.skip = TRUE, stringsAsFactors = FALSE,col.names = 1:200)
+  ProjectSpecs <- ReadProjFile(ProjFile, Data, Data$Phi1, Data$Catch)
+  # Overwrite projection info
+  Data$Nproj            <- ProjectSpecs$Nproj
+  Data$SelPntFut        <- ProjectSpecs$SelPntFut
+  Data$RetPntFut        <- ProjectSpecs$RetPntFut
+  Data$LegalFleetPntFut <- ProjectSpecs$LegalFleetPntFut
+  Data$Phi              <- ProjectSpecs$Phi
   if (!is.null(ProjType)) {
-    if (!ProjType %in% c(1, 2))
-      stop("ProjectModel: ProjType must be 1 (catch-based) or 2 ",
-           "(harvest-rate-based).", call. = FALSE)
-    cat("Overriding PROJECTIONS.DAT's ProjType (", Data$ProjType,
+    cat("Overriding PROJECTIONS.DAT's ProjType (", ProjectSpecs$ProjType,
         ") with ProjType =", ProjType, "\n")
     Data$ProjType <- ProjType
+  } else {
+    Data$ProjType <- ProjectSpecs$ProjType
   }
+  Data$Catch           <- ProjectSpecs$Catch
+  Data$ProjHarvestRate <- ProjectSpecs$ProjHarvestRate
+
+  need <- c("Data", "map", "best", "parameters", "Report")
+  miss <- need[!need %in% names(BigSave)]
+  if (length(miss))
+    stop("ProjectModel: BigSave is missing ", paste(miss, collapse = ", "),
+         " \u2014 was it saved by FitModel(..., report = TRUE)?", call. = FALSE)
 
   # LegalBioAll (and the other REPORT()'d arrays) are always sized to
   # BurnIn+Nyear+MaxProjYr -- MaxProjYr is the array's maximum capacity, not
@@ -191,6 +198,7 @@ ProjectModel <- function(bigsave_file = "Output/BigSave.lda", up = 3L,
   outdir <- dirname(bigsave_path)
   if (save) {
     dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
+    file.copy(ProjFilePath, file.path(outdir, "PROJECTIONS.DAT"), overwrite = TRUE)
     ProjSave <- list(Data       = Data,
                      Report     = Report,
                      ReportOrig = ReportOrig,

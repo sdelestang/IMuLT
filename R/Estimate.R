@@ -1617,9 +1617,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
     cat("  If these have large gradients, use a prior, widen the bound or fix via map.\n\n")
   } else {
-    cat("\n  No parameters at bounds :) \n\n")
+    cat("\n  No parameters at bounds\n\n")
     writeLines(crab)
-    cat("\n  No parameters at bounds :) \n\n")
+    cat("\n\n")
   }
 }
 

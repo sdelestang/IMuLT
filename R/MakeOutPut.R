@@ -1443,7 +1443,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
   ### Legal Biomass (legal size) Total
-  alllb <- lb %>% group_by(year) %>% summarise(`Legal Biomass (t)`=sum(est), se=sqrt(sum(se^2))) %>% mutate(lwr=(est-se*SclErr), upr=(est+se*SclErr))
+  alllb <- lb %>% group_by(year) %>% summarise(`Legal Biomass (t)`=sum(est), se=sqrt(sum(se^2))) %>% mutate(est=`Legal Biomass (t)`, lwr=(est-se*SclErr), upr=(est+se*SclErr))
   filename <- filenametopath(rundir,paste0("Legal_Biom_Total.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=c(1,1))

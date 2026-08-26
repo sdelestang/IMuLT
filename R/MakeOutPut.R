@@ -1386,7 +1386,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       }
     }
   }
-  #### Model Outputs ####
+#### Model Outputs ####
   ### Relative Legal Biomass by area
   print("Making Legal Biomass")
   lb <- findNclean(c('#Legal','Biomass', 'by'), dat, 2, convert = 2)
@@ -1434,12 +1434,28 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           geom_hline(yintercept = reflev$threshold, colour='orange')+
           geom_hline(yintercept = reflev$limit, colour='red')+
           facet_wrap(~areaname)+
-          ylim(0,1.05)+
+          ylim(0,1.1)+
           theme(panel.background = element_rect(fill = "white",colour = NA),
                 panel.border = element_rect(fill = NA, colour = "grey20"),
                 axis.text.x = element_text(vjust = 0.5, angle = 45)))
 
   caption <- "Annual estimates of all Biomass in each model area relative to Virgin."
+  addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
+
+  ### Legal Biomass (legal size) Total
+  alllb <- lb %>% group_by(year) %>% summarise(`Legal Biomass (t)`=sum(est), se=sqrt(sum(se^2))) %>% mutate(lwr=(est-se*SclErr), upr=(est+se*SclErr))
+  filename <- filenametopath(rundir,paste0("Legal_Biom_Total.png"))
+  plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+  parset(plots=c(1,1))
+  print(ggplot(alllb, aes(x=year,y=`Legal Biomass (t)`))+
+          geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2,position=position_dodge(0.05), colour='grey70')+
+          geom_line()+
+          geom_point(size=0.75)+
+          theme(panel.background = element_rect(fill = "white",colour = NA),
+                panel.border = element_rect(fill = NA, colour = "grey20"),
+                axis.text.x = element_text(vjust = 0.5, angle = 45)))
+
+  caption <- "Annual estimates (95% CI) of Legal Biomass (assignment of legal based on reference selectivity)."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
   ### Legal Biomass (legal size) by Area
@@ -1506,7 +1522,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   caption <- "Estimate Fishing mortality by area (the various fleets are shown in different colours)."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
-  ### Total Mature Biomass ####
+### Total Mature Biomass ####
   print("Making Egg Production")
   ###Mature Biomass sex by area
   lb <- findNclean(c('#Mature','Biomass', 'sex'), dat, 2, convert = 2) %>% filter(Year>=GeneralSpecs$Year1)

@@ -194,3 +194,31 @@ GetSelectPatternNames <- function(wb, startseason, endseason){
 
   data.frame(link = egappar_sum$pattern, name = egappar_sum$comment)
 }
+
+#' Get Selectivity Parameter Names from a Fitted Model's SELEXSPEC.DAT
+#'
+#' Derives readable parameter names for SelPars_n directly from the comment
+#' text in SELEXSPEC.DAT (as loaded into `selx`), rather than reconstructing
+#' block order from the Selectivity workbook sheet. This guarantees names
+#' line up with the actual TMB parameter order even if the workbook has
+#' since been edited/reordered relative to when the model was fitted.
+#'
+#' @param selx Data frame as read from SELEXSPEC.DAT (fixed-width columns,
+#'   e.g. via read.table(..., col.names=1:200))
+#' @return Character vector of names, one per SelPars_n, in file order,
+#'   prefixed with 'Sel_'
+GetSelectParNames <- function(selx){
+
+  sel_comments <- findNclean(c('#','Selectivity','Parameters'), selx, 2, char = TRUE)
+  comment_cols <- names(sel_comments)[10:ncol(sel_comments)]
+
+  raw_comment <- apply(sel_comments[, comment_cols], 1, function(r) {
+    r <- r[!is.na(r) & trimws(r) != ""]
+    r <- r[-1]                            # drop "logistic"
+    n <- length(r)
+    r <- r[c(1:3, 5:(n-3))]               # keep p1/p2, M, number, description; drop dup p1/p2 and trailing "id M n"
+    paste(r, collapse = " ")
+  })
+
+  paste0('Sel_', trimws(raw_comment))
+}

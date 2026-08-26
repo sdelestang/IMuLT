@@ -1619,7 +1619,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   } else {
     cat("\n  No parameters at bounds :) \n\n")
     writeLines(crab)
-    cat("\n\n")
+    cat("\n  No parameters at bounds :) \n\n")
   }
 }
 
@@ -1629,11 +1629,11 @@ crab <- c(
   "    __       __",
   "   / <`     '> \\",
   "  (  / @   @ \\  )",
-  "   \\(_\\_\\/_\\_)/",
+  "   \\(___\\_/___)/",
   " (\\ `-/     \\-' /)",
-  "  \"===\\      /===\"",
+  "  \"===\\     /===\"",
   "   .==')___(`==.",
-  "  ' .='     `=."
+  "  ' .='     `=. '"
 )
-
+writeLines(crab)
 

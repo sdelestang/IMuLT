@@ -209,8 +209,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
-  SelectParName <- ExpandSelectPars(wb, startseason, endseason)
-  SelectParName <- paste0('Sel_', SelectParName$id2)
+  SelectParName <- GetSelectParNames(selx)
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))

@@ -1616,6 +1616,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           " |grad| =", round(Grad[idx], 6), "\n")
     }
     cat("  If these have large gradients, use a prior, widen the bound or fix via map.\n\n")
+    writeLines(crabdead)
+    cat("\n\n")
+
   } else {
     cat("\n  No parameters at bounds\n\n")
     writeLines(crab)
@@ -1635,5 +1638,15 @@ crab <- c(
   "   .==')___(`==.",
   "  ' .='     `=. '"
 )
-writeLines(crab)
+
+crabdead <- c(
+  "    __       __",
+  "   / <`     '> \\",
+  "  (  / X   X \\  )",
+  "   \\(___\\_/___)/",
+  " (\\ `-/     \\-' /)",
+  "  \"===\\     /===\"",
+  "   .==')___(`==.",
+  "  ' .='     `=. '"
+)
 

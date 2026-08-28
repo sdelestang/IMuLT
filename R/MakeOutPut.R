@@ -1391,9 +1391,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   print("Making Legal Biomass")
   lb <- findNclean(c('#Legal','Biomass', 'by'), dat, 2, convert = 2)
   if(ncol(lb)==3) lb$se <- 0
-  lb %<>% dplyr::select(area,year=Year,est,se)   ## Uses the reference legal statement >76
+  lb %<>% dplyr::select(area,year=Year,est,se)
   #write.csv(lb,'egg.csv')
-  virgin <- data.frame(est=findNclean(c('#Virgin','Legal'), dat, 1)) %>% mutate(area=1:nrow(.))  ## Uses the reference legal statement >76
+  virgin <- data.frame(est=findNclean(c('#Virgin','Legal'), dat, 1)) %>% mutate(area=1:nrow(.))
   lb %<>% mutate(virgin=virgin$est[match(area,virgin$area)], `Legal Biomass (t)`=est/1e+3, LBlwr=(est-se*SclErr)/1e+3, LBupr=(est+se*SclErr)/1e+3, rel=est/virgin, rellwr=(est-se*SclErr)/virgin, relupr=(est+se*SclErr)/virgin) %>% filter(est>0)
   lb %<>% filter(year>=GeneralSpecs$Year1) %>% group_by(area) %>% mutate(`B/B0`=rel, lwr=rellwr, upr=relupr, lwr=ifelse(lwr<0,0,lwr), upr=ifelse(upr>1,1,upr))
   areas <- readWorkbook(wb,sheet='Area', startRow = 2)
@@ -1443,7 +1443,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
   ### Legal Biomass (legal size) Total
-  alllb <- lb %>% group_by(year) %>% summarise(`Legal Biomass (t)`=sum(est), se=sqrt(sum(se^2))) %>% mutate(est=`Legal Biomass (t)`, lwr=(est-se*SclErr), upr=(est+se*SclErr))
+  alllb <- lb %>% group_by(year) %>% summarise(est=`Legal Biomass (t)`, `Legal Biomass (t)`=sum(est), se=sqrt(sum(se^2))) %>% mutate(lwr=(est-se*SclErr), upr=(est+se*SclErr))
   filename <- filenametopath(rundir,paste0("Legal_Biom_Total.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=c(1,1))

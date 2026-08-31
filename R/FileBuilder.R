@@ -395,7 +395,7 @@ print("Building Control File")
     tmp <- c(tmp, "# Number of variance specifications\n",10)
 
     Vars <- rep(0, 10)
-    if(exists(dynamics$value[dynamics$object=='estimateVariance'])){
+    if(length(dynamics$value[dynamics$object=='estimateVariance'])>0){
       Vars[Varspos] <- 1     }
     tmp <- c(tmp, "\n# variance components\n",paste(Vars,collapse = '\t'),"\n")
 

@@ -91,6 +91,11 @@ BuildInputFiles <- function(end_override = NULL){
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
+  Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
+  if(length(dynamics$value[dynamics$object=='estimateVariance'])>0){
+    dynamics <- dynamics[dynamics$object!='estimateVariance', ]
+    dynamics$value <- as.numeric(dynamics$value)
+  }
   startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
   endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
   if (!is.null(end_override)) endseason <- end_override
@@ -391,7 +396,6 @@ print("Building Control File")
 
     Vars <- rep(0, 10)
     if(exists(dynamics$value[dynamics$object=='estimateVariance'])){
-      Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
       Vars[Varspos] <- 1     }
     tmp <- c(tmp, "\n# variance components\n",paste(Vars,collapse = '\t'),"\n")
 

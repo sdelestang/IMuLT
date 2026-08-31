@@ -1046,7 +1046,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintNll = TRUE,
                      plateau_k = 4, plateau_cv = 0.05) {
 
-  ## --- prerequisites: globals populated by LoadData() / LoadPars() --------
+  ##  globals populated by LoadData() / LoadPars() --------
   need <- c("Data", "InitialVars")
   miss <- need[!vapply(need, exists, logical(1), envir = .GlobalEnv, inherits = FALSE)]
   ## mxph defaults to the MaxPhase global; only require it if not supplied
@@ -1060,7 +1060,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
 
-  # ── Enforce negative phase for mirrored parameters ──────────────────────────
+  ## Force negative phase for mirrored parameters ##
   link_map <- list(MainPars    = Data$MparsLink,
                    RecruitPars = Data$RecparsLink,
                    SelPars     = Data$SelparsLink,
@@ -1078,7 +1078,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
   }
 
-  # ── Initialise trace bookkeeping ──────────────────────────────────────────
+  ## Track ##
   TraceDF      <<- data.frame(eval = numeric(0), nll = numeric(0),
                               stage = character(0),
                               stringsAsFactors = FALSE)
@@ -1093,7 +1093,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                                  stringsAsFactors = FALSE))
   }
 
-  # ── Logit transform helpers (bounded <-> unconstrained) ───────────────────
+  ## Logit transform  (bounded <-> unconstrained) ##
   # Maps x in [lo, hi] to y in (-Inf, Inf) and back.
   # Keeps x strictly inside bounds to avoid log(0).
   .to_unbounded <- function(x, lo, hi) {
@@ -1113,7 +1113,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     g * dxdy
   }
 
-  # ── Phase loop ────────────────────────────────────────────────────────────
+  ## Phase loop ##
   for (CurrPhase in 1:MaxPhase) {
 
     MaXeVaL    <- ifelse(CurrPhase < MaxPhase, phit, lphit)
@@ -1167,21 +1167,20 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     last_good <- BestFn   # tracks last finite fn value for penalty fallback
 
-    # ── Plateau diagnostic state ──────────────────────────────────────────
+    ## Plateau diagnostic state ─ Not sure this ois worth it. ##
     # Tracks delta history across all phases. In non-final phases, after the
-    # full nlminb call completes, the history is inspected post-hoc and a
+    # full nlminb call completes, the behaviour is examined post-hoc and a
     # suggestion is printed if a plateau was detected. nlminb is never
-    # interrupted — this is purely informational.
     delta_history  <- numeric(0)
     plateau_eval   <- NA_integer_   # eval at which plateau was first detected
     min_evals_diag <- PrintLag * (plateau_k + 2)  # warm-up guard
 
-    # ── Print suppression flag ────────────────────────────────────────────
+    ## Print suppression flag ##
     # Set TRUE during sandwich and Newton to silence per-eval NLL prints.
     # Summary lines from .report_fit are unaffected (outside model$fn).
     suppress_print <- FALSE
 
-    # ── Store originals then wrap both fn and gr ──────────────────────────
+    ## Store originals then wrap both fn and gr ##
     model$fn_Orig <- model$fn
     model$gr_Orig <- model$gr
 
@@ -1209,9 +1208,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             dev.flush()
           }
 
-          # ── Accumulate delta for post-hoc plateau diagnostic ───────────
-          # Only in non-final phases, past the warm-up guard, and when the
-          # feature is enabled. Records the first eval at which the rolling
+          ## Accumulate delta for post-hoc plateau diagnostic ##
+          # Only in non-final phases, past the warm-up guard, and when enabled. Records the first eval at which the rolling
           # window CV drops below the threshold.
           if (!is_final && plateau_cv > 0 && FnCallNo >= min_evals_diag) {
             delta_history <<- c(delta_history, abs(delta))
@@ -1252,7 +1250,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                    lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                    control = ctrl)
 
-    # ── Post-hoc plateau diagnostic (non-final phases only) ───────────────
+    ## Post-hoc plateau diagnostic (non-final phases only) ##
     if (!is_final && plateau_cv > 0 && !is.na(plateau_eval)) {
       recent <- tail(delta_history, plateau_k)
       cat("  [Plateau diagnostic] Phase ", CurrPhase,
@@ -1265,7 +1263,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     .report_fit(mout, model, pnames, initBestFn, label = "  Initial nlminb")
     TotalEval <<- TotalEval + FnCallNo
 
-    # ── Sandwich restarts (final phase only) ──────────────────────────────
+    ## Sandwich restarts (final phase only) - crunches down the nLL and gradient way faster ##
     if (is_final && isTRUE(nRestarts)) {
 
       suppress_print <<- TRUE        # silence per-eval prints during sandwich
@@ -1284,7 +1282,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         nlminb_rtol  <- ifelse(restart == 1, 1e-12, 1e-15)
         nlminb_xtol  <- ifelse(restart == 1, 1e-12, 1e-15)
 
-        # ---- Step A: BFGS in logit-transformed unconstrained space ─────
+        ## Step A: BFGS in logit-transformed unconstrained space ##
         CurrentStage <<- paste0("Restart ", restart, " \u2013 BFGS")
         cat("  Step A: BFGS (logit-transformed)\n")
         FnCallNo <<- 0
@@ -1330,7 +1328,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        # ---- BFGS gradient revert guard ─────────────────────────────────
+        ## BFGS gradient revert guard ##
         # Keep BFGS solution if NLL improved, even if gradient worsened —
         # nlminb will polish from the better location. Only revert if BFGS
         # degraded BOTH NLL and gradient.
@@ -1365,7 +1363,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           # so the stall detector sees the true current state
           pre_bfgs_grad <- bfgs_grad
         }
-        # ---- Step B: nlminb from BFGS solution ──────────────────────────
+        ## Step B: nlminb from BFGS solution ##
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
         FnCallNo    <<- 0
@@ -1390,7 +1388,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         cat("  Restart", restart, "complete: max|grad| =",
             round(cur_grad, 6), "\n")
 
-        # ---- Exit criteria ───────────────────────────────────────────────
+        ## Exit ##
         # 1. Gradient low enough for Newton — clean exit
         if (cur_grad < newton_grad_thresh) {
           cat("  Gradient <", newton_grad_thresh,
@@ -1418,7 +1416,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         prev_grad <- cur_grad
       }
 
-      # ── Newton polishing ───────────────────────────────────────────────
+      ## Newton polishing - re-fincescale steps - helps get a hessian that works
       suppress_print <<- FALSE       # restore printing for Newton and beyond
       if (newtonSteps > 0) {
 
@@ -1502,11 +1500,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         }
       }
 
-      # ── Bound diagnostics ───────────────────────────────────────────────
+      ## Bound diagnostics ##
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
     }
 
-    # ── Store and save parameters ─────────────────────────────────────────
+    ## Store and save parameters ##
     pars        <- mout$par
     names(pars) <- pnames
     ParOld      <- mout$par
@@ -1522,7 +1520,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       assign("ProfileGrad",   abs(model$gr_Orig(mout$par)), envir = .GlobalEnv)
     }
 
-    # ── Report (final phase only) ─────────────────────────────────────────
+    ## Report (final phase only) ##
     if (report && is_final) {
       cat("Making report object.\n")
       print("Loading report")
@@ -1616,7 +1614,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           " |grad| =", round(Grad[idx], 6), "\n")
     }
     cat("  If these have large gradients, use a prior, widen the bound or fix via map.\n\n")
-    writeLines(crabdead)
+    writeLines(fish)
     cat("\n\n")
 
   } else {
@@ -1650,3 +1648,10 @@ crabdead <- c(
   "  ' .='     `=. '"
 )
 
+fish <- c(
+  ".    )\\",
+  "\\`.-'`  `-xx",
+  " )  _   __,~)",
+  "/.'  )/",
+  "     `"
+)

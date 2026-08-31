@@ -91,8 +91,8 @@ BuildInputFiles <- function(end_override = NULL){
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
-  Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
   if(length(dynamics$value[dynamics$object=='estimateVariance'])>0){
+    Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
     dynamics <- dynamics[dynamics$object!='estimateVariance', ]
     dynamics$value <- as.numeric(dynamics$value)
   }
@@ -110,7 +110,7 @@ BuildInputFiles <- function(end_override = NULL){
   fleets <- readWorkbook(wb,sheet='Fleetcode', startRow = 2)
   effic <- readWorkbook(wb,sheet='EfficiencyCreep', startRow = 2)
   migrate <- readWorkbook(wb,sheet='Migrate', startRow = 2)
-  (zones <- length(unique(areas$ManageZone)))
+  zones <- length(unique(areas$ManageZone))
   area <- areas %>% group_by(ManageZone) %>% reframe(newarea=unique(AreaCode))
   (zoneareas <- split(area$newarea, area$ManageZone))
   lens <- seq(dynamics$value[dynamics$object=='lblwr'],dynamics$value[dynamics$object=='lbupr'],dynamics$value[dynamics$object=='lbgap'])+1
@@ -395,7 +395,7 @@ print("Building Control File")
     tmp <- c(tmp, "# Number of variance specifications\n",10)
 
     Vars <- rep(0, 10)
-    if(length(dynamics$value[dynamics$object=='estimateVariance'])>0){
+    if(length(Varspos)>0){
       Vars[Varspos] <- 1     }
     tmp <- c(tmp, "\n# variance components\n",paste(Vars,collapse = '\t'),"\n")
 

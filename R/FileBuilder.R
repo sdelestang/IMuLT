@@ -395,7 +395,7 @@ print("Building Control File")
     tmp <- c(tmp, "# Number of variance specifications\n",10)
 
     Vars <- rep(0, 10)
-    if(length(Varspos)>0){
+    if(exists('Varspos')){
       Vars[Varspos] <- 1     }
     tmp <- c(tmp, "\n# variance components\n",paste(Vars,collapse = '\t'),"\n")
 

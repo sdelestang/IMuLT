@@ -185,6 +185,20 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
     }
 
       // Double Logistic
+    // if (PatSpec(IselPattern,1) == SELEX_DOUBLE_LOGISTIC)
+    // {
+    //   p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); p3 = SelPars(IselParPnt+3); p4 = SelPars(IselParPnt+4);
+    //   IselParPnt += 4;
+    //   Isex = PatSpec(IselPattern,2);
+    //   MaxTmp = 0.0;
+    //   for (int Isize=0;Isize<MaxLen; Isize++) {
+    //     ActSelex(IselPattern,Isize) =  (1.0/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)))) * (1.0/(1.0+exp(-p4*(dat.MidLenBin(Isex,Isize)-p3))));
+    //     if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
+    //    for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
+    //     ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+    // }
+
+
     if (PatSpec(IselPattern,1) == SELEX_DOUBLE_LOGISTIC)
     {
       p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); p3 = SelPars(IselParPnt+3); p4 = SelPars(IselParPnt+4);
@@ -192,11 +206,11 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       Isex = PatSpec(IselPattern,2);
       MaxTmp = 0.0;
       for (int Isize=0;Isize<MaxLen; Isize++) {
-        ActSelex(IselPattern,Isize) =  (1.0/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)))) * (1.0/(1.0+exp(-p4*(dat.MidLenBin(Isex,Isize)-p3))));
-        if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
-       for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
-        ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+        ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-log(999) * (length - P1) / ((P1+P2) - P1)))) * (1 / (1 + exp( log(999) * (length - (P1+P2+P3)) / ((P1+P2+P3+P4) - (P1+P2+P3)))));
     }
+    }
+
+
 
     /*
     // Knife-edged

@@ -206,7 +206,7 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       Isex = PatSpec(IselPattern,2);
       MaxTmp = 0.0;
       for (int Isize=0;Isize<MaxLen; Isize++) {
-        ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-log(999) * (dat.MidLenBin(Isex,Isize) - P1) / (P2 - P1)))) * (1 / (1 + exp(log(999) * (dat.MidLenBin(Isex,Isize) - (P2+P3+P4)) / ((P2+P3+P4) - (P2+P3)))));
+        ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-log(999) * (dat.MidLenBin(Isex,Isize) - p1) / (p2 - p1)))) * (1 / (1 + exp(log(999) * (dat.MidLenBin(Isex,Isize) - (p2+p3+p4)) / ((p2+p3+p4) - (p2+p3)))));
         if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
           for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1 has v little impact as it is already v close
            ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }

@@ -150,7 +150,7 @@ template <class Type>
 matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type> &SelexFI, matrix<int> &PatSpec, int Npatterns ){
 
   int IPreSpecified, IselParPnt, Isex;
-  Type p1,p2,p3,p4;
+  Type p1,p2,p3,p4,k_inc,k_dec;
 
   int MaxLen; MaxLen = dat.MaxLen;
   matrix<Type> ActSelex(Npatterns,MaxLen);
@@ -205,9 +205,14 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       IselParPnt += 4;
       Isex = PatSpec(IselPattern,2);
       MaxTmp = 0.0;
+      k_inc = log(0.999/(1-0.999)) / (P2);
+      k_dec = log(0.999/(1-0.999)) / (P4);
       for (int Isize=0;Isize<MaxLen; Isize++) {
-        ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-log(999) * (length - P1) / ((P1+P2) - P1)))) * (1 / (1 + exp( log(999) * (length - (P1+P2+P3)) / ((P1+P2+P3+P4) - (P1+P2+P3)))));
-    }
+        ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-k_inc * (dat.MidLenBin(Isex,Isize) - P1)))) * (1 / (1 + exp(k_dec * (dat.MidLenBin(Isex,Isize) - (P1+P2+P3+P4)))));
+        if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
+          for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1 has v little impact as it is already v close
+           ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+
     }
 
 

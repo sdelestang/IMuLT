@@ -556,7 +556,6 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
     }
     else if (dat.GrowthSpecs(IgrowthPattern,1) == GROWTH_ESTIMATED)
     {
-      // Build the STM internally from GrowthPars.
       Isex = dat.GrowthSpecs(IgrowthPattern,2);
       IgrowthParPnt += 1;
       int Nsize = dat.Nlen(Isex);
@@ -580,13 +579,13 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
       vector<Type> PmoultVec(Nsize);
       for (int Isize=0;Isize<Nsize;Isize++)
       {
-        Type xdev  = dat.MidBin(Isex,Isize) - P2;
+        Type xdev  = dat.MidLenBin(Isex,Isize) - P2;
         Type grow1 = 1.0/(1.0+exp(xdev/P1_));
         Type grow2 = 1.0/(1.0+exp(xdev/P3_));
         Type swap1 = 1.0/(1.0+exp(xdev/P5_));
         Type swap2 = 1.0-swap1;
         GrowthVec(Isize) = Amax*(grow1*swap1+grow2*swap2);
-        PmoultVec(Isize) = 1.0/(1.0+exp((dat.MidBin(Isex,Isize)-Ploc)/Pscale));
+        PmoultVec(Isize) = 1.0/(1.0+exp((dat.MidLenBin(Isex,Isize)-Ploc)/Pscale));
       }
 
       vector<Type> Probs(Nsize);
@@ -598,9 +597,9 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
 
         Probs.setZero();
         for (int Ksize=Isize;Ksize<Nsize-1;Ksize++)
-          Probs(Ksize) = pnorm(dat.HighBin(Isex,Ksize), dat.MidBin(Isex,Isize)+mn_growth, sd_growth) -
-            pnorm(dat.LowBin(Isex,Ksize),  dat.MidBin(Isex,Isize)+mn_growth, sd_growth);
-        Probs(Nsize-1) = 1.0 - pnorm(dat.LowBin(Isex,Nsize-1), dat.MidBin(Isex,Isize)+mn_growth, sd_growth);
+          Probs(Ksize) = pnorm(dat.LowLenBin(Isex,Ksize+1), dat.MidLenBin(Isex,Isize)+mn_growth, sd_growth) -
+            pnorm(dat.LowLenBin(Isex,Ksize),   dat.MidLenBin(Isex,Isize)+mn_growth, sd_growth);
+        Probs(Nsize-1) = 1.0 - pnorm(dat.LowLenBin(Isex,Nsize-1), dat.MidLenBin(Isex,Isize)+mn_growth, sd_growth);
 
         Type sumP = 0.0;
         for (int Ksize=Isize;Ksize<Nsize;Ksize++) sumP += Probs(Ksize);
@@ -635,7 +634,6 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
   return(ActGrowth);
 
 }
-
 //==================================================================================================================================
 
 template <class Type>

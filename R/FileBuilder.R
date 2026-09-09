@@ -427,6 +427,7 @@ BuildInputFiles <- function(end_override = NULL){
   Years <- growth2$Years
 
   gspec <- data.frame(Pattern=0:(nstm-1), Type=1, Sex=Sex, Extra=0,Pointer=Pointer,Mpower=1,hash='#',tsteps=Tstep, growthareas=Area, Years=Years, Compound=compound)
+  if(IsGPars) { gspec$Type=2 } ## Change to estimatable
 
   dat <- expand.grid(sex=sexs, age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
   dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))

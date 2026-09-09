@@ -428,7 +428,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   Index <- MatchTable(DataFile,Char1="#",Char2="Catch",Char3="data"); Ncatch  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   Catch <- array(0,dim=c(GeneralSpecs$Nyear+GeneralSpecs$MaxProjYr,GeneralSpecs$Nstep,GeneralSpecs$Nfleet))
   for (Icatch in 1:Ncatch)
-   {
+  {
     Year <- as.numeric(DataFile[Index+Icatch,1])-GeneralSpecs$Year1+1;Step <- as.numeric(DataFile[Index+Icatch,2]);Fleet <-as.numeric(DataFile[Index+Icatch,3])
     Catch[Year,Step,Fleet] <- as.numeric(DataFile[Index+Icatch,4])
   }
@@ -452,7 +452,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   IndexR <- matrix(0,nrow=Ncpue,ncol=2)
   Icpue <- 1
   for (Icpue in 1:Ncpue)
-   {
+  {
     IndexI[Icpue,] <- as.numeric(DataFile[Index+Icpue,1:5]) - c(0,1,1,0,1)  ## This allows R indexing to be used in the input file
     IndexI[Icpue,4] <- IndexI[Icpue,4] - GeneralSpecs$Year1
     IndexR[Icpue,] <- as.numeric(DataFile[Index+Icpue,6:7])
@@ -464,7 +464,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
 
   NQpars <- 0
   for (IdataSet in 1:NcpueDataSeries)
-   if (EnvIndCpue[IdataSet] != 0)  NQpars <- NQpars + 1
+    if (EnvIndCpue[IdataSet] != 0)  NQpars <- NQpars + 1
   write(paste("Number of Q-related parameters",NQpars),EchoFile,append=T)
 
   # Numbers index data
@@ -480,14 +480,14 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   NumbersR <- matrix(0,nrow=Nnumbers,ncol=2)
   if(NcatchDataSeries>0){
     for (Inumber in 1:Nnumbers)
-     {
+    {
       NumbersI[Inumber,] <- as.numeric(DataFile[Index+Inumber,1:4])- c(0,1,0,1)
       NumbersI[Inumber,3] <- NumbersI[Inumber,3] - GeneralSpecs$Year1
       NumbersR[Inumber,] <- as.numeric(DataFile[Index+Inumber,5:6])
     }
     if (asnum(DataFile[Index+Inumber+1,6])) { print("Error reading Numbers data; too many inputs: Stopping"); AAA }
 
-     }
+  }
   write("Numbers data",EchoFile,append=T)
   write(t(cbind(NumbersI,NumbersR)),EchoFile,append=T,ncol=6)
 
@@ -499,7 +499,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   Stage1W <- rep(0,length=NlenComp)
   LenCompR <- matrix(0,nrow=NlenComp,ncol=GeneralSpecs$MaxLen)
   for (IlenC in 1:NlenComp)
-   {
+  {
     LenCompI[IlenC,] <- as.numeric(DataFile[Index+IlenC,1:4]) - c(1,1,0,1)  ## This allows for R indexing in the dat file
     LenCompI[IlenC,3] <- LenCompI[IlenC,3] - GeneralSpecs$Year1
     Stage1W[IlenC] <- as.numeric(DataFile[Index+IlenC,5])
@@ -523,15 +523,15 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   if (NLarvalData > 0){
     for (Idata in 1:NLarvalData)
     {
-     for (II in 1:2) Lar_dataI[Idata,II] <- as.numeric(DataFile[Index+Idata,II]) - c(1,0)[II]
-     for (II in 1:2) Lar_dataR[Idata,II] <- as.numeric(DataFile[Index+Idata,II+2])
-     Lar_dataI[Idata,2] <- Lar_dataI[Idata,2]  - GeneralSpecs$Year1 + max(GeneralSpecs$BurnIn)
+      for (II in 1:2) Lar_dataI[Idata,II] <- as.numeric(DataFile[Index+Idata,II]) - c(1,0)[II]
+      for (II in 1:2) Lar_dataR[Idata,II] <- as.numeric(DataFile[Index+Idata,II+2])
+      Lar_dataI[Idata,2] <- Lar_dataI[Idata,2]  - GeneralSpecs$Year1 + max(GeneralSpecs$BurnIn)
     }
     if (asnum(DataFile[Index+Idata+1,II+2])) { print("Error reading Larval data; too many inputs: Stopping"); AAA }
 
     write(t(cbind(Lar_dataI,Lar_dataR)),EchoFile,append=T,ncol=4)
 
-    }
+  }
 
   # Read in the environmental data
   Index <- MatchTable(DataFile,Char1="#",Char2="Environmental",Char3="Data")
@@ -543,19 +543,19 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   Ipnt <- Index+5
   if(as.numeric(DataFile[Index+2,1])>0){
     for (Iseries in 1:NenvSeries)
-   for (Iyr in 1:YearsPerSeries[Iseries])
+      for (Iyr in 1:YearsPerSeries[Iseries])
+      {
+        Ipnt <- Ipnt + 1
+        Iyear <- as.numeric(DataFile[Ipnt,1])-GeneralSpecs$Year1+max(GeneralSpecs$BurnIn)+1;
+        Istep <- as.numeric(DataFile[Ipnt,2]);
+        Ienv <- as.numeric(DataFile[Ipnt,3]);
+        EnvData[Iyear,Istep,Iseries]<- Ienv
+      }
+    for (Istep in 1:GeneralSpecs$Nstep)
     {
-     Ipnt <- Ipnt + 1
-     Iyear <- as.numeric(DataFile[Ipnt,1])-GeneralSpecs$Year1+max(GeneralSpecs$BurnIn)+1;
-     Istep <- as.numeric(DataFile[Ipnt,2]);
-     Ienv <- as.numeric(DataFile[Ipnt,3]);
-     EnvData[Iyear,Istep,Iseries]<- Ienv
-   }
-  for (Istep in 1:GeneralSpecs$Nstep)
-   {
-    EnvData2 <- cbind(c(GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)+0:(GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn))),rep(Istep-1,1+GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn)),EnvData[,Istep,])
-    write(t(EnvData2),ncol=NenvSeries+2,EchoFile,append=T)
-   } }
+      EnvData2 <- cbind(c(GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)+0:(GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn))),rep(Istep-1,1+GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn)),EnvData[,Istep,])
+      write(t(EnvData2),ncol=NenvSeries+2,EchoFile,append=T)
+    } }
   if (asnum(DataFile[Ipnt+1,3])) { print("Error reading Enviromental data; too many inputs: Stopping"); AAA }
 
   write("READ IN THE DATA FILE\n\n",EchoFile,append=T)
@@ -673,7 +673,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   Index <- MatchTable(ControlFile,Char1="#",Char2="Biomass",Char3="time")+1;
   BioTimeStep <- as.numeric(ControlFile[Index,1])
 
-    # Link between fleets and areas
+  # Link between fleets and areas
   Index <- MatchTable(ControlFile,Char1="#",Char2="Fleet",Char3="Area");
   Fleet_area <- rep(0,GeneralSpecs$Nfleet)
   Fleet_name <- rep(0,GeneralSpecs$Nfleet)
@@ -712,8 +712,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   AreasPerZone <- matrix(-1,nrow=Nzone,ncol=GeneralSpecs$Narea)
   Index <- MatchTable(ControlFile,Char1="#",Char2="The",Char3="Zones");
   for (Izone in 1:Nzone) {Index <- Index+1
-    AreasPerZone[Izone,1:NareasPerZone[Izone]] <- as.numeric(ControlFile[Index,1:NareasPerZone[Izone]])
-    if (asnum(ControlFile[Index,NareasPerZone[Izone]+1]) | is.na(ControlFile[Index,NareasPerZone[Izone]])) { print("Error reading Number of areas / Zone data; not the correct number of inputs: Stopping"); AAA }
+  AreasPerZone[Izone,1:NareasPerZone[Izone]] <- as.numeric(ControlFile[Index,1:NareasPerZone[Izone]])
+  if (asnum(ControlFile[Index,NareasPerZone[Izone]+1]) | is.na(ControlFile[Index,NareasPerZone[Izone]])) { print("Error reading Number of areas / Zone data; not the correct number of inputs: Stopping"); AAA }
   }
 
   write("Number of zones",EchoFile,append=T)
@@ -1047,40 +1047,40 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
       MoveSpec[Ipatt,II] <- as.numeric(MoveFile[Index+2+Ipatt,II])
 
     }
-    }
+  }
   write("Specifications for movement",EchoFile,append=T)
   write(MoveSpec,EchoFile,append=T,ncol=4)
 
   Index <- Index + 2+NmovePatterns+1
   NmovePars = 0
   for (Ipatt in 1:NmovePatterns)
-   {
+  {
     if (MoveSpec[Ipatt,2]==1) NmovePars = NmovePars + 1
     if (MoveSpec[Ipatt,2]==2) NmovePars = NmovePars + 2
-    }
+  }
   write(paste("Number of movement parameters",NmovePars),EchoFile,append=T)
 
   Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="specifications")+2;
   MovePnt <- array(0,dim=c(GeneralSpecs$Narea,GeneralSpecs$Nage,GeneralSpecs$Nyear,GeneralSpecs$Nstep))
   Ipnt <- 0
   for (Iage in 1:(GeneralSpecs$Nage))
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Istep in 1:GeneralSpecs$Nstep)
-     {
-      pos <- Index+Ipnt
-      testindex(MoveFile,pos,1,Iage)
-      testindex(MoveFile,pos,2,Iarea)
-      testindex(MoveFile,pos,3,Istep)
-      for (Iyear in 1:GeneralSpecs$Nyear) MovePnt[Iarea,Iage,Iyear,Istep] <- as.numeric(MoveFile[Index+Ipnt,3+Iyear])
-      Ipnt <- Ipnt + 1
-    }
+    for (Iarea in 1:GeneralSpecs$Narea)
+      for (Istep in 1:GeneralSpecs$Nstep)
+      {
+        pos <- Index+Ipnt
+        testindex(MoveFile,pos,1,Iage)
+        testindex(MoveFile,pos,2,Iarea)
+        testindex(MoveFile,pos,3,Istep)
+        for (Iyear in 1:GeneralSpecs$Nyear) MovePnt[Iarea,Iage,Iyear,Istep] <- as.numeric(MoveFile[Index+Ipnt,3+Iyear])
+        Ipnt <- Ipnt + 1
+      }
   write("Specifications for movement pointers",EchoFile,append=T)
   Nout <- GeneralSpecs$Nyear*GeneralSpecs$Narea*(GeneralSpecs$Nage)
   OutM <- matrix(0,nrow=Nout,ncol=3+GeneralSpecs$Nstep)
   Ipnt <- 0
   for (Iage in 1:(GeneralSpecs$Nage))
-   for (Iarea in 1:GeneralSpecs$Narea)
-    for (Iyear in 1:GeneralSpecs$Nyear)
+    for (Iarea in 1:GeneralSpecs$Narea)
+      for (Iyear in 1:GeneralSpecs$Nyear)
       {
         Ipnt <- Ipnt + 1
         OutM[Ipnt,1:3]  <- c(Iarea-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
@@ -1093,7 +1093,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
   if(NmovePars>0){
     MoveparsLink <- as.numeric(MoveFile[(Index):(Index+NmovePars-1),5])
     MoveparsPrior <- matrix(apply(as.matrix(MoveFile[(Index):(Index+NmovePars-1),6:8]),2,as.numeric), ncol=3)
-    } else { MoveparsLink <- 0; MoveparsPrior <- matrix(c(0,0,0),ncol=3) }
+  } else { MoveparsLink <- 0; MoveparsPrior <- matrix(c(0,0,0),ncol=3) }
 
   write("READ IN THE MOVEMENT FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
@@ -1104,7 +1104,7 @@ ReadMoveFile <- function(MoveFile,GeneralSpecs)
   ReturnObj$MoveparsLink <- MoveparsLink
   ReturnObj$MoveparsPrior <- MoveparsPrior
   return(ReturnObj)
- }
+}
 
 #' Parse Selectivity and Legal Size Specifications from SELEXSPEC.DAT
 #'
@@ -1211,14 +1211,14 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
   OutM <- matrix(0,nrow=Nout,ncol=4+GeneralSpecs$Nstep)
   Ipnt <- 0
   for (Ifleet in 1:GeneralSpecs$Nfleet)
-   for (Isex in 1:(GeneralSpecs$Nsex))
-    for (Iage in 1:(GeneralSpecs$Nage))
-     for (Iyear in 1:GeneralSpecs$Nyear)
-      {
-       Ipnt <- Ipnt + 1
-       OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
-       OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- SelPnt[Isex,Iage,Ifleet,Iyear,]
-      }
+    for (Isex in 1:(GeneralSpecs$Nsex))
+      for (Iage in 1:(GeneralSpecs$Nage))
+        for (Iyear in 1:GeneralSpecs$Nyear)
+        {
+          Ipnt <- Ipnt + 1
+          OutM[Ipnt,1:4]  <- c(Ifleet-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
+          OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- SelPnt[Isex,Iage,Ifleet,Iyear,]
+        }
   write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
 
   # Selectivity parameters linking conditions
@@ -1297,13 +1297,13 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
       for (Iarea in 1:GeneralSpecs$Narea)
         for (Istep in 1:GeneralSpecs$Nstep)
         {
-         pos <- Index+Ipnt
-         testindex(SelexFile,pos,1,Isex)
-         testindex(SelexFile,pos,2,Iage)
-         testindex(SelexFile,pos,3,Iarea)
-         testindex(SelexFile,pos,4,Istep)
-         for (Iyear in 1:GeneralSpecs$Nyear) LegalPnt[Isex,Iage,Iarea,Iyear,Istep] <- as.numeric(SelexFile[Index+Ipnt,4+Iyear])
-         Ipnt <- Ipnt + 1
+          pos <- Index+Ipnt
+          testindex(SelexFile,pos,1,Isex)
+          testindex(SelexFile,pos,2,Iage)
+          testindex(SelexFile,pos,3,Iarea)
+          testindex(SelexFile,pos,4,Istep)
+          for (Iyear in 1:GeneralSpecs$Nyear) LegalPnt[Isex,Iage,Iarea,Iyear,Istep] <- as.numeric(SelexFile[Index+Ipnt,4+Iyear])
+          Ipnt <- Ipnt + 1
         }
   write("Specifications for legal pointers",EchoFile,append=T)
   Nout <- GeneralSpecs$Nyear*GeneralSpecs$Narea*GeneralSpecs$Nsex*(GeneralSpecs$Nage)
@@ -1313,11 +1313,11 @@ ReadSelexFile <- function(SelexFile,GeneralSpecs)
     for (Isex in 1:(GeneralSpecs$Nsex))
       for (Iage in 1:(GeneralSpecs$Nage))
         for (Iyear in 1:GeneralSpecs$Nyear)
-         {
+        {
           Ipnt <- Ipnt + 1
           OutM[Ipnt,1:4]  <- c(Iarea-1,Isex-1,Iage-1,Iyear+GeneralSpecs$Year1-1)
           OutM[Ipnt,(5:(4+GeneralSpecs$Nstep))] <- LegalPnt[Isex,Iage,Iarea,Iyear,]
-         }
+        }
   write(t(OutM),EchoFile,append=T,ncol=4+GeneralSpecs$Nstep)
 
   Index <- MatchTable(SelexFile,Char1="#",Char2="Reference",Char3="selectivity",Char4="pattern");
@@ -1438,7 +1438,7 @@ ReadRetenFile <- function(RetenFile,GeneralSpecs)
   NretPatterns <- as.numeric(RetenFile[Index,1])
   write(paste("Number of retention patterns",NretPatterns),EchoFile,append=T)
 
-    Index <- MatchTable(RetenFile,Char1="#",Char2="Pattern",Char3="Type");
+  Index <- MatchTable(RetenFile,Char1="#",Char2="Pattern",Char3="Type");
   RetSpec <- matrix(0,NretPatterns,5)
   for (Iret in 1:NretPatterns)
     for (Icol in 1:5) RetSpec[Iret,Icol] <- as.numeric(RetenFile[Index+Iret,Icol])
@@ -1570,7 +1570,7 @@ ReadRetenFile <- function(RetenFile,GeneralSpecs)
 #'
 #' @keywords internal
 ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
- {
+{
   print("READ IN THE RECRUIT FILE")
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Number",Char3="of",Char4="sex_area_allocation")+1;
   NrecruitPatternsA <- as.numeric(RecruitFile[Index,1])
@@ -1597,7 +1597,7 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   for (IrecPat in 1:NrecruitPatternsA)   {
     if (RecruitSpecsA[IrecPat,2]==0) NrecruitPars <- NrecruitPars + (GeneralSpecs$Narea)   # Sex split + Nareas-1
     if (RecruitSpecsA[IrecPat,2]==1) NrecruitPars <- NrecruitPars + (GeneralSpecs$Nsex*(GeneralSpecs$Narea-1))
-   }
+  }
   for (Ipat in 1:NrecruitPatternsB)
     for (Isex in 1:GeneralSpecs$Nsex)
       if (RecruitSpecsB[Ipat,3+Isex]>=0) NrecruitPars <- NrecruitPars+RecruitSpecs[Ipat,3+GeneralSpecs$Nsex+Isex]
@@ -1631,15 +1631,15 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   if(CalcRecruitFrac==0){
     for (Isex in 1:NfixedRecruits)
       for (Jlen in 1:GeneralSpecs$MaxLen) RecruitFrac[Isex,Jlen] <- as.numeric(RecruitFile[Index+Isex+1,Jlen])
-    }
-   write("Fixed recruitment patterns",EchoFile,append=T)
-   write(t(RecruitFrac),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
+  }
+  write("Fixed recruitment patterns",EchoFile,append=T)
+  write(t(RecruitFrac),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-   # REcruitment Parameters linking conditions
-   Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
-   npars <- GeneralSpecs$Narea+(NfixedRecruits*2)
-   RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
-   RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
+  # REcruitment Parameters linking conditions
+  Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
+  npars <- GeneralSpecs$Narea+(NfixedRecruits*2)
+  RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
+  RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
 
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Bias",Char3="ramp")+1;
   Bias_Ramp_Yr1 <- as.numeric(RecruitFile[Index,1])-GeneralSpecs$Year1;
@@ -1747,18 +1747,18 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   GrowthPnt <- array(0,dim=c(GeneralSpecs$Narea,GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nyear,GeneralSpecs$Nstep))
   Ipnt <- 0
   for (Isex in 1:GeneralSpecs$Nsex)
-   for (Iage in 1:(GeneralSpecs$Nage))
-     for (Iarea in 1:GeneralSpecs$Narea)
-       for (Istep in 1:GeneralSpecs$Nstep)
-      {
-       pos <- Index+Ipnt
-       testindex(GrowthFile,pos,1,Isex)
-       testindex(GrowthFile,pos,2,Iage)
-       testindex(GrowthFile,pos,3,Iarea)
-       testindex(GrowthFile,pos,4,Istep)
-       for (Iyear in 1:GeneralSpecs$Nyear) GrowthPnt[Iarea,Isex,Iage,Iyear,Istep] <- as.numeric(GrowthFile[Index+Ipnt,4+Iyear])
-       Ipnt <- Ipnt + 1
-      }
+    for (Iage in 1:(GeneralSpecs$Nage))
+      for (Iarea in 1:GeneralSpecs$Narea)
+        for (Istep in 1:GeneralSpecs$Nstep)
+        {
+          pos <- Index+Ipnt
+          testindex(GrowthFile,pos,1,Isex)
+          testindex(GrowthFile,pos,2,Iage)
+          testindex(GrowthFile,pos,3,Iarea)
+          testindex(GrowthFile,pos,4,Istep)
+          for (Iyear in 1:GeneralSpecs$Nyear) GrowthPnt[Iarea,Isex,Iage,Iyear,Istep] <- as.numeric(GrowthFile[Index+Ipnt,4+Iyear])
+          Ipnt <- Ipnt + 1
+        }
   write("Specifications for growth pointers",EchoFile,append=T)
   for (Iarea in 1:GeneralSpecs$Narea)
     for (Isex in 1:GeneralSpecs$Nsex)
@@ -2198,173 +2198,173 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   if (PreSpecifySpatRecDevs == 1){
     for (Dyr in 1: NrecSpatDev) RecSpatDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])}
   if (NrecSpatDev==0) { NrecSpatDev <- 1; RecSpatDevPars = 0; RecSpatDevBnd <- matrix(c(-15,15),ncol=2,nrow=2); RecSpatDevPhase <- -1; }
- if(is.na(sum(PreSpecifySpatRecDevs))) { warning("\nThere are NA's in Spatial Recruitment Pars\n", call. = FALSE); OK <- 0   }
+  if(is.na(sum(PreSpecifySpatRecDevs))) { warning("\nThere are NA's in Spatial Recruitment Pars\n", call. = FALSE); OK <- 0   }
 
- Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+1;
- NlenSel <- max(1,SelexSpecs$NselPars)
- SelPars <- rep(0,NlenSel)
- SelBnd <- matrix(0,NlenSel,ncol=2)
- SelPhase <- rep(NA,NlenSel)
- if (SelexSpecs$NselPars > 0)
+  Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+1;
+  NlenSel <- max(1,SelexSpecs$NselPars)
+  SelPars <- rep(0,NlenSel)
+  SelBnd <- matrix(0,NlenSel,ncol=2)
+  SelPhase <- rep(NA,NlenSel)
+  if (SelexSpecs$NselPars > 0)
   {
-   for (Ipar in 1:SelexSpecs$NselPars)
+    for (Ipar in 1:SelexSpecs$NselPars)
     {
-     SelPars[Ipar] <- as.numeric(SelexFile[Index+Ipar,3])
-     SelBnd[Ipar,1] <- as.numeric(SelexFile[Index+Ipar,1])
-     SelBnd[Ipar,2] <- as.numeric(SelexFile[Index+Ipar,2])
-     SelPhase[Ipar] <- as.numeric(SelexFile[Index+Ipar,4])
+      SelPars[Ipar] <- as.numeric(SelexFile[Index+Ipar,3])
+      SelBnd[Ipar,1] <- as.numeric(SelexFile[Index+Ipar,1])
+      SelBnd[Ipar,2] <- as.numeric(SelexFile[Index+Ipar,2])
+      SelPhase[Ipar] <- as.numeric(SelexFile[Index+Ipar,4])
     }
   } else { SelPhase[1] <- -100  }
- write("Initial selectivity parameters",EchoFile,append=T)
- if (SelexSpecs$NselPars>0) write(SelPars,EchoFile,append=T,ncol=SelexSpecs$NselPars)
- if(is.na(sum(SelPars))) { warning("\nThere are NA's in Selectivity Pars\n", call. = FALSE); OK <- 0   }
+  write("Initial selectivity parameters",EchoFile,append=T)
+  if (SelexSpecs$NselPars>0) write(SelPars,EchoFile,append=T,ncol=SelexSpecs$NselPars)
+  if(is.na(sum(SelPars))) { warning("\nThere are NA's in Selectivity Pars\n", call. = FALSE); OK <- 0   }
 
- Index <- MatchTable(RetenFile,Char1="#",Char2="Retention",Char3="parameters")+1;
- NlenRet <- max(1,RetenSpecs$NretPars)
- RetPars <- rep(0,NlenRet)
- RetBnd <- matrix(0,nrow=RetenSpecs$NretPars,ncol=2)
- RetPhase <- rep(NA,NlenRet)
- if (RetenSpecs$NretPars > 0)
- {
-   for (Ipar in 1:RetenSpecs$NretPars)
-    {
-     RetPars[Ipar] <- as.numeric(RetenFile[Index+Ipar,3])
-     RetBnd[Ipar,1] <- as.numeric(RetenFile[Index+Ipar,1])
-     RetBnd[Ipar,2] <- as.numeric(RetenFile[Index+Ipar,2])
-     RetPhase[Ipar] <- as.numeric(RetenFile[Index+Ipar,4])
-   }
- } else {RetPhase[1] <- -100}
- write("Initial retention parameters",EchoFile,append=T)
- if (RetenSpecs$NretPars>0) write(RetPars,EchoFile,append=T,ncol=RetenSpecs$NretPars)
- if(is.na(sum(RetPars))) { warning("\nThere are NA's in Retention Pars\n", call. = FALSE); OK <- 0   }
-
- Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1",Char3="parameters")+1;
- NRecPars <- ifelse(RecruitSpecs$CalcRecruitFrac==0, RecruitSpecs$NrecruitPars, RecruitSpecs$NrecruitPars+RecruitSpecs$NfixedRecruits*2)
- RecruitPars <- rep(0,NRecPars)
- RecruitBnd <- matrix(0,nrow=NRecPars,ncol=2)
- RecruitPhase <- rep(NA,NRecPars)
- for (Ipar in 1:NRecPars)
+  Index <- MatchTable(RetenFile,Char1="#",Char2="Retention",Char3="parameters")+1;
+  NlenRet <- max(1,RetenSpecs$NretPars)
+  RetPars <- rep(0,NlenRet)
+  RetBnd <- matrix(0,nrow=RetenSpecs$NretPars,ncol=2)
+  RetPhase <- rep(NA,NlenRet)
+  if (RetenSpecs$NretPars > 0)
   {
-   RecruitPars[Ipar] <- as.numeric(RecruitFile[Index+Ipar,3])
-   RecruitBnd[Ipar,1] <- as.numeric(RecruitFile[Index+Ipar,1])
-   RecruitBnd[Ipar,2] <- as.numeric(RecruitFile[Index+Ipar,2])
-   RecruitPhase[Ipar] <- as.numeric(RecruitFile[Index+Ipar,4])
-  }
- write("Initial recuitment parameters",EchoFile,append=T)
- write(RecruitPars,EchoFile,append=T,ncol=NRecPars)
- if(is.na(sum(RecruitPars))) { warning("\nThere are NA's in Recruitment Pars\n", call. = FALSE); OK <- 0   }
-
- Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power")+1;
- NPuerPow <- as.numeric(RecruitFile[Index,1])
- PuerPowPars <- rep(0,NPuerPow)
- PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
- PuerPowPhase <- rep(-99,NPuerPow)
- if(NPuerPow>0){
-   PuerPowPars <- rep(0,NPuerPow)
-   PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
-   PuerPowPhase <- rep(NA,NPuerPow)
-   for (Ipar in 1:NPuerPow)
-   {
-     PuerPowPars[Ipar] <- as.numeric(RecruitFile[Index+Ipar+1,3])
-     PuerPowBnd[Ipar,1] <- as.numeric(RecruitFile[Index+Ipar+1,1])
-     PuerPowBnd[Ipar,2] <- as.numeric(RecruitFile[Index+Ipar+1,2])
-     PuerPowPhase[Ipar] <- as.numeric(RecruitFile[Index+Ipar+1,4])
-   }
-   write("Puerulus power parameters",EchoFile,append=T)
-   write(PuerPowPars,EchoFile,append=T,ncol=NPuerPow)
- }
- if(is.na(sum(PuerPowPars))) { warning("\nThere are NA's in Puerulus Pars\n", call. = FALSE); OK <- 0   }
-
- Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+1;
- NlenGr <- max(1,GrowthSpecs$NgrowthPars)
- GrowthPars <- rep(0,NlenGr)
- GrowthBnd <- matrix(0,nrow=NlenGr,ncol=2)
- GrowthPhase <- rep(NA,NlenGr)
- if (GrowthSpecs$NgrowthPars >0)
-  {
-   for (Ipar in 1:GrowthSpecs$NgrowthPars)
+    for (Ipar in 1:RetenSpecs$NretPars)
     {
-     GrowthPars[Ipar] <- as.numeric(GrowthFile[Index+Ipar,3])
-     GrowthBnd[Ipar,1] <- as.numeric(GrowthFile[Index+Ipar,1])
-     GrowthBnd[Ipar,2] <- as.numeric(GrowthFile[Index+Ipar,2])
-     GrowthPhase[Ipar] <- as.numeric(GrowthFile[Index+Ipar,4])
-   }
-  }  else  GrowthPhase[1] <- -100
- if(is.na(sum(GrowthPars))) { warning("\nThere are NA's in Growth Pars\n", call. = FALSE); OK <- 0   }
-
- Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+1;
- MovePars <- rep(0,MoveSpecs$NmovePars)
- MoveBnd <- matrix(0,nrow=MoveSpecs$NmovePars,ncol=2)
- MovePhase <- rep(-99,MoveSpecs$NmovePars)
-if(MoveSpecs$NmovePars>0){
-   for (Ipar in 1:MoveSpecs$NmovePars)
-    {
-     MovePars[Ipar] <- as.numeric(MoveFile[Index+Ipar,3])
-     MoveBnd[Ipar,1] <- as.numeric(MoveFile[Index+Ipar,1])
-     MoveBnd[Ipar,2] <- as.numeric(MoveFile[Index+Ipar,2])
-     MovePhase[Ipar] <- as.numeric(MoveFile[Index+Ipar,4])
+      RetPars[Ipar] <- as.numeric(RetenFile[Index+Ipar,3])
+      RetBnd[Ipar,1] <- as.numeric(RetenFile[Index+Ipar,1])
+      RetBnd[Ipar,2] <- as.numeric(RetenFile[Index+Ipar,2])
+      RetPhase[Ipar] <- as.numeric(RetenFile[Index+Ipar,4])
     }
-   write("Initial movement parameters",EchoFile,append=T)
-   write(MovePars,EchoFile,append=T)}
- if(is.na(sum(MovePars))) { warning("\nThere are NA's in Move Pars\n", call. = FALSE); OK <- 0   }
+  } else {RetPhase[1] <- -100}
+  write("Initial retention parameters",EchoFile,append=T)
+  if (RetenSpecs$NretPars>0) write(RetPars,EchoFile,append=T,ncol=RetenSpecs$NretPars)
+  if(is.na(sum(RetPars))) { warning("\nThere are NA's in Retention Pars\n", call. = FALSE); OK <- 0   }
 
- NInitPar <- 1;
-
- Index <- MatchTable(ControlFile,Char1="#",Char2="Q",Char3="parameters");
- NQ <- max(1,GeneralSpecs$NQpars)
- QPars <- rep(0,NQ)
- QBnd <- matrix(0,nrow=NQ,ncol=2)
- QPhase <- rep(NA,NQ)
- if (GeneralSpecs$NQpars >0)
+  Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1",Char3="parameters")+1;
+  NRecPars <- ifelse(RecruitSpecs$CalcRecruitFrac==0, RecruitSpecs$NrecruitPars, RecruitSpecs$NrecruitPars+RecruitSpecs$NfixedRecruits*2)
+  RecruitPars <- rep(0,NRecPars)
+  RecruitBnd <- matrix(0,nrow=NRecPars,ncol=2)
+  RecruitPhase <- rep(NA,NRecPars)
+  for (Ipar in 1:NRecPars)
   {
-   for (Ipar in 1:GeneralSpecs$NQpars)
+    RecruitPars[Ipar] <- as.numeric(RecruitFile[Index+Ipar,3])
+    RecruitBnd[Ipar,1] <- as.numeric(RecruitFile[Index+Ipar,1])
+    RecruitBnd[Ipar,2] <- as.numeric(RecruitFile[Index+Ipar,2])
+    RecruitPhase[Ipar] <- as.numeric(RecruitFile[Index+Ipar,4])
+  }
+  write("Initial recuitment parameters",EchoFile,append=T)
+  write(RecruitPars,EchoFile,append=T,ncol=NRecPars)
+  if(is.na(sum(RecruitPars))) { warning("\nThere are NA's in Recruitment Pars\n", call. = FALSE); OK <- 0   }
+
+  Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power")+1;
+  NPuerPow <- as.numeric(RecruitFile[Index,1])
+  PuerPowPars <- rep(0,NPuerPow)
+  PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
+  PuerPowPhase <- rep(-99,NPuerPow)
+  if(NPuerPow>0){
+    PuerPowPars <- rep(0,NPuerPow)
+    PuerPowBnd <- matrix(0,nrow=NPuerPow,ncol=2)
+    PuerPowPhase <- rep(NA,NPuerPow)
+    for (Ipar in 1:NPuerPow)
     {
-     QPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
-     QBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
-     QBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
-     QPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
+      PuerPowPars[Ipar] <- as.numeric(RecruitFile[Index+Ipar+1,3])
+      PuerPowBnd[Ipar,1] <- as.numeric(RecruitFile[Index+Ipar+1,1])
+      PuerPowBnd[Ipar,2] <- as.numeric(RecruitFile[Index+Ipar+1,2])
+      PuerPowPhase[Ipar] <- as.numeric(RecruitFile[Index+Ipar+1,4])
+    }
+    write("Puerulus power parameters",EchoFile,append=T)
+    write(PuerPowPars,EchoFile,append=T,ncol=NPuerPow)
+  }
+  if(is.na(sum(PuerPowPars))) { warning("\nThere are NA's in Puerulus Pars\n", call. = FALSE); OK <- 0   }
+
+  Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+1;
+  NlenGr <- max(1,GrowthSpecs$NgrowthPars)
+  GrowthPars <- rep(0,NlenGr)
+  GrowthBnd <- matrix(0,nrow=NlenGr,ncol=2)
+  GrowthPhase <- rep(NA,NlenGr)
+  if (GrowthSpecs$NgrowthPars >0)
+  {
+    for (Ipar in 1:GrowthSpecs$NgrowthPars)
+    {
+      GrowthPars[Ipar] <- as.numeric(GrowthFile[Index+Ipar,3])
+      GrowthBnd[Ipar,1] <- as.numeric(GrowthFile[Index+Ipar,1])
+      GrowthBnd[Ipar,2] <- as.numeric(GrowthFile[Index+Ipar,2])
+      GrowthPhase[Ipar] <- as.numeric(GrowthFile[Index+Ipar,4])
+    }
+  }  else  GrowthPhase[1] <- -100
+  if(is.na(sum(GrowthPars))) { warning("\nThere are NA's in Growth Pars\n", call. = FALSE); OK <- 0   }
+
+  Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+1;
+  MovePars <- rep(0,MoveSpecs$NmovePars)
+  MoveBnd <- matrix(0,nrow=MoveSpecs$NmovePars,ncol=2)
+  MovePhase <- rep(-99,MoveSpecs$NmovePars)
+  if(MoveSpecs$NmovePars>0){
+    for (Ipar in 1:MoveSpecs$NmovePars)
+    {
+      MovePars[Ipar] <- as.numeric(MoveFile[Index+Ipar,3])
+      MoveBnd[Ipar,1] <- as.numeric(MoveFile[Index+Ipar,1])
+      MoveBnd[Ipar,2] <- as.numeric(MoveFile[Index+Ipar,2])
+      MovePhase[Ipar] <- as.numeric(MoveFile[Index+Ipar,4])
+    }
+    write("Initial movement parameters",EchoFile,append=T)
+    write(MovePars,EchoFile,append=T)}
+  if(is.na(sum(MovePars))) { warning("\nThere are NA's in Move Pars\n", call. = FALSE); OK <- 0   }
+
+  NInitPar <- 1;
+
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Q",Char3="parameters");
+  NQ <- max(1,GeneralSpecs$NQpars)
+  QPars <- rep(0,NQ)
+  QBnd <- matrix(0,nrow=NQ,ncol=2)
+  QPhase <- rep(NA,NQ)
+  if (GeneralSpecs$NQpars >0)
+  {
+    for (Ipar in 1:GeneralSpecs$NQpars)
+    {
+      QPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
+      QBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
+      QBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
+      QPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
     }
   }   else { QPhase[1] <- -100}
- if(is.na(sum(QPars))) { warning("\nThere are NA's in Q Pars\n", call. = FALSE); OK <- 0   }
+  if(is.na(sum(QPars))) { warning("\nThere are NA's in Q Pars\n", call. = FALSE); OK <- 0   }
 
- Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters") +1;
- Nef <- max(1,Data$NefficPar)
- efPars <- rep(0,Nef)
- efBnd <- matrix(0,nrow=Nef,ncol=2)
- efPhase <- rep(-10,Nef)
- if (Nef>0)  {
-   for (Ipar in 1:Nef)    {
-     efPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
-     efBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
-     efBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
-     efPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
-   }
- }
- else { efPhase[1] <- -100 }
- if(is.na(sum(efPars))) { warning("\nThere are NA's in Efficiency Pars\n", call. = FALSE); OK <- 0   }
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters") +1;
+  Nef <- max(1,Data$NefficPar)
+  efPars <- rep(0,Nef)
+  efBnd <- matrix(0,nrow=Nef,ncol=2)
+  efPhase <- rep(-10,Nef)
+  if (Nef>0)  {
+    for (Ipar in 1:Nef)    {
+      efPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
+      efBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
+      efBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
+      efPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
+    }
+  }
+  else { efPhase[1] <- -100 }
+  if(is.na(sum(efPars))) { warning("\nThere are NA's in Efficiency Pars\n", call. = FALSE); OK <- 0   }
 
- if(OK==1) { message("All initial parameters are provided")}
- ReturnObj <- NULL
- ReturnObj$MainPars$Initial <- MainPars
- ReturnObj$MainPars$Bnd <- MainBnd
- ReturnObj$MainPars$Phase <- MainPhase
- ReturnObj$RecruitPars$Initial <- RecruitPars
- ReturnObj$RecruitPars$Bnd <- RecruitBnd
- ReturnObj$RecruitPars$Phase <- RecruitPhase
- ReturnObj$PuerPowPars$Initial <- PuerPowPars
- ReturnObj$PuerPowPars$Bnd <- PuerPowBnd
- ReturnObj$PuerPowPars$Phase <- PuerPowPhase
- ReturnObj$SelPars$Initial <- SelPars
- ReturnObj$SelPars$Bnd <- SelBnd
- ReturnObj$SelPars$Phase <- SelPhase
- ReturnObj$RetPars$Initial <- RetPars
- ReturnObj$RetPars$Bnd <- RetBnd
- ReturnObj$RetPars$Phase <- RetPhase
- ReturnObj$RecDevs$Initial <- RecDevPars
- ReturnObj$RecDevs$Bnd <- RecDevBnd
- ReturnObj$RecDevs$Phase <- RecDevPhase
- ReturnObj$RecSpatDevs$Initial <- RecSpatDevPars
- ReturnObj$RecSpatDevs$Bnd <- RecSpatDevBnd
+  if(OK==1) { message("All initial parameters are provided")}
+  ReturnObj <- NULL
+  ReturnObj$MainPars$Initial <- MainPars
+  ReturnObj$MainPars$Bnd <- MainBnd
+  ReturnObj$MainPars$Phase <- MainPhase
+  ReturnObj$RecruitPars$Initial <- RecruitPars
+  ReturnObj$RecruitPars$Bnd <- RecruitBnd
+  ReturnObj$RecruitPars$Phase <- RecruitPhase
+  ReturnObj$PuerPowPars$Initial <- PuerPowPars
+  ReturnObj$PuerPowPars$Bnd <- PuerPowBnd
+  ReturnObj$PuerPowPars$Phase <- PuerPowPhase
+  ReturnObj$SelPars$Initial <- SelPars
+  ReturnObj$SelPars$Bnd <- SelBnd
+  ReturnObj$SelPars$Phase <- SelPhase
+  ReturnObj$RetPars$Initial <- RetPars
+  ReturnObj$RetPars$Bnd <- RetBnd
+  ReturnObj$RetPars$Phase <- RetPhase
+  ReturnObj$RecDevs$Initial <- RecDevPars
+  ReturnObj$RecDevs$Bnd <- RecDevBnd
+  ReturnObj$RecDevs$Phase <- RecDevPhase
+  ReturnObj$RecSpatDevs$Initial <- RecSpatDevPars
+  ReturnObj$RecSpatDevs$Bnd <- RecSpatDevBnd
  ReturnObj$RecSpatDevs$Phase <- RecSpatDevPhase
  ReturnObj$Qpars$Initial <- QPars
  ReturnObj$Qpars$Bnd <- QBnd

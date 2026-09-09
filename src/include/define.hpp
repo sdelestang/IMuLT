@@ -12,6 +12,7 @@
 #define MOVE_NONE 0
 #define MOVE_CONSTANT 1
 #define MOVE_KNIFE 2
+#define GROWTH_ESTIMATED 2
 #define GROWTH_PRESPECIFIED 1
 
 // Structure that contains the fixed constants

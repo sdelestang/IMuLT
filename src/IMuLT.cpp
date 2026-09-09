@@ -410,159 +410,236 @@ template <class Type>
                 AreaPar = exp(TempArea(Iarea)+RecSpatDevPars(IrecSpatPnt));
                }
               else
-               AreaPar = exp(TempArea(Iarea));
+                AreaPar = exp(TempArea(Iarea));
              }
             for (int Isex=0;Isex<dat.Nsex;Isex++)
-             {
+            {
               ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) = AreaPar*SexSplit(Isex);
               Total += ActRecruitAreaSexDist(Year,Istep,Iarea,Isex);
-             }
+            }
            }
-         // normalize
-         for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-          for (int Isex=0;Isex<dat.Nsex;Isex++)
-           ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total;
-        }
+          // normalize
+          for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+            for (int Isex=0;Isex<dat.Nsex;Isex++)
+              ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total;
+         }
 
-     }
+    }
 
    // allow for area-specific sex-ratios at recruitment
    if (dat.RecruitSpecsA(IrecruitPattern,1)==1)
-    {
+   {
      Total = 0;
      Icnt = 0;
      for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-      for (int Isex=0;Isex<dat.Nsex;Isex++)
+       for (int Isex=0;Isex<dat.Nsex;Isex++)
        {
-        if (Iarea==0 & Isex==0)
+         if (Iarea==0 & Isex==0)
          {
-          TempArea(0) = 0;
+           TempArea(0) = 0;
          }
-        else
-          {
-          Icnt += 1;
-          IrecruitParPnt += 1;
-          TempArea(Icnt) = RecruitPars(IrecruitParPnt);
+         else
+         {
+           Icnt += 1;
+           IrecruitParPnt += 1;
+           TempArea(Icnt) = RecruitPars(IrecruitParPnt);
          }
        }
-      for (int Year=0;Year<dat.Nyear+dat.MaxProjYr;Year++)
+     for (int Year=0;Year<dat.Nyear+dat.MaxProjYr;Year++)
        for (int Istep=0;Istep<dat.Nstep;Istep++)
-        if (dat.RecruitPnt(Year,Istep)==IrecruitPattern)
+         if (dat.RecruitPnt(Year,Istep)==IrecruitPattern)
          {
-          // Insert
-          Total = 0;
-          Icnt = 0;
-          for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-           for (int Isex=0;Isex<dat.Nsex;Isex++)
-           {
-            if (Iarea==0 & Isex==0)
-             { AreaPar = 1; }
-            else
+           // Insert
+           Total = 0;
+           Icnt = 0;
+           for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+             for (int Isex=0;Isex<dat.Nsex;Isex++)
              {
-              Icnt += 1;
-              if (Year>=dat.RecSpatYr1 & Year<=dat.RecSpatYr2)
+               if (Iarea==0 & Isex==0)
+               { AreaPar = 1; }
+               else
                {
-                if (Isex==0 || Iarea == 1) IrecSpatPnt += 1;
-                AreaPar = exp(TempArea(Icnt)+RecSpatDevPars(IrecSpatPnt));
+                 Icnt += 1;
+                 if (Year>=dat.RecSpatYr1 & Year<=dat.RecSpatYr2)
+                 {
+                   if (Isex==0 || Iarea == 1) IrecSpatPnt += 1;
+                   AreaPar = exp(TempArea(Icnt)+RecSpatDevPars(IrecSpatPnt));
+                 }
+                 else
+                   AreaPar = exp(TempArea(Icnt));
                }
-              else
-               AreaPar = exp(TempArea(Icnt));
+               ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) = AreaPar*SexSplit(Isex);
+               Total += ActRecruitAreaSexDist(Year,Istep,Iarea,Isex);
              }
-            ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) = AreaPar*SexSplit(Isex);
-            Total += ActRecruitAreaSexDist(Year,Istep,Iarea,Isex);
-            }
-          // normalize
-          for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-           for (int Isex=0;Isex<dat.Nsex;Isex++)
-            ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total;
-        }
+           // normalize
+           for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+             for (int Isex=0;Isex<dat.Nsex;Isex++)
+               ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) /= Total;
+         }
 
-    }
+   }
   }
 
  // Now deal with recruitment distribution
  for (int IrecruitPattern=0;IrecruitPattern<dat.NrecruitPatternsB;IrecruitPattern++)
-  {
+ {
    for (int Isex=0;Isex<dat.Nsex;Isex++)
-    {
+   {
      if (dat.RecruitSpecsB(IrecruitPattern,1+Isex) < 0)
-      {
+     {
        Pointer = -1*dat.RecruitSpecsB(IrecruitPattern,1+Isex)-1;
        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-        ActRecruitLenDist(IrecruitPattern,Isex,Isize) = dat.RecruitFrac(Pointer,Isize);
-      }
+         ActRecruitLenDist(IrecruitPattern,Isex,Isize) = dat.RecruitFrac(Pointer,Isize);
+     }
      else
-      {
+     {
        Total = 0;
        for (int Isize=0;Isize<dat.RecruitSpecsB(IrecruitPattern,2+dat.Nsex+Isex) ;Isize++)
-        {
+       {
          IrecruitParPnt += 1;
          ActRecruitLenDist(IrecruitPattern,Isex,Isize) = exp(RecruitPars(IrecruitParPnt));
          Total += ActRecruitLenDist(IrecruitPattern,Isex,Isize);
-        }
+       }
        for (int Isize=0;Isize<dat.RecruitSpecsB(IrecruitPattern,2+dat.Nsex+Isex) ;Isize++)
-        {
+       {
          ActRecruitLenDist(IrecruitPattern,Isex,Isize) /= Total;
-        }
-      }
-    }
+       }
+     }
+   }
 
-  }
+ }
 
  XX = 1;
  return(XX);
-}
+ }
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
- matrix<Type> TempGrow(dat.MaxLen,dat.MaxLen);
+matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
+  matrix<Type> TempGrow(dat.MaxLen,dat.MaxLen);
 
- int MaxLen; MaxLen = dat.MaxLen;
- array<Type> ActGrowth(dat.NgrowthPatterns,MaxLen,MaxLen);
- int IgrowthParPnt,Isex,Pointer;
+  int MaxLen; MaxLen = dat.MaxLen;
+  array<Type> ActGrowth(dat.NgrowthPatterns,MaxLen,MaxLen);
+  int IgrowthParPnt,Isex,Pointer;
 
- // This function sets up all the growth patterns
- ActGrowth.setZero();
- IgrowthParPnt = -1;
- for (int IgrowthPattern=0;IgrowthPattern<dat.NgrowthPatterns;IgrowthPattern++)
+  // This function sets up all the growth patterns
+  ActGrowth.setZero();
+  IgrowthParPnt = -1;
+  for (int IgrowthPattern=0;IgrowthPattern<dat.NgrowthPatterns;IgrowthPattern++)
   {
-   if (dat.GrowthSpecs(IgrowthPattern,1) == GROWTH_PRESPECIFIED)
+    if (dat.GrowthSpecs(IgrowthPattern,1) == GROWTH_PRESPECIFIED)
     {
-     Isex = dat.GrowthSpecs(IgrowthPattern,2);
-     Pointer = dat.GrowthSpecs(IgrowthPattern,4);
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
-       ActGrowth(IgrowthPattern,Isize,Jsize) = dat.TransInp(Pointer,Isize,Jsize);
-      if (dat.GrowthSpecs(IgrowthPattern,5) > 1)
-	   {
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-         for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
+      Isex = dat.GrowthSpecs(IgrowthPattern,2);
+      Pointer = dat.GrowthSpecs(IgrowthPattern,4);
+      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
           ActGrowth(IgrowthPattern,Isize,Jsize) = dat.TransInp(Pointer,Isize,Jsize);
-	    for (int Imult=2;Imult<=dat.GrowthSpecs(IgrowthPattern,5);Imult++)
-	     {
+      if (dat.GrowthSpecs(IgrowthPattern,5) > 1)
+      {
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
+            ActGrowth(IgrowthPattern,Isize,Jsize) = dat.TransInp(Pointer,Isize,Jsize);
+        for (int Imult=2;Imult<=dat.GrowthSpecs(IgrowthPattern,5);Imult++)
+        {
           TempGrow.setZero();
           for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-           for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
+            for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
             {
-			 for (int Ksize=0;Ksize<dat.Nlen(Isex);Ksize++)
- 			  TempGrow(Isize,Jsize) += ActGrowth(IgrowthPattern,Isize,Ksize)*dat.TransInp(Pointer,Ksize,Jsize);
-		    }
+              for (int Ksize=0;Ksize<dat.Nlen(Isex);Ksize++)
+                TempGrow(Isize,Jsize) += ActGrowth(IgrowthPattern,Isize,Ksize)*dat.TransInp(Pointer,Ksize,Jsize);
+            }
           for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-           for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
-            ActGrowth(IgrowthPattern,Isize,Jsize) = TempGrow(Isize,Jsize);
-	     }
-       }
+            for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
+              ActGrowth(IgrowthPattern,Isize,Jsize) = TempGrow(Isize,Jsize);
+        }
+      }
+    }
+    else if (dat.GrowthSpecs(IgrowthPattern,1) == GROWTH_ESTIMATED)
+    {
+      // Build the STM internally from GrowthPars.
+      Isex = dat.GrowthSpecs(IgrowthPattern,2);
+      IgrowthParPnt += 1;
+      int Nsize = dat.Nlen(Isex);
+      int Base  = IgrowthParPnt*8;
+
+      Type Amax = exp(GrowthPars(Base+0));   // P1
+      Type P2   =     GrowthPars(Base+1);    // P2
+      Type P1_  = exp(GrowthPars(Base+2));   // P3 -- slope before inflection
+      Type P3_  = exp(GrowthPars(Base+3));   // P4 -- slope after inflection
+      Type P5_  = exp(GrowthPars(Base+4));   // P5 -- swap/blend slope
+      Type sigG = exp(GrowthPars(Base+5));   // P6 -- CV of growth spread
+      Type Pa   =     GrowthPars(Base+6);    // P7 -- moult intercept (a), raw
+      Type Pb   =     GrowthPars(Base+7);    // P8 -- moult slope (b), raw
+
+      // a/b -> loc/scale for the moult logistic, done here (see header
+      // comment above) rather than upstream in the growthspec file.
+      Type Ploc   = -Pa/Pb;
+      Type Pscale = -1.0/Pb;
+
+      vector<Type> GrowthVec(Nsize);
+      vector<Type> PmoultVec(Nsize);
+      for (int Isize=0;Isize<Nsize;Isize++)
+      {
+        Type xdev  = dat.MidBin(Isex,Isize) - P2;
+        Type grow1 = 1.0/(1.0+exp(xdev/P1_));
+        Type grow2 = 1.0/(1.0+exp(xdev/P3_));
+        Type swap1 = 1.0/(1.0+exp(xdev/P5_));
+        Type swap2 = 1.0-swap1;
+        GrowthVec(Isize) = Amax*(grow1*swap1+grow2*swap2);
+        PmoultVec(Isize) = 1.0/(1.0+exp((dat.MidBin(Isex,Isize)-Ploc)/Pscale));
+      }
+
+      vector<Type> Probs(Nsize);
+      for (int Isize=0;Isize<Nsize;Isize++)
+      {
+        Type mn_growth = GrowthVec(Isize);
+        Type sd_growth = sigG*mn_growth;
+        Type Pmoult    = PmoultVec(Isize);
+
+        Probs.setZero();
+        for (int Ksize=Isize;Ksize<Nsize-1;Ksize++)
+          Probs(Ksize) = pnorm(dat.HighBin(Isex,Ksize), dat.MidBin(Isex,Isize)+mn_growth, sd_growth) -
+            pnorm(dat.LowBin(Isex,Ksize),  dat.MidBin(Isex,Isize)+mn_growth, sd_growth);
+        Probs(Nsize-1) = 1.0 - pnorm(dat.LowBin(Isex,Nsize-1), dat.MidBin(Isex,Isize)+mn_growth, sd_growth);
+
+        Type sumP = 0.0;
+        for (int Ksize=Isize;Ksize<Nsize;Ksize++) sumP += Probs(Ksize);
+
+        for (int Ksize=Isize;Ksize<Nsize;Ksize++)
+          ActGrowth(IgrowthPattern,Ksize,Isize) = Pmoult*Probs(Ksize)/sumP;
+        ActGrowth(IgrowthPattern,Isize,Isize) += (1.0-Pmoult);
+      }
+
+      if (dat.GrowthSpecs(IgrowthPattern,5) > 1)
+      {
+        matrix<Type> BaseGrow(Nsize,Nsize);
+        for (int Isize=0;Isize<Nsize;Isize++)
+          for (int Jsize=0;Jsize<Nsize;Jsize++)
+            BaseGrow(Isize,Jsize) = ActGrowth(IgrowthPattern,Isize,Jsize);
+
+        for (int Imult=2;Imult<=dat.GrowthSpecs(IgrowthPattern,5);Imult++)
+        {
+          TempGrow.setZero();
+          for (int Isize=0;Isize<Nsize;Isize++)
+            for (int Jsize=0;Jsize<Nsize;Jsize++)
+              for (int Ksize=0;Ksize<Nsize;Ksize++)
+                TempGrow(Isize,Jsize) += ActGrowth(IgrowthPattern,Isize,Ksize)*BaseGrow(Ksize,Jsize);
+          for (int Isize=0;Isize<Nsize;Isize++)
+            for (int Jsize=0;Jsize<Nsize;Jsize++)
+              ActGrowth(IgrowthPattern,Isize,Jsize) = TempGrow(Isize,Jsize);
+        }
+      }
     }
   }
 
- return(ActGrowth);
+  return(ActGrowth);
 
 }
+
 //==================================================================================================================================
 
 template <class Type>
- vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
+vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
                          matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
                          matrix<Type> &WeightLen, matrix<Type> M,
                          int Iyear, int Istep, array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
@@ -571,728 +648,728 @@ template <class Type>
                          vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
                          vector<Type> &VirginBio, vector<Type> &CurrentBio){
 
- array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
+  array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
 
- array<Type> selexF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                  // Selectivity
- array<Type> retainF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                 // Retention
- array<Type> selretwght(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);              // Product of selectivity,retention and weight
- array<Type> Ntemp(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after mortality)
- array<Type> Nmove(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after movement)
- vector<Type> Ntemp2(dat.MaxLen);                                              // Matrix multiplication
- vector<Type> MoveVec(dat.MaxLen);                                             // Matrix multiplication
- vector<Type> HratePass(dat.Nfleet);                                           // Pass of harvest rare
- Type RetainTemp,TotalRec, ScaleWhiteM, ScaleRedQ;
+  array<Type> selexF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                  // Selectivity
+  array<Type> retainF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                 // Retention
+  array<Type> selretwght(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);              // Product of selectivity,retention and weight
+  array<Type> Ntemp(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after mortality)
+  array<Type> Nmove(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after movement)
+  vector<Type> Ntemp2(dat.MaxLen);                                              // Matrix multiplication
+  vector<Type> MoveVec(dat.MaxLen);                                             // Matrix multiplication
+  vector<Type> HratePass(dat.Nfleet);                                           // Pass of harvest rare
+  Type RetainTemp,TotalRec, ScaleWhiteM, ScaleRedQ;
 
- int SelPointer,RetPointer,LegalPointer,MovePointer,RecruitPointer,GrowthPointer;           // Pointers
- int YearAdjust1,YearAdjust2,IsMoves,IdestArea,RecruitLenPointer;
+  int SelPointer,RetPointer,LegalPointer,MovePointer,RecruitPointer,GrowthPointer;           // Pointers
+  int YearAdjust1,YearAdjust2,IsMoves,IdestArea,RecruitLenPointer;
 
- vector<Type> XX(2);
- XX(0) = 1; XX(1) = 1;
+  vector<Type> XX(2);
+  XX(0) = 1; XX(1) = 1;
 
- int Ipnt;                                                                     // Pointer
+  int Ipnt;                                                                     // Pointer
 
- // Adjusted year (YearAdjust1 is for quantities that go beyond Nyear-1 and YearAdjust2 is not.
- if (Iyear <= 0)
+  // Adjusted year (YearAdjust1 is for quantities that go beyond Nyear-1 and YearAdjust2 is not.
+  if (Iyear <= 0)
   { YearAdjust1 = 0; YearAdjust2 = 0; }
- else
-  if (Iyear < dat.Nyear)
-   { YearAdjust1 = Iyear; YearAdjust2 = Iyear;}
   else
-   { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
+    if (Iyear < dat.Nyear)
+    { YearAdjust1 = Iyear; YearAdjust2 = Iyear;}
+  else
+  { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
 
- // Recruitment (at the start of the time-step)
- RecruitPointer = dat.RecruitPnt(YearAdjust1,Istep);
- if (RecruitPointer >= 0)
- {
-   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   {
-     RecruitLenPointer = dat.RecruitLenPnt(Iarea);
-     for (int Isex=0;Isex<dat.Nsex;Isex++)
-     {
-       TotalRec = ActRecruitAreaSexDist(YearAdjust1,Istep,Iarea,Isex)*exp(Rbar)*exp(ActRecDev(dat.BurnIn+Iyear))*exp(-BiasMult(dat.BurnIn+Iyear)*SigmaR*SigmaR/2.0);
-       for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) N(Iarea,dat.BurnIn+Iyear,Istep,Isex,0,Isize) += ActRecruitLenDist(RecruitLenPointer,Isex,Isize)*TotalRec;
-     }
-   }
- }
-
- // Current Biomass
-   CurrentBio.setZero();
-   for (int Iarea=0;Iarea<dat.Narea;Iarea++){
-     for (int Isex=0;Isex<dat.Nsex;Isex++){
-       for (int Iage=0;Iage<dat.Nage;Iage++){
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
-           CurrentBio(Iarea) += N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * WeightLen(Isex,Isize); }}}}  // Weight in each area, first year/time-step
-
- // Maturity and fecundity
- if (Istep==dat.MatTimeStep)  {
-   MatBio(dat.BurnIn+Iyear) = 0;
-   for (int Iarea=0;Iarea<dat.Narea;Iarea++) {
-     MatBioArea(Iarea,dat.BurnIn+Iyear) = 0;
-     for (int Iage=0;Iage<dat.Nage;Iage++){
-      if(Iage>=dat.MatAge(Iarea)){
-        for (int Isize=0;Isize<dat.Nlen(0);Isize++){
-         MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iage, Iarea, dat.BurnIn+Iyear, Isize);}}
-      }
-     MatBio(dat.BurnIn+Iyear) += MatBioArea(Iarea,dat.BurnIn+Iyear);
-     }
-   }
-
- // Need to set selectivity
- for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++) {
-  for (int Isex=0;Isex<dat.Nsex;Isex++) {
-   for (int Iage=0;Iage<dat.Nage;Iage++) {
-     if(dat.IsRed(Isex,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-     if (Iyear<dat.Nyear)
+  // Recruitment (at the start of the time-step)
+  RecruitPointer = dat.RecruitPnt(YearAdjust1,Istep);
+  if (RecruitPointer >= 0)
+  {
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    {
+      RecruitLenPointer = dat.RecruitLenPnt(Iarea);
+      for (int Isex=0;Isex<dat.Nsex;Isex++)
       {
-       SelPointer = dat.SelPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
-       RetPointer = dat.RetPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
-       LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
+        TotalRec = ActRecruitAreaSexDist(YearAdjust1,Istep,Iarea,Isex)*exp(Rbar)*exp(ActRecDev(dat.BurnIn+Iyear))*exp(-BiasMult(dat.BurnIn+Iyear)*SigmaR*SigmaR/2.0);
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) N(Iarea,dat.BurnIn+Iyear,Istep,Isex,0,Isize) += ActRecruitLenDist(RecruitLenPointer,Isex,Isize)*TotalRec;
       }
-     else
-      {
-       SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
-       RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
-       LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
-	  }
-     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
-       selexF(Ifleet,Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
-       retainF(Ifleet,Isex,Iage,Ilen) = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
-       selretwght(Ifleet,Isex,Iage,Ilen) = selexF(Ifleet,Isex,Iage,Ilen)*retainF(Ifleet,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
-     }
     }
-   }
+  }
+
+  // Current Biomass
+  CurrentBio.setZero();
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++){
+    for (int Isex=0;Isex<dat.Nsex;Isex++){
+      for (int Iage=0;Iage<dat.Nage;Iage++){
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
+          CurrentBio(Iarea) += N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * WeightLen(Isex,Isize); }}}}  // Weight in each area, first year/time-step
+
+  // Maturity and fecundity
+  if (Istep==dat.MatTimeStep)  {
+    MatBio(dat.BurnIn+Iyear) = 0;
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++) {
+      MatBioArea(Iarea,dat.BurnIn+Iyear) = 0;
+      for (int Iage=0;Iage<dat.Nage;Iage++){
+        if(Iage>=dat.MatAge(Iarea)){
+          for (int Isize=0;Isize<dat.Nlen(0);Isize++){
+            MatBioArea(Iarea,dat.BurnIn+Iyear) += N(Iarea,dat.BurnIn+Iyear,Istep,0,Iage,Isize)*dat.MatFem(Iage, Iarea, dat.BurnIn+Iyear, Isize);}}
+      }
+      MatBio(dat.BurnIn+Iyear) += MatBioArea(Iarea,dat.BurnIn+Iyear);
+    }
+  }
+
+  // Need to set selectivity
+  for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++) {
+    for (int Isex=0;Isex<dat.Nsex;Isex++) {
+      for (int Iage=0;Iage<dat.Nage;Iage++) {
+        if(dat.IsRed(Isex,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        if (Iyear<dat.Nyear)
+        {
+          SelPointer = dat.SelPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
+          RetPointer = dat.RetPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
+          LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
+        }
+        else
+        {
+          SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
+          RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
+          LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,YearAdjust1-dat.Nyear,Istep);
+        }
+        for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
+          selexF(Ifleet,Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+          retainF(Ifleet,Isex,Iage,Ilen) = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
+          selretwght(Ifleet,Isex,Iage,Ilen) = selexF(Ifleet,Isex,Iage,Ilen)*retainF(Ifleet,Isex,Iage,Ilen)*WeightLen(Isex,Ilen);
+        }
+      }
+    }
   }
 
 
- Ntemp.setZero();
- HratePass.setZero();
- for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+  Ntemp.setZero();
+  HratePass.setZero();
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
   {
 
-   // Find the F for this time-step
-   if (IsVirgin==0)
+    // Find the F for this time-step
+    if (IsVirgin==0)
     {
-     if (Iyear < 0)
+      if (Iyear < 0)
       {
-       for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
-        if (dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = Feqn2(Ifleet,Istep);
+        for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
+          if (dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = Feqn2(Ifleet,Istep);
       }
-     else if (Iyear >= dat.Nyear && dat.ProjType == 2)
+      else if (Iyear >= dat.Nyear && dat.ProjType == 2)
       {
-       // Harvest-rate (effort) based projection: Hrate is imposed directly from
-       // PROJECTIONS.DAT rather than solved from a target catch via Hybrid().
-       for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
-        if (dat.Area_fleet(Iarea,Ifleet)==1)
-         Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = dat.ProjHarvestRate(Iyear-dat.Nyear,Istep,Ifleet);
+        // Harvest-rate (effort) based projection: Hrate is imposed directly from
+        // PROJECTIONS.DAT rather than solved from a target catch via Hybrid().
+        for (int Ifleet=0; Ifleet<dat.Nfleet;Ifleet++)
+          if (dat.Area_fleet(Iarea,Ifleet)==1)
+            Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = dat.ProjHarvestRate(Iyear-dat.Nyear,Istep,Ifleet);
       }
-     else
+      else
       {
-       HratePass = Hybrid(dat, N, selretwght, selexF, retainF, M, Iarea, Iyear, Istep, MWhitesPar);
-       for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
-        if(dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = HratePass(Ifleet);
+        HratePass = Hybrid(dat, N, selretwght, selexF, retainF, M, Iarea, Iyear, Istep, MWhitesPar);
+        for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
+          if(dat.Area_fleet(Iarea,Ifleet)==1) Hrate(dat.BurnIn+Iyear,Istep,Ifleet) = HratePass(Ifleet);
       }
     }
 
-   // Compute Z given F and M
-   for (int Isex=0;Isex<dat.Nsex;Isex++)
-    for (int Iage=0;Iage<dat.Nage;Iage++)
+    // Compute Z given F and M
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
       {
-	    if(dat.IsRed(Isex,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
-      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-       {
-	     if (Iyear <= 0){
-         Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
-       else{
-         Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
-       for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
-        if(dat.Area_fleet(Iarea,Ifleet)==1)
-         {
-
-          RetainTemp = selexF(Ifleet,Isex,Iage,Isize) * (retainF(Ifleet,Isex,Iage,Isize)+dat.Phi(Ifleet,Iage,YearAdjust1,Istep)*(1.0-retainF(Ifleet,Isex,Iage,Isize)));
-          Z_rate(Isex,Iage,Isize) += Hrate(dat.BurnIn+Iyear,Istep,Ifleet) * RetainTemp;
-	     }
-       Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) = Z_rate(Isex,Iage,Isize);
-      }}
-
-
-   // Remove mortality
-   for (int Isex=0;Isex<dat.Nsex;Isex++)
-    for (int Iage=0;Iage<dat.Nage;Iage++)
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      Ntemp(Iarea,Isex,Iage,Isize) = N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize));
-
-   // growth
-   for (int Isex=0;Isex<dat.Nsex;Isex++)
-    for (int Iage=0;Iage<dat.Nage;Iage++)
-     {
-      GrowthPointer = dat.GrowthPnt(Iarea,Isex,Iage,YearAdjust2,Istep);
-      if (GrowthPointer >=0)
-       {
-        // Key issue (pointer to growth matrix)
-        Ntemp2.setZero();
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-         {
-          for (int Jsize=0;Jsize<=Isize;Jsize++) Ntemp2(Isize) += Ntemp(Iarea,Isex,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
-         }
-        //Ntemp2 = Growth(ActGrowth,Ntemp,dat.Nlen(Isex),Ipnt,Iarea,Isex,Iage,dat.MaxLen);
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Ntemp(Iarea,Isex,Iage,Isize) = Ntemp2(Isize);
-       }
-     } // growth
+        {
+          if (Iyear <= 0){
+            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
+          else{
+            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
+          for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
+            if(dat.Area_fleet(Iarea,Ifleet)==1)
+            {
+
+              RetainTemp = selexF(Ifleet,Isex,Iage,Isize) * (retainF(Ifleet,Isex,Iage,Isize)+dat.Phi(Ifleet,Iage,YearAdjust1,Istep)*(1.0-retainF(Ifleet,Isex,Iage,Isize)));
+              Z_rate(Isex,Iage,Isize) += Hrate(dat.BurnIn+Iyear,Istep,Ifleet) * RetainTemp;
+            }
+          Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) = Z_rate(Isex,Iage,Isize);
+        }}
+
+
+    // Remove mortality
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          Ntemp(Iarea,Isex,Iage,Isize) = N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize) * exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize));
+
+    // growth
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+      {
+        GrowthPointer = dat.GrowthPnt(Iarea,Isex,Iage,YearAdjust2,Istep);
+        if (GrowthPointer >=0)
+        {
+          // Key issue (pointer to growth matrix)
+          Ntemp2.setZero();
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          {
+            for (int Jsize=0;Jsize<=Isize;Jsize++) Ntemp2(Isize) += Ntemp(Iarea,Isex,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
+          }
+          //Ntemp2 = Growth(ActGrowth,Ntemp,dat.Nlen(Isex),Ipnt,Iarea,Isex,Iage,dat.MaxLen);
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Ntemp(Iarea,Isex,Iage,Isize) = Ntemp2(Isize);
+        }
+      } // growth
 
   } // area
 
- Nmove.setZero();
- IsMoves = 0;
- for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   {
-  for (int Iage=0;Iage<dat.Nage;Iage++)
-   {
-    MovePointer = dat.MovePnt(Iarea,Iage,YearAdjust2,Istep);
-    if (MovePointer > 0)
-     {
-      IsMoves = 1;
-      IdestArea = dat.MoveSpec(MovePointer,2);
-      for (int Isex=0;Isex<dat.Nsex;Isex++)
-       {
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-         {
-          Nmove(IdestArea,Isex,Iage,Isize) += MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
-          Nmove(Iarea,Isex,Iage,Isize) -= MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
-         }
-        // redistribute lobster so they can potentially move more than one area in a timestep (only in increasing area number)
-       // for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){                   // delete to change back
-       //   Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);} // delete to change back
-             } // Sex
-     } // If there was a move
-   } // All areas and ages
- }
-
- // Only update if needed
- //
-   if (IsMoves==1)
+  Nmove.setZero();
+  IsMoves = 0;
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
   {
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++){
-     for (int Isex=0;Isex<dat.Nsex;Isex++){
-      for (int Iage=0;Iage<dat.Nage;Iage++){
-       for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
-        Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);}}}}
-   }
-
- // Update seasons
- for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-  for (int Isex=0;Isex<dat.Nsex;Isex++)
-   {
-    if (Istep<dat.Nstep-1)
-     {
-      for (int Iage=0;Iage<dat.Nage;Iage++){
-       for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
-        N(Iarea,dat.BurnIn+Iyear,Istep+1,Isex,Iage,Ilen) = Ntemp(Iarea,Isex,Iage,Ilen);}}
-     }
-    else
-     {
-      // special case
-      if (dat.Nage-1 > 0)
-       {
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) N(Iarea,dat.BurnIn+Iyear+1,0,Isex,0,Isize) = 0;
-        for (int Iage=0;Iage<dat.Nage-1;Iage++)
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-          N(Iarea,dat.BurnIn+Iyear+1,0,Isex,Iage+1,Isize) = Ntemp(Iarea,Isex,Iage,Isize);
-        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-         N(Iarea,dat.BurnIn+Iyear+1,0,Isex,dat.Nage-1,Isize) =  Ntemp(Iarea,Isex,dat.Nage-1,Isize) + Ntemp(Iarea,Isex,dat.Nage-2,Isize);
-       }
-      else
-       {
-        for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
-         N(Iarea,dat.BurnIn+Iyear+1,0,Isex,0,Ilen) = Ntemp(Iarea,Isex,0,Ilen);}
-       }
-      } // if
-   } // sex
-
- return(XX);
-}
-
-
-// -------------------------------------------------------------------------------------------------------------------
-
-template <class Type>
- Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
-                         matrix<Type> &WeightLen, matrix<Type> &PredCpue,
-                         vector<Type> &CpueLikeComps, vector<Type> &SigmaCpue, vector<Type> &Qval, matrix<Type> &CpueEcreep, vector<Type> &Qpars, vector<Type> &efpars,matrix<Type> M, Type QRedsPar) {
-
- Type selexFU,retainFU,selretwght,SigmaUse,ScaleRedQ;
- int Ifleet,Jsex,Iyear,Istep,IdataSet,IndexPoint,IndexPoint2;
- int PntCnt,Iarea,Isex1,Isex2;
- int SelPointer,RetPointer,LegalPointer,IenvPnt;
- vector <Type> SS(thedata.NcpueDataSeries);
- vector <Type> Ndata(thedata.NcpueDataSeries);
-
- Type NeglogLikelihood = 0;
-
- // Find predicted biomass
- PredCpue.setZero();
- Qval.setZero();
- Ndata.setZero();
- CpueEcreep.setZero();
-
- // Make efficiency creep matrix from parameters with time lags
- int Lenefseries = CpueEcreep.rows();  // N years
- int Nefseries = CpueEcreep.cols();    // Number of unique Lags times
- int efcnt = -1; int parcnt = -1;
- Type Tmppar;  // store temporary parameter
- for (int Nef=0;Nef<Nefseries;Nef++){
-   CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep)
-   parcnt = parcnt + 1;
-   efcnt = 0;
-   for (int Yef=1;Yef<Lenefseries;Yef++){
-     if(Yef<(dat.Nyear))  {
-       efcnt = efcnt+1;
-       Tmppar = efpars(parcnt);                                         // read current par
-       CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100)); // apply it
-       if(efcnt==thedata.EffCrLag(Nef)){                                // THEN check lag
-         efcnt = 0;
-         parcnt = parcnt + 1;
-       }
-     } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
-   }
-   }
-
- for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)
-  {
-   IdataSet = thedata.IndexI(Ipnt,0);
-   Ifleet = thedata.IndexI(Ipnt,1);
-   Iarea = dat.Fleet_area(Ifleet);                                                                  // For Now
-   Jsex = thedata.IndexI(Ipnt,2);
-   Iyear = thedata.IndexI(Ipnt,3);
-   Istep = thedata.IndexI(Ipnt,4);
-   if (Jsex==-1) { Isex1 = 0; Isex2=1; } else { Isex1 = Jsex; Isex2 = Jsex; }
-   for (int Iage=0;Iage<dat.Nage;Iage++){
-    for (int Isex=Isex1;Isex<=Isex2;Isex++){
-      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
-       SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
-       RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
-       if (thedata.IndexType(IdataSet)==1) selretwght = selexFU*retainFU*WeightLen(Isex,Ilen);
-       if (thedata.IndexType(IdataSet)==2) selretwght = selexFU*retainFU;
-       PredCpue(Ipnt,0) += selretwght*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)*exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)/2.0);
-      }}}
-   IenvPnt = thedata.EnvIndCpue(IdataSet)-1;
-   // AEP update
-  if (thedata.EnvIndCpue(IdataSet)>0) {
-    PredCpue(Ipnt,0)*= exp(Qpars(IdataSet)*thedata.EnvData(dat.BurnIn+Iyear,Istep,IenvPnt));
-    }
-  if (thedata.EffCrIndCpue(IdataSet)>0) {
-    PredCpue(Ipnt,0) *= CpueEcreep(Iyear,thedata.EffCrIndCpue(IdataSet)-1);
-  }
-  IndexPoint = thedata.TreatQcpue(IdataSet);
-  Qval(IndexPoint) += log(thedata.IndexR(Ipnt,0)/PredCpue(Ipnt,0))/square(thedata.IndexR(Ipnt,1));
-  Ndata(IndexPoint) += 1.0/square(thedata.IndexR(Ipnt,1));
+    for (int Iage=0;Iage<dat.Nage;Iage++)
+    {
+      MovePointer = dat.MovePnt(Iarea,Iage,YearAdjust2,Istep);
+      if (MovePointer > 0)
+      {
+        IsMoves = 1;
+        IdestArea = dat.MoveSpec(MovePointer,2);
+        for (int Isex=0;Isex<dat.Nsex;Isex++)
+        {
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          {
+            Nmove(IdestArea,Isex,Iage,Isize) += MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
+            Nmove(Iarea,Isex,Iage,Isize) -= MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
+          }
+          // redistribute lobster so they can potentially move more than one area in a timestep (only in increasing area number)
+          // for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){                   // delete to change back
+          //   Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);} // delete to change back
+        } // Sex
+      } // If there was a move
+    } // All areas and ages
   }
 
- // Compute the MLE for Q
- for (int Ipnt=0;Ipnt<thedata.NcpueDataSeries;Ipnt++){
-  if (Ndata(Ipnt) >0) Qval(Ipnt) = exp(Qval(Ipnt)/Ndata(Ipnt));}
-
- // Compute Sigma and hence the likelihood
- SS.setZero();  Ndata.setZero();
- for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)
+  // Only update if needed
+  //
+  if (IsMoves==1)
   {
-   IdataSet = thedata.IndexI(Ipnt,0);
-   IndexPoint2 = thedata.FixSigmaCpue(IdataSet);
-   PredCpue(Ipnt,0) = Qval(thedata.TreatQcpue(IdataSet))*PredCpue(Ipnt,0);
-   PredCpue(Ipnt,1) = log(thedata.IndexR(Ipnt,0)/PredCpue(Ipnt,0))/thedata.IndexR(Ipnt,1);
-   SS(IndexPoint2) += square(PredCpue(Ipnt,1));
-   Ndata(IndexPoint2) += 1.0;
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++){
+      for (int Isex=0;Isex<dat.Nsex;Isex++){
+        for (int Iage=0;Iage<dat.Nage;Iage++){
+          for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
+            Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);}}}}
   }
- for (int IdataSet=0;IdataSet<thedata.NcpueDataSeries;IdataSet++)
-  if (Ndata(IdataSet) >0)
-   {
-    // Note that this account for the minimum sigma
-    SigmaCpue(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
-    SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
-    SigmaUse = SigmaCpue(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
-    CpueLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
-    NeglogLikelihood += thedata.LambdaCpue2(IdataSet)*CpueLikeComps(IdataSet);
-   }
- return(NeglogLikelihood);
 
-}
-
-// -------------------------------------------------------------------------------------------------------------------
-
-template <class Type>
- Type NumbersLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
-                         matrix<Type> &WeightLen, matrix<Type> &PredNumbers,
-                         vector<Type> &NumbersLikeComps, vector<Type> &SigmaNumbers, Type QRedsPar) {
-
- Type selexFU,retainFU,selretwght,Z2,SigmaUse,ScaleRedQ;
- int Ifleet,Iyear,Istep,PntCnt,Iarea,IdataSet,IndexPoint;
- int SelPointer,RetPointer,LegalPointer;
- vector <Type> SS(thedata.NcatchDataSeries);
- vector <Type> Ndata(thedata.NcatchDataSeries);
-
- Type NeglogLikelihood = 0;
-
- // Find predicted biomass
- PredNumbers.setZero();
- SS.setZero();
- Ndata.setZero();
- for (int Ipnt=0;Ipnt<thedata.Nnumbers;Ipnt++)
-  {
-   IdataSet = thedata.NumbersI(Ipnt,0);
-   Ifleet = thedata.NumbersI(Ipnt,1);
-   Iarea = dat.Fleet_area(Ifleet);                                                                  // For Now
-   Iyear = thedata.NumbersI(Ipnt,2);
-   Istep = thedata.NumbersI(Ipnt,3);
-   for (int Iage=0;Iage<dat.Nage;Iage++){
-    for (int Isex=0;Isex<dat.Nsex;Isex++){
-     if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
-       SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
-	     selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
-	     RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
-	     Z2 = (1-exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)))/Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen);
-       PredNumbers(Ipnt,0) += Hrate(dat.BurnIn+Iyear,Istep,Ifleet)*selexFU*retainFU*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)*Z2;
+  // Update seasons
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    for (int Isex=0;Isex<dat.Nsex;Isex++)
+    {
+      if (Istep<dat.Nstep-1)
+      {
+        for (int Iage=0;Iage<dat.Nage;Iage++){
+          for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
+            N(Iarea,dat.BurnIn+Iyear,Istep+1,Isex,Iage,Ilen) = Ntemp(Iarea,Isex,Iage,Ilen);}}
       }
-     }
+      else
+      {
+        // special case
+        if (dat.Nage-1 > 0)
+        {
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) N(Iarea,dat.BurnIn+Iyear+1,0,Isex,0,Isize) = 0;
+          for (int Iage=0;Iage<dat.Nage-1;Iage++)
+            for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+              N(Iarea,dat.BurnIn+Iyear+1,0,Isex,Iage+1,Isize) = Ntemp(Iarea,Isex,Iage,Isize);
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+            N(Iarea,dat.BurnIn+Iyear+1,0,Isex,dat.Nage-1,Isize) =  Ntemp(Iarea,Isex,dat.Nage-1,Isize) + Ntemp(Iarea,Isex,dat.Nage-2,Isize);
+        }
+        else
+        {
+          for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
+            N(Iarea,dat.BurnIn+Iyear+1,0,Isex,0,Ilen) = Ntemp(Iarea,Isex,0,Ilen);}
+        }
+      } // if
+    } // sex
+
+  return(XX);
+}
+
+
+// -------------------------------------------------------------------------------------------------------------------
+
+template <class Type>
+Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,
+                    matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
+                    matrix<Type> &WeightLen, matrix<Type> &PredCpue,
+                    vector<Type> &CpueLikeComps, vector<Type> &SigmaCpue, vector<Type> &Qval, matrix<Type> &CpueEcreep, vector<Type> &Qpars, vector<Type> &efpars,matrix<Type> M, Type QRedsPar) {
+
+  Type selexFU,retainFU,selretwght,SigmaUse,ScaleRedQ;
+  int Ifleet,Jsex,Iyear,Istep,IdataSet,IndexPoint,IndexPoint2;
+  int PntCnt,Iarea,Isex1,Isex2;
+  int SelPointer,RetPointer,LegalPointer,IenvPnt;
+  vector <Type> SS(thedata.NcpueDataSeries);
+  vector <Type> Ndata(thedata.NcpueDataSeries);
+
+  Type NeglogLikelihood = 0;
+
+  // Find predicted biomass
+  PredCpue.setZero();
+  Qval.setZero();
+  Ndata.setZero();
+  CpueEcreep.setZero();
+
+  // Make efficiency creep matrix from parameters with time lags
+  int Lenefseries = CpueEcreep.rows();  // N years
+  int Nefseries = CpueEcreep.cols();    // Number of unique Lags times
+  int efcnt = -1; int parcnt = -1;
+  Type Tmppar;  // store temporary parameter
+  for (int Nef=0;Nef<Nefseries;Nef++){
+    CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep)
+    parcnt = parcnt + 1;
+    efcnt = 0;
+    for (int Yef=1;Yef<Lenefseries;Yef++){
+      if(Yef<(dat.Nyear))  {
+        efcnt = efcnt+1;
+        Tmppar = efpars(parcnt);                                         // read current par
+        CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100)); // apply it
+        if(efcnt==thedata.EffCrLag(Nef)){                                // THEN check lag
+          efcnt = 0;
+          parcnt = parcnt + 1;
+        }
+      } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
     }
-   PredNumbers(Ipnt,1) = log(thedata.NumbersR(Ipnt,0)/PredNumbers(Ipnt,0))/thedata.NumbersR(Ipnt,1);
-   IndexPoint = thedata.FixSigmaCatchN(IdataSet);
-   SS(IndexPoint) += PredNumbers(Ipnt,1)*PredNumbers(Ipnt,1);
-   Ndata(IndexPoint) += 1;
   }
 
- for (int IdataSet=0;IdataSet<thedata.NcatchDataSeries;IdataSet++)
-  if (Ndata(IdataSet) > 0)
-   {
-    SigmaNumbers(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
-    SigmaUse = thedata.SigmaCatchNOffset-SigmaNumbers(IdataSet);
-    SigmaUse = SigmaNumbers(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
-    NumbersLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
-    NeglogLikelihood += thedata.LambdaNumbers2(IdataSet)*NumbersLikeComps(IdataSet);
-   }
- return(NeglogLikelihood);
+  for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)
+  {
+    IdataSet = thedata.IndexI(Ipnt,0);
+    Ifleet = thedata.IndexI(Ipnt,1);
+    Iarea = dat.Fleet_area(Ifleet);                                                                  // For Now
+    Jsex = thedata.IndexI(Ipnt,2);
+    Iyear = thedata.IndexI(Ipnt,3);
+    Istep = thedata.IndexI(Ipnt,4);
+    if (Jsex==-1) { Isex1 = 0; Isex2=1; } else { Isex1 = Jsex; Isex2 = Jsex; }
+    for (int Iage=0;Iage<dat.Nage;Iage++){
+      for (int Isex=Isex1;Isex<=Isex2;Isex++){
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
+          SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+          RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
+          if (thedata.IndexType(IdataSet)==1) selretwght = selexFU*retainFU*WeightLen(Isex,Ilen);
+          if (thedata.IndexType(IdataSet)==2) selretwght = selexFU*retainFU;
+          PredCpue(Ipnt,0) += selretwght*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)*exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)/2.0);
+        }}}
+    IenvPnt = thedata.EnvIndCpue(IdataSet)-1;
+    // AEP update
+    if (thedata.EnvIndCpue(IdataSet)>0) {
+      PredCpue(Ipnt,0)*= exp(Qpars(IdataSet)*thedata.EnvData(dat.BurnIn+Iyear,Istep,IenvPnt));
+    }
+    if (thedata.EffCrIndCpue(IdataSet)>0) {
+      PredCpue(Ipnt,0) *= CpueEcreep(Iyear,thedata.EffCrIndCpue(IdataSet)-1);
+    }
+    IndexPoint = thedata.TreatQcpue(IdataSet);
+    Qval(IndexPoint) += log(thedata.IndexR(Ipnt,0)/PredCpue(Ipnt,0))/square(thedata.IndexR(Ipnt,1));
+    Ndata(IndexPoint) += 1.0/square(thedata.IndexR(Ipnt,1));
+  }
+
+  // Compute the MLE for Q
+  for (int Ipnt=0;Ipnt<thedata.NcpueDataSeries;Ipnt++){
+    if (Ndata(Ipnt) >0) Qval(Ipnt) = exp(Qval(Ipnt)/Ndata(Ipnt));}
+
+  // Compute Sigma and hence the likelihood
+  SS.setZero();  Ndata.setZero();
+  for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)
+  {
+    IdataSet = thedata.IndexI(Ipnt,0);
+    IndexPoint2 = thedata.FixSigmaCpue(IdataSet);
+    PredCpue(Ipnt,0) = Qval(thedata.TreatQcpue(IdataSet))*PredCpue(Ipnt,0);
+    PredCpue(Ipnt,1) = log(thedata.IndexR(Ipnt,0)/PredCpue(Ipnt,0))/thedata.IndexR(Ipnt,1);
+    SS(IndexPoint2) += square(PredCpue(Ipnt,1));
+    Ndata(IndexPoint2) += 1.0;
+  }
+  for (int IdataSet=0;IdataSet<thedata.NcpueDataSeries;IdataSet++)
+    if (Ndata(IdataSet) >0)
+    {
+      // Note that this account for the minimum sigma
+      SigmaCpue(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
+      SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
+      SigmaUse = SigmaCpue(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
+      CpueLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
+      NeglogLikelihood += thedata.LambdaCpue2(IdataSet)*CpueLikeComps(IdataSet);
+    }
+  return(NeglogLikelihood);
+
+}
+
+// -------------------------------------------------------------------------------------------------------------------
+
+template <class Type>
+Type NumbersLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
+                       matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
+                       matrix<Type> &WeightLen, matrix<Type> &PredNumbers,
+                       vector<Type> &NumbersLikeComps, vector<Type> &SigmaNumbers, Type QRedsPar) {
+
+  Type selexFU,retainFU,selretwght,Z2,SigmaUse,ScaleRedQ;
+  int Ifleet,Iyear,Istep,PntCnt,Iarea,IdataSet,IndexPoint;
+  int SelPointer,RetPointer,LegalPointer;
+  vector <Type> SS(thedata.NcatchDataSeries);
+  vector <Type> Ndata(thedata.NcatchDataSeries);
+
+  Type NeglogLikelihood = 0;
+
+  // Find predicted biomass
+  PredNumbers.setZero();
+  SS.setZero();
+  Ndata.setZero();
+  for (int Ipnt=0;Ipnt<thedata.Nnumbers;Ipnt++)
+  {
+    IdataSet = thedata.NumbersI(Ipnt,0);
+    Ifleet = thedata.NumbersI(Ipnt,1);
+    Iarea = dat.Fleet_area(Ifleet);                                                                  // For Now
+    Iyear = thedata.NumbersI(Ipnt,2);
+    Istep = thedata.NumbersI(Ipnt,3);
+    for (int Iage=0;Iage<dat.Nage;Iage++){
+      for (int Isex=0;Isex<dat.Nsex;Isex++){
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
+          SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+          RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+          retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
+          Z2 = (1-exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)))/Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen);
+          PredNumbers(Ipnt,0) += Hrate(dat.BurnIn+Iyear,Istep,Ifleet)*selexFU*retainFU*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen)*Z2;
+        }
+      }
+    }
+    PredNumbers(Ipnt,1) = log(thedata.NumbersR(Ipnt,0)/PredNumbers(Ipnt,0))/thedata.NumbersR(Ipnt,1);
+    IndexPoint = thedata.FixSigmaCatchN(IdataSet);
+    SS(IndexPoint) += PredNumbers(Ipnt,1)*PredNumbers(Ipnt,1);
+    Ndata(IndexPoint) += 1;
+  }
+
+  for (int IdataSet=0;IdataSet<thedata.NcatchDataSeries;IdataSet++)
+    if (Ndata(IdataSet) > 0)
+    {
+      SigmaNumbers(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
+      SigmaUse = thedata.SigmaCatchNOffset-SigmaNumbers(IdataSet);
+      SigmaUse = SigmaNumbers(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
+      NumbersLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
+      NeglogLikelihood += thedata.LambdaNumbers2(IdataSet)*NumbersLikeComps(IdataSet);
+    }
+  return(NeglogLikelihood);
 }
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- Type LengthLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &PredLengthComp,
-                         vector<Type> &LengthLikeComps, vector<Type> &Select, Type QRedsPar) {
+Type LengthLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N,
+                      matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &PredLengthComp,
+                      vector<Type> &LengthLikeComps, vector<Type> &Select, Type QRedsPar) {
 
- Type NeglogLikelihood;
- Type selexFU,retainFU,Total, Contrib,ScaleRedQ;
- int Iarea,Ifleet,Isex,Iyear,Istep;
- int SelPointer,RetPointer,LegalPointer;
+  Type NeglogLikelihood;
+  Type selexFU,retainFU,Total, Contrib,ScaleRedQ;
+  int Iarea,Ifleet,Isex,Iyear,Istep;
+  int SelPointer,RetPointer,LegalPointer;
 
- NeglogLikelihood = 0;
+  NeglogLikelihood = 0;
 
- PredLengthComp.setZero();
+  PredLengthComp.setZero();
   for (int Ipnt=0;Ipnt<thedata.NlenComp;Ipnt++)
-   {
+  {
     Ifleet = thedata.LenCompI(Ipnt,0);
     Iarea = dat.Fleet_area(Ifleet);                                                                  // For Now
     Isex = thedata.LenCompI(Ipnt,1);
     Iyear = thedata.LenCompI(Ipnt,2);
     Istep = thedata.LenCompI(Ipnt,3);
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
-     for (int Iage=0;Iage<dat.Nage;Iage++)  {
-       if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-       SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
-       RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
-       PredLengthComp(Ipnt,Ilen) += selexFU*retainFU*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen);
-       if(Ipnt==20) Select(Ilen) = selexFU*retainFU;
+      for (int Iage=0;Iage<dat.Nage;Iage++)  {
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+        selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+        RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+        LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+        retainFU = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
+        PredLengthComp(Ipnt,Ilen) += selexFU*retainFU*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Ilen);
+        if(Ipnt==20) Select(Ilen) = selexFU*retainFU;
       }
-     }
+    }
     Total = 0;
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) Total += PredLengthComp(Ipnt,Ilen);
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) PredLengthComp(Ipnt,Ilen) /= Total;
-   }
+  }
 
 
- // Now calculate the likelihood
- LengthLikeComps.setZero();
+  // Now calculate the likelihood
+  LengthLikeComps.setZero();
   for (int Ipnt=0;Ipnt<thedata.NlenComp;Ipnt++)
-   {
+  {
     Ifleet = thedata.LenCompI(Ipnt,0);
     Istep = thedata.LenCompI(Ipnt,3);
     Isex = thedata.LenCompI(Ipnt,1);
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)
-      {
-       Contrib = thedata.Stage1W(Ipnt)*(thedata.LenCompR(Ipnt,Ilen)+1e-5)*log((PredLengthComp(Ipnt,Ilen)+1e-5)/(thedata.LenCompR(Ipnt,Ilen)+1e-5));
-       LengthLikeComps(Ifleet) -= Contrib;
-       NeglogLikelihood -= thedata.LambdaLength2(Ifleet,Istep,Isex)*Contrib;
-      }
-   }
+    {
+      Contrib = thedata.Stage1W(Ipnt)*(thedata.LenCompR(Ipnt,Ilen)+1e-5)*log((PredLengthComp(Ipnt,Ilen)+1e-5)/(thedata.LenCompR(Ipnt,Ilen)+1e-5));
+      LengthLikeComps(Ifleet) -= Contrib;
+      NeglogLikelihood -= thedata.LambdaLength2(Ifleet,Istep,Isex)*Contrib;
+    }
+  }
 
- return(NeglogLikelihood);
+  return(NeglogLikelihood);
 }
 
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- Type LarvalLikelihood(dataSet<Type> &dat, TheData<Type> &thedata,  matrix<Type> &RecruitmentByArea,
-    matrix<Type> &PuerulusByArea, matrix<Type> &PredLarval, vector<Type> &LarvalLikeComps,
-    vector<Type> &PuerPowPars) {
+Type LarvalLikelihood(dataSet<Type> &dat, TheData<Type> &thedata,  matrix<Type> &RecruitmentByArea,
+                      matrix<Type> &PuerulusByArea, matrix<Type> &PredLarval, vector<Type> &LarvalLikeComps,
+                      vector<Type> &PuerPowPars) {
 
- Type NeglogLikelihood;
- NeglogLikelihood = 0;
+  Type NeglogLikelihood;
+  NeglogLikelihood = 0;
 
- int Iarea, Idata,Iyr;
- Type Obs,CV,ncnt,SS,Residual;
- vector<Type> qestLar(dat.Narea);
+  int Iarea, Idata,Iyr;
+  Type Obs,CV,ncnt,SS,Residual;
+  vector<Type> qestLar(dat.Narea);
 
- if(thedata.NLarvalData>0){
- for (Iarea=0;Iarea<dat.Narea;Iarea++){
-   for(Iyr=0;Iyr<dat.BurnIn+dat.Nyear+dat.Nproj;Iyr++){
-     PuerulusByArea(Iarea,Iyr) = exp(log(RecruitmentByArea(Iarea,Iyr)) / PuerPowPars(Iarea));
-   }}
+  if(thedata.NLarvalData>0){
+    for (Iarea=0;Iarea<dat.Narea;Iarea++){
+      for(Iyr=0;Iyr<dat.BurnIn+dat.Nyear+dat.Nproj;Iyr++){
+        PuerulusByArea(Iarea,Iyr) = exp(log(RecruitmentByArea(Iarea,Iyr)) / PuerPowPars(Iarea));
+      }}
 
-  LarvalLikeComps.setZero();
-  PredLarval.setZero();
-  for (Iarea=0;Iarea<dat.Narea;Iarea++)
-   {
-    // Calculate the q-value
-    qestLar(Iarea) = 0;
-    ncnt = 0;
-    for (Idata=0;Idata<thedata.NLarvalData;Idata++)
-     if (thedata.Lar_dataI(Idata,0) == Iarea)
-      {
-       Iyr = thedata.Lar_dataI(Idata,1)+thedata.Larval_Offset;
-       Obs = thedata.Lar_dataR(Idata,0);
-       if (thedata.LarvalLikeOpt == 0)
-        CV = thedata.Lar_dataR(Idata,1)/Obs;
-       else
-        CV = thedata.Lar_dataR(Idata,2);
-       if (Iyr < dat.BurnIn+dat.Nyear+dat.Nproj)
+    LarvalLikeComps.setZero();
+    PredLarval.setZero();
+    for (Iarea=0;Iarea<dat.Narea;Iarea++)
+    {
+      // Calculate the q-value
+      qestLar(Iarea) = 0;
+      ncnt = 0;
+      for (Idata=0;Idata<thedata.NLarvalData;Idata++)
+        if (thedata.Lar_dataI(Idata,0) == Iarea)
         {
-         if (thedata.LarvalLikeOpt == 0)
+          Iyr = thedata.Lar_dataI(Idata,1)+thedata.Larval_Offset;
+          Obs = thedata.Lar_dataR(Idata,0);
+          if (thedata.LarvalLikeOpt == 0)
+            CV = thedata.Lar_dataR(Idata,1)/Obs;
+          else
+            CV = thedata.Lar_dataR(Idata,2);
+          if (Iyr < dat.BurnIn+dat.Nyear+dat.Nproj)
           {
-           qestLar(Iarea) += log(Obs/PuerulusByArea(Iarea,Iyr))/(CV*CV);
-           ncnt += 1.0/(CV*CV);
+            if (thedata.LarvalLikeOpt == 0)
+            {
+              qestLar(Iarea) += log(Obs/PuerulusByArea(Iarea,Iyr))/(CV*CV);
+              ncnt += 1.0/(CV*CV);
+            }
+            else
+            {
+              qestLar(Iarea) += Obs*PuerulusByArea(Iarea,Iyr)/(CV*CV);
+              ncnt += Obs*Obs/(CV*CV);
+            }
           }
-         else
-          {
-           qestLar(Iarea) += Obs*PuerulusByArea(Iarea,Iyr)/(CV*CV);
-           ncnt += Obs*Obs/(CV*CV);
-         }
         }
-     }
-    if (ncnt > 0)
-     if (thedata.LarvalLikeOpt == 0)
-      qestLar(Iarea) = exp(qestLar(Iarea)/ncnt);
-     else
-      qestLar(Iarea) = qestLar(Iarea) / ncnt;
+      if (ncnt > 0)
+        if (thedata.LarvalLikeOpt == 0)
+          qestLar(Iarea) = exp(qestLar(Iarea)/ncnt);
+      else
+        qestLar(Iarea) = qestLar(Iarea) / ncnt;
 
-    // Find the likelihood itself
-    SS = 0;
-    for (Idata=0;Idata<thedata.NLarvalData;Idata++)
-     if (thedata.Lar_dataI(Idata,0) == Iarea)
-      {
-       Iyr = thedata.Lar_dataI(Idata,1)+thedata.Larval_Offset;
-       Obs = thedata.Lar_dataR(Idata,0);
-       if (thedata.LarvalLikeOpt == 0)
-        CV = thedata.Lar_dataR(Idata,1)/Obs;
-       else
-        CV = thedata.Lar_dataR(Idata,1);
-       if (Iyr < dat.BurnIn+dat.Nyear+dat.Nproj)
+      // Find the likelihood itself
+      SS = 0;
+      for (Idata=0;Idata<thedata.NLarvalData;Idata++)
+        if (thedata.Lar_dataI(Idata,0) == Iarea)
         {
-         PredLarval(Idata,0) = qestLar(Iarea)*PuerulusByArea(Iarea,Iyr);
-         if (thedata.LarvalLikeOpt == 0)
-          Residual = (log(Obs) - log(qestLar(Iarea)*PuerulusByArea(Iarea,Iyr)))/CV;
-         else
-          Residual = (Obs - qestLar(Iarea)*PuerulusByArea(Iarea,Iyr))/CV;
-         PredLarval(Idata,1) = Residual;
-         SS += Residual*Residual/2.0;
-	    }
-      }
-     LarvalLikeComps(Iarea) = SS;
-     NeglogLikelihood += SS;
-   }}
+          Iyr = thedata.Lar_dataI(Idata,1)+thedata.Larval_Offset;
+          Obs = thedata.Lar_dataR(Idata,0);
+          if (thedata.LarvalLikeOpt == 0)
+            CV = thedata.Lar_dataR(Idata,1)/Obs;
+          else
+            CV = thedata.Lar_dataR(Idata,1);
+          if (Iyr < dat.BurnIn+dat.Nyear+dat.Nproj)
+          {
+            PredLarval(Idata,0) = qestLar(Iarea)*PuerulusByArea(Iarea,Iyr);
+            if (thedata.LarvalLikeOpt == 0)
+              Residual = (log(Obs) - log(qestLar(Iarea)*PuerulusByArea(Iarea,Iyr)))/CV;
+            else
+              Residual = (Obs - qestLar(Iarea)*PuerulusByArea(Iarea,Iyr))/CV;
+            PredLarval(Idata,1) = Residual;
+            SS += Residual*Residual/2.0;
+          }
+        }
+      LarvalLikeComps(Iarea) = SS;
+      NeglogLikelihood += SS;
+    }}
 
- return(NeglogLikelihood);
+  return(NeglogLikelihood);
 }
 
 
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
-                         matrix<Type> &WeightLen, matrix<Type> &M,
-                         array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
-                         array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
-                         vector<Type> &ActRecDev, Type QRedsPar, Type MWhitesPar, Type Finitial) {
+array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
+                    matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
+                    matrix<Type> &WeightLen, matrix<Type> &M,
+                    array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
+                    array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
+                    vector<Type> &ActRecDev, Type QRedsPar, Type MWhitesPar, Type Finitial) {
 
-array<Type> N(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
-Type TotalRec,ScaleRedQ,ScaleWhiteM;
-int Ipnt,Jpnt,GrowthPointer,MovePointer,IdestArea,RecruitLenPointer;
-int MatSize,Offset;
-MatSize = dat.Narea*dat.Nage*dat.MaxLen;                                 // Full matrix size
-matrix<Type> I(MatSize,MatSize);                                         // Identity matrix
-matrix<Type> S(MatSize,MatSize);                                         // Survival matrix
-matrix<Type> X(MatSize,MatSize);                                         // Transition matrix
-matrix<Type> MM(MatSize,MatSize);                                        // Movement matrix
-matrix<Type> A(MatSize,MatSize);                                         // Aging matrix
-matrix<Type> Mat2(MatSize,MatSize);                                      // Temp matrix
-matrix<Type> Trans(dat.MaxLen,dat.MaxLen);                               // Cumulative transition matrix
-matrix<Type> Trans2(dat.MaxLen,dat.MaxLen);                              // Temporary transition matrix
-vector<Type> MoveVec(dat.MaxLen);                                        // Movement vector
-matrix<Type> RecVec(MatSize,1);                                          // Recruitment
-matrix<Type> TestVec(MatSize,1);                                         // The equilibrium
+  array<Type> N(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
+  Type TotalRec,ScaleRedQ,ScaleWhiteM;
+  int Ipnt,Jpnt,GrowthPointer,MovePointer,IdestArea,RecruitLenPointer;
+  int MatSize,Offset;
+  MatSize = dat.Narea*dat.Nage*dat.MaxLen;                                 // Full matrix size
+  matrix<Type> I(MatSize,MatSize);                                         // Identity matrix
+  matrix<Type> S(MatSize,MatSize);                                         // Survival matrix
+  matrix<Type> X(MatSize,MatSize);                                         // Transition matrix
+  matrix<Type> MM(MatSize,MatSize);                                        // Movement matrix
+  matrix<Type> A(MatSize,MatSize);                                         // Aging matrix
+  matrix<Type> Mat2(MatSize,MatSize);                                      // Temp matrix
+  matrix<Type> Trans(dat.MaxLen,dat.MaxLen);                               // Cumulative transition matrix
+  matrix<Type> Trans2(dat.MaxLen,dat.MaxLen);                              // Temporary transition matrix
+  vector<Type> MoveVec(dat.MaxLen);                                        // Movement vector
+  matrix<Type> RecVec(MatSize,1);                                          // Recruitment
+  matrix<Type> TestVec(MatSize,1);                                         // The equilibrium
 
-// Find the equilibrium
-N.setZero();
-for (int Isex=0;Isex<dat.Nsex;Isex++)
- {
+  // Find the equilibrium
+  N.setZero();
+  for (int Isex=0;Isex<dat.Nsex;Isex++)
+  {
 
-  I.setZero(); S.setZero(); MM.setZero(); X.setZero();  A.setZero();
+    I.setZero(); S.setZero(); MM.setZero(); X.setZero();  A.setZero();
 
-  // Set the diagnonal matrices
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   for (int Iage=0;Iage<dat.Nage;Iage++)
-    {
-     if(dat.IsRed(Isex,Iage,Iarea,0)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
-     if(dat.IsRed(Isex,Iage,Iarea,0)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-     Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
-     for (int Isize=0;Isize<dat.MaxLen;Isize++)
-      {
-       I(Offset+Isize,Offset+Isize) = 1.0;
-       S(Offset+Isize,Offset+Isize) = exp(-M(Iarea,Iage)*ScaleWhiteM+ActSelex(Isex,Isize)*ScaleRedQ*Finitial);
-      }
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      {
-       MM(Offset+Isize,Offset+Isize) = 1.0;
-      }
-    }
-
-  // Growth matrix
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   for (int Iage=0;Iage<dat.Nage;Iage++)
-    {
-     // No growth
-     Trans.setZero();
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Trans(Isize,Isize) = 1;
-
-     // Multiply by growth matrix
-     for (int Istep=0;Istep<dat.Nstep;Istep++)
-      {
-       GrowthPointer = dat.GrowthPnt(Iarea,Isex,Iage,0,Istep);
-       if (GrowthPointer >=0)
-        {
-         Trans2.setZero();
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-          for (int Jsize=0;Jsize<=Isize;Jsize++) Trans2(Isize,Jsize) = ActGrowth(GrowthPointer,Isize,Jsize);
-         Trans = atomic::matmul(Trans2,Trans);
-        }
-      } // Growth
-
-     Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
-       X(Offset+Isize,Offset+Jsize) = Trans(Isize,Jsize);
-    }
-
-  // Movement
-  for (int Istep=0;Istep<dat.Nstep;Istep++)
-   {
+    // Set the diagnonal matrices
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-     for (int Iage=0;Iage<dat.Nage;Iage++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
       {
-       MovePointer = dat.MovePnt(Iarea,Iage,0,Istep);
-       if (MovePointer > 0)
+        if(dat.IsRed(Isex,Iage,Iarea,0)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
+        if(dat.IsRed(Isex,Iage,Iarea,0)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
+        for (int Isize=0;Isize<dat.MaxLen;Isize++)
         {
-         IdestArea = dat.MoveSpec(MovePointer,2);
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
-         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-          {
-           Ipnt = IdestArea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
-           Jpnt = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
-           MM(Jpnt,Jpnt) -= MoveVec(Isize);
-           MM(Ipnt,Jpnt) = MoveVec(Isize);
-          }
+          I(Offset+Isize,Offset+Isize) = 1.0;
+          S(Offset+Isize,Offset+Isize) = exp(-M(Iarea,Iage)*ScaleWhiteM+ActSelex(Isex,Isize)*ScaleRedQ*Finitial);
+        }
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        {
+          MM(Offset+Isize,Offset+Isize) = 1.0;
         }
       }
-   } // If there was a move
 
-  // Ageing
-  Ipnt = 0;
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   {
-    Ipnt = Iarea*dat.Nage*dat.MaxLen;
-    for (int Iage=0;Iage<dat.Nage-1;Iage++)
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) A(Ipnt+(Iage+1)*dat.MaxLen+Isize, Ipnt+Iage*dat.MaxLen+Isize) = 1;
-    for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)  A(Ipnt+(dat.Nage-1)*dat.MaxLen+Isize, Ipnt+(dat.Nage-1)*dat.MaxLen+Isize) = 1;
-   }
+    // Growth matrix
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+      {
+        // No growth
+        Trans.setZero();
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Trans(Isize,Isize) = 1;
 
-  // Matrix multiplication
-  Mat2 = atomic::matmul(X,S);
-  Mat2 = atomic::matmul(MM,Mat2);
-  Mat2 = atomic::matmul(A,Mat2);
-  Mat2 = I - Mat2;
+        // Multiply by growth matrix
+        for (int Istep=0;Istep<dat.Nstep;Istep++)
+        {
+          GrowthPointer = dat.GrowthPnt(Iarea,Isex,Iage,0,Istep);
+          if (GrowthPointer >=0)
+          {
+            Trans2.setZero();
+            for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+              for (int Jsize=0;Jsize<=Isize;Jsize++) Trans2(Isize,Jsize) = ActGrowth(GrowthPointer,Isize,Jsize);
+            Trans = atomic::matmul(Trans2,Trans);
+          }
+        } // Growth
 
-  // Inverse
-  Mat2 = atomic::matinv(Mat2);
+        Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          for (int Jsize=0;Jsize<dat.Nlen(Isex);Jsize++)
+            X(Offset+Isize,Offset+Jsize) = Trans(Isize,Jsize);
+      }
 
-  // Recruitment
-  Offset = -1;
-  RecVec.setZero();
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   {
-    TotalRec = 0;
-    for (int Istep=0;Istep<dat.Nstep;Istep++) TotalRec += ActRecruitAreaSexDist(0,Istep,Iarea,Isex);
-    RecruitLenPointer = dat.RecruitLenPnt(Iarea);
-
-    for (int Iage=0;Iage<dat.Nage;Iage++)
-     {
-      for(int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-       {
-        Offset += 1;
-        if (Iage==0) RecVec(Offset,0) = TotalRec*ActRecruitLenDist(RecruitLenPointer,Isex,Isize);
-       }
-     }
-   }
-
-  // Solve for an equiilbrium
-  TestVec = atomic::matmul(Mat2,RecVec);
-
-  // Paste back
-  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-   for (int Iage=0;Iage<dat.Nage;Iage++)
+    // Movement
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
     {
-     Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
-     for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-      N(Iarea,Isex,Iage,Isize) = TestVec(Offset+Isize,0)*exp(Rbar);
+      for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+        for (int Iage=0;Iage<dat.Nage;Iage++)
+        {
+          MovePointer = dat.MovePnt(Iarea,Iage,0,Istep);
+          if (MovePointer > 0)
+          {
+            IdestArea = dat.MoveSpec(MovePointer,2);
+            for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
+            for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+            {
+              Ipnt = IdestArea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
+              Jpnt = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
+              MM(Jpnt,Jpnt) -= MoveVec(Isize);
+              MM(Ipnt,Jpnt) = MoveVec(Isize);
+            }
+          }
+        }
+    } // If there was a move
+
+    // Ageing
+    Ipnt = 0;
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    {
+      Ipnt = Iarea*dat.Nage*dat.MaxLen;
+      for (int Iage=0;Iage<dat.Nage-1;Iage++)
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) A(Ipnt+(Iage+1)*dat.MaxLen+Isize, Ipnt+Iage*dat.MaxLen+Isize) = 1;
+      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)  A(Ipnt+(dat.Nage-1)*dat.MaxLen+Isize, Ipnt+(dat.Nage-1)*dat.MaxLen+Isize) = 1;
     }
 
- } //
+    // Matrix multiplication
+    Mat2 = atomic::matmul(X,S);
+    Mat2 = atomic::matmul(MM,Mat2);
+    Mat2 = atomic::matmul(A,Mat2);
+    Mat2 = I - Mat2;
 
-return(N);
+    // Inverse
+    Mat2 = atomic::matinv(Mat2);
+
+    // Recruitment
+    Offset = -1;
+    RecVec.setZero();
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    {
+      TotalRec = 0;
+      for (int Istep=0;Istep<dat.Nstep;Istep++) TotalRec += ActRecruitAreaSexDist(0,Istep,Iarea,Isex);
+      RecruitLenPointer = dat.RecruitLenPnt(Iarea);
+
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+      {
+        for(int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        {
+          Offset += 1;
+          if (Iage==0) RecVec(Offset,0) = TotalRec*ActRecruitLenDist(RecruitLenPointer,Isex,Isize);
+        }
+      }
+    }
+
+    // Solve for an equiilbrium
+    TestVec = atomic::matmul(Mat2,RecVec);
+
+    // Paste back
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+      for (int Iage=0;Iage<dat.Nage;Iage++)
+      {
+        Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
+        for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          N(Iarea,Isex,Iage,Isize) = TestVec(Offset+Isize,0)*exp(Rbar);
+      }
+
+  } //
+
+  return(N);
 
 }
 
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
-                         matrix<Type> &WeightLen, matrix<Type> &M,
-                         array <Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
-                         array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
-                         vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
-                         matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &VirginLegalBio, array<Type> &VirginNvec, array<Type> &VirginBioAtLen,
-                         matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
+Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
+                 matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
+                 matrix<Type> &WeightLen, matrix<Type> &M,
+                 array <Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
+                 array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
+                 vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
+                 matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
+                 vector<Type> &VirginBio, vector<Type> &VirginLegalBio, array<Type> &VirginNvec, array<Type> &VirginBioAtLen,
+                 matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
 
   Type Initial_pen;
   int IsVirgin;                                                           // Set to 1 for unfished state
@@ -1304,7 +1381,7 @@ template <class Type>
   array<Type> Ninit2(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
 
   Ninit = VirginN(dat, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
-         Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar, Type(0.0));
+                  Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar, Type(0.0));
   //  Get bare bones numbers by area, sex, age and length - one recruitment / move / grow - no F Mort.
 
   // Virgin Biomass from Ninit -  Has M but not F - does not work correctly as changes slightly with burn in below. But is a temporary starting point
@@ -1318,39 +1395,39 @@ template <class Type>
   // Now compute
   IsVirgin = 0;
   for (int JJ=0;JJ<=dat.Num_Iteration-1;JJ++)
-   {
+  {
     // Really poor initial condition - put unfished numbers in  first year
     N.setZero();
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-     for (int Isex=0;Isex<dat.Nsex;Isex++)
-      for (int Iage=0;Iage<dat.Nage;Iage++)
-       for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-        {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
+      for (int Isex=0;Isex<dat.Nsex;Isex++)
+        for (int Iage=0;Iage<dat.Nage;Iage++)
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+          {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
 
     // One year zero catch projection  This updates the future time-step
     for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
-     for (int Istep=0;Istep<dat.Nstep;Istep++)
-      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                        VirginBio, CurrentBio);
+      for (int Istep=0;Istep<dat.Nstep;Istep++)
+        XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
+                         VirginBio, CurrentBio);
 
     // Multiyear projection with No F (F set to Zero) This updates the future time-step under no fishing
     for (int Iyear=-dat.BurnIn+1;Iyear<dat.Tune_Years;Iyear++)
-     for (int Istep=0;Istep<dat.Nstep;Istep++)
-      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                        VirginBio, CurrentBio);
+      for (int Istep=0;Istep<dat.Nstep;Istep++)
+        XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
+                         VirginBio, CurrentBio);
 
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
-     for (int Istep=0;Istep<dat.Nstep;Istep++)
-      for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
-       if (dat.Area_fleet(Iarea,Ifleet)==1)
-        {
-         Fvals(Ifleet,JJ,Istep) = Feqn2(Ifleet,Istep);
-         Feqn2(Ifleet,Istep) = 0;
-          for (int Iyear=0;Iyear<dat.Tune_Years;Iyear++) {Feqn2(Ifleet,Istep) +=  Hrate(dat.BurnIn+Iyear,Istep,Ifleet) ;}
-         Feqn2(Ifleet,Istep) /= float(dat.Tune_Years);
-        }
-    }
+      for (int Istep=0;Istep<dat.Nstep;Istep++)
+        for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
+          if (dat.Area_fleet(Iarea,Ifleet)==1)
+          {
+            Fvals(Ifleet,JJ,Istep) = Feqn2(Ifleet,Istep);
+            Feqn2(Ifleet,Istep) = 0;
+            for (int Iyear=0;Iyear<dat.Tune_Years;Iyear++) {Feqn2(Ifleet,Istep) +=  Hrate(dat.BurnIn+Iyear,Istep,Ifleet) ;}
+            Feqn2(Ifleet,Istep) /= float(dat.Tune_Years);
+          }
+  }
 
   //  At this point we have a better Virgin Biomass created.  Use this for output etc.
   VirginBio.setZero(); VirginLegalBio.setZero();
@@ -1360,13 +1437,13 @@ template <class Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) {
           VirginBio(Iarea) += N(Iarea,0,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
           VirginLegalBio(Iarea) += LegalRef(Isex,Isize) * N(Iarea,0,dat.BioTimeStep,Isex,Iage,Isize) * WeightLen(Isex,Isize);
-          }}}}
+        }}}}
 
   // Penalty on non-convergence
   Initial_pen = 0;
   for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
-   for (int Istep=0;Istep<dat.Nstep;Istep++)
-    Initial_pen += 1000000*square(Fvals(Ifleet,dat.Num_Iteration-2,Istep)-Fvals(Ifleet,dat.Num_Iteration-1,Istep));
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
+      Initial_pen += 1000000*square(Fvals(Ifleet,dat.Num_Iteration-2,Istep)-Fvals(Ifleet,dat.Num_Iteration-1,Istep));
 
   // ── Compute Virgin Biomass from a dedicated no-F burn-in ──────
   // Project from unfished equilibrium through the full burn-in with F=0
@@ -1378,13 +1455,13 @@ template <class Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
-        for (int Iyear=-dat.BurnIn;Iyear<0;Iyear++)
-          for (int Istep=0;Istep<dat.Nstep;Istep++)
-            XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
-                             Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
-                             ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
-                             RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                             VirginBio, CurrentBio);
+  for (int Iyear=-dat.BurnIn;Iyear<0;Iyear++)
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
+      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
+                       Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
+                       ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
+                       RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
+                       VirginBio, CurrentBio);
 
   // Virgin biomass from end of no-F burn-in at the designated biology time step
   VirginBio.setZero(); VirginLegalBio.setZero();VirginNvec.setZero(); VirginBioAtLen.setZero();
@@ -1406,14 +1483,14 @@ template <class Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
-        // One year zero catch projection
-        for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
-          for (int Istep=0;Istep<dat.Nstep;Istep++)
-            XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
-                             Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
-                             ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
-                             RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                             VirginBio, CurrentBio);
+  // One year zero catch projection
+  for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
+      XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
+                       Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
+                       ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
+                       RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
+                       VirginBio, CurrentBio);
 
   // Multiyear projection with area-specific F
   for (int Iyear=-dat.BurnIn+1;Iyear<0;Iyear++){
@@ -1429,50 +1506,50 @@ template <class Type>
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
                        VirginBio, CurrentBio);}}
 
- return(Initial_pen);
+  return(Initial_pen);
 
 }
 
 // ========================================================================================================================
 
 template <class Type>
- vector<Type> CatchByNumAge(dataSet<Type> &dat, array<Type> &N, array<Type> &Z,array<Type> &Hrate,
+vector<Type> CatchByNumAge(dataSet<Type> &dat, array<Type> &N, array<Type> &Z,array<Type> &Hrate,
                            matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &WeightLen,
                            int Iarea, int Ifleet, int Iyear, int Istep, Type QRedsPar) {
 
- vector<Type> XX(2);                                                     // Outputs
- array<Type> selexF(dat.Nsex,dat.Nage,dat.MaxLen);                       // Selectivity
- array<Type> retainF(dat.Nsex,dat.Nage,dat.MaxLen);                      // Retention
- int SelPointer,RetPointer,LegalPointer;                                 // Pointers
- Type Z2,CAL,ScaleRedQ;                                                  // Temporary
+  vector<Type> XX(2);                                                     // Outputs
+  array<Type> selexF(dat.Nsex,dat.Nage,dat.MaxLen);                       // Selectivity
+  array<Type> retainF(dat.Nsex,dat.Nage,dat.MaxLen);                      // Retention
+  int SelPointer,RetPointer,LegalPointer;                                 // Pointers
+  Type Z2,CAL,ScaleRedQ;                                                  // Temporary
 
- // Need to set selectivity
- for (int Isex=0;Isex<dat.Nsex;Isex++) {
-  for (int Iage=0;Iage<dat.Nage;Iage++) {
-    if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
-    SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
-    RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-    LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-    for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
-      selexF(Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
-      retainF(Isex,Iage,Ilen) = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
+  // Need to set selectivity
+  for (int Isex=0;Isex<dat.Nsex;Isex++) {
+    for (int Iage=0;Iage<dat.Nage;Iage++) {
+      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+      SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
+      for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
+        selexF(Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
+        retainF(Isex,Iage,Ilen) = ActReten(RetPointer,Ilen)*ActLegal(LegalPointer,Ilen);
       }
     }
   }
 
- // Reset
- XX.setZero();
- for (int Isex=0;Isex<dat.Nsex;Isex++)
-  for (int Iage=0;Iage<dat.Nage;Iage++)
-   for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-    {
-     Z2 = (1-exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize)))/Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize);
-     CAL = selexF(Isex,Iage,Isize)*retainF(Isex,Iage,Isize)*Hrate(dat.BurnIn+Iyear,Istep,Ifleet)*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize)*Z2;
-     XX(0) += CAL;
-     XX(1) += WeightLen(Isex,Isize)*CAL;
-    }
+  // Reset
+  XX.setZero();
+  for (int Isex=0;Isex<dat.Nsex;Isex++)
+    for (int Iage=0;Iage<dat.Nage;Iage++)
+      for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+      {
+        Z2 = (1-exp(-Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize)))/Z(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize);
+        CAL = selexF(Isex,Iage,Isize)*retainF(Isex,Iage,Isize)*Hrate(dat.BurnIn+Iyear,Istep,Ifleet)*N(Iarea,dat.BurnIn+Iyear,Istep,Isex,Iage,Isize)*Z2;
+        XX(0) += CAL;
+        XX(1) += WeightLen(Isex,Isize)*CAL;
+      }
 
- return(XX);
+  return(XX);
 }
 
 // ========================================================================================================================
@@ -1493,18 +1570,18 @@ vector<Type> DiscardByFleet(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, 
     for (int Iage=0;Iage<dat.Nage;Iage++) {
       if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
       if (Iyear < dat.Nyear)
-       {
+      {
         SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
         RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
         LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
-       }
+      }
       else
-       {
+      {
         // Projection years: same branch OneTimeStep() uses for Iyear>=Nyear.
         SelPointer = dat.SelPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
         RetPointer = dat.RetPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
         LegalPointer = dat.LegalFleetPntFut(Isex,Iage,Ifleet,Iyear-dat.Nyear,Istep);
-       }
+      }
       for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
         selexF(Isex,Iage,Ilen) = ActSelex(SelPointer,Ilen) * ScaleRedQ;
         retainF(Isex,Iage,Ilen) = ActReten(RetPointer,Ilen) * ActLegal(LegalPointer,Ilen);
@@ -1527,32 +1604,32 @@ vector<Type> DiscardByFleet(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, 
         XX(1) += dat.Phi(Ifleet,Iage,Iyear,Istep) * DiscWt;
       }
 
-      return(XX);
+  return(XX);
 }
 
 // ========================================================================================================================
 
 template <class Type>
- Type CatchLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,array<Type> &Hrate,
-                           matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &WeightLen, array<Type> &CatchCheck, Type QRedsPar) {
+Type CatchLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,array<Type> &Hrate,
+                     matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &WeightLen, array<Type> &CatchCheck, Type QRedsPar) {
 
- vector<Type> XX(2);                                                     // Catch predection pass
- int Iarea;
- Type NeglogLikelihood;                                                  // Negative log-likelihood
+  vector<Type> XX(2);                                                     // Catch predection pass
+  int Iarea;
+  Type NeglogLikelihood;                                                  // Negative log-likelihood
 
- NeglogLikelihood = 0;
- CatchCheck.setZero();
+  NeglogLikelihood = 0;
+  CatchCheck.setZero();
   for (int Iyear=0;Iyear<dat.Nyear;Iyear++)
-   for (int Istep=0;Istep<dat.Nstep;Istep++)
-    for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
-     {
-	  Iarea = dat.Fleet_area(Ifleet);
-      XX = CatchByNumAge(dat,N,Z,Hrate,ActSelex,ActReten,ActLegal,WeightLen,Iarea,Ifleet,Iyear,Istep,QRedsPar);
-      CatchCheck(Iyear,Istep,Ifleet) = XX(1);
-      if (dat.Catch(Iyear,Istep,Ifleet) > 0)
-       NeglogLikelihood += square(CatchCheck(Iyear,Istep,Ifleet)-dat.Catch(Iyear,Istep,Ifleet));
-     }
- return(NeglogLikelihood);
+    for (int Istep=0;Istep<dat.Nstep;Istep++)
+      for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
+      {
+        Iarea = dat.Fleet_area(Ifleet);
+        XX = CatchByNumAge(dat,N,Z,Hrate,ActSelex,ActReten,ActLegal,WeightLen,Iarea,Ifleet,Iyear,Istep,QRedsPar);
+        CatchCheck(Iyear,Istep,Ifleet) = XX(1);
+        if (dat.Catch(Iyear,Istep,Ifleet) > 0)
+          NeglogLikelihood += square(CatchCheck(Iyear,Istep,Ifleet)-dat.Catch(Iyear,Istep,Ifleet));
+      }
+  return(NeglogLikelihood);
 }
 
 template <class Type>
@@ -1655,7 +1732,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           }
         }
 
-        RecapTmp.setZero();
+      RecapTmp.setZero();
       for (int Iarea=0; Iarea<Narea; Iarea++)
       {
         for (int Iage=0; Iage<Nage; Iage++)
@@ -1672,26 +1749,26 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
                 Z_rate_Tag(Iarea,Iage,Isize) += Hrate(Kyear,Istep,Ifleet)*RetainTemp;
               }
 
-              for (int ItagLag=1; ItagLag<=NtagLag; ItagLag++)
-                NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
+            for (int ItagLag=1; ItagLag<=NtagLag; ItagLag++)
+              NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
 
-              Deaths = Ntag_local(Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
-              NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
+            Deaths = Ntag_local(Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
+            NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
 
-              for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
-                if (dat.Area_fleet(Iarea,Ifleet)==1)
+            for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
+              if (dat.Area_fleet(Iarea,Ifleet)==1)
+              {
+                RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
+                TotalPartialF = 0;
+                for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
                 {
-                  RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
-                  FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
-                  TotalPartialF = 0;
-                  for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
-                  {
-                    PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
-                    TotalPartialF += PartialF;
-                    RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
-                  }
-                  NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
+                  PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
+                  TotalPartialF += PartialF;
+                  RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
                 }
+                NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
+              }
           }
         }
       }
@@ -1732,7 +1809,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
                 }
               }
             }
-            TagLike1(SexPass,GrpPass) += LikeSize1;
+        TagLike1(SexPass,GrpPass) += LikeSize1;
       }
       // D4a: Remove mortality
       Ntemp_Tag.setZero();
@@ -1742,97 +1819,97 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
               if (ItagLag==0)
                 Ntemp_Tag(0,Iarea,Iage,Isize) = Ntag_local(Iarea,0,Iage,Isize)*exp(-Z_rate_Tag(Iarea,Iage,Isize));
-              else
-                Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntag_local(Iarea,ItagLag,Iage,Isize)*exp(-M_rate_Tag(Iarea,Iage,Isize));
+      else
+        Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntag_local(Iarea,ItagLag,Iage,Isize)*exp(-M_rate_Tag(Iarea,Iage,Isize));
 
-              // D4b: Growth
-              for (int Iarea=0; Iarea<Narea; Iarea++)
-                for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
-                  for (int Iage=0; Iage<Nage; Iage++)
-                  {
-                    GrowthPointer = dat.GrowthPnt(Iarea,SexPass,Iage,Iyear,Istep);
-                    if (GrowthPointer >=0)
-                    {
-                      Ntemp2.setZero();
-                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                      {
-                        for (int Jsize=0; Jsize<=Isize; Jsize++)
-                          Ntemp2(Isize) += Ntemp_Tag(ItagLag,Iarea,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
-                      }
-                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                        Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntemp2(Isize);
-                    }
-                  }
+      // D4b: Growth
+      for (int Iarea=0; Iarea<Narea; Iarea++)
+        for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+          for (int Iage=0; Iage<Nage; Iage++)
+          {
+            GrowthPointer = dat.GrowthPnt(Iarea,SexPass,Iage,Iyear,Istep);
+            if (GrowthPointer >=0)
+            {
+              Ntemp2.setZero();
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+              {
+                for (int Jsize=0; Jsize<=Isize; Jsize++)
+                  Ntemp2(Isize) += Ntemp_Tag(ItagLag,Iarea,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
+              }
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                Ntemp_Tag(ItagLag,Iarea,Iage,Isize) = Ntemp2(Isize);
+            }
+          }
 
-                  // D4c: Movement
-                  Nmove_Tag.setZero();
-              IsMoves = 0;
-              for (int Iarea=0; Iarea<Narea; Iarea++)
-                for (int Iage=0; Iage<Nage; Iage++)
-                {
-                  MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
-                  if (MovePointer > 0)
-                  {
-                    IsMoves = 1;
-                    IdestArea = dat.MoveSpec(MovePointer,2);
-                    for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                      MoveVec(Isize) = ActMove(MovePointer,Isize);
-                    for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
-                      for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                      {
-                        Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-                        Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-                      }
-                  }
-                }
-
-                if (IsMoves==1)
-                {
-                  for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
-                    for (int Iarea=0; Iarea<Narea; Iarea++)
-                      for (int Iage=0; Iage<Nage; Iage++)
-                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                          Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
-                }
-
-                // D4d: Copy back and update ages
-                for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++) {
-                  for (int Iarea=0; Iarea<Narea; Iarea++) {
-                    if (Istep<dat.Nstep-1) {
-                      for (int Iage=0; Iage<Nage; Iage++) {
-                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++) {
-                          Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-                        }
-                      }
-                    }
-                    else
-                    {
-                      if (Nage-1 > 0)
-                      {
-                        for (int Iage=0; Iage<Nage-1; Iage++)
-                          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                            Ntag_local(Iarea,ItagLag,Iage+1,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                          Ntag_local(Iarea,ItagLag,Nage-1,Isize) = Ntemp_Tag(ItagLag,Iarea,Nage-1,Isize) + Ntemp_Tag(ItagLag,Iarea,Nage-2,Isize);
-                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                          Ntag_local(Iarea,ItagLag,0,Isize) = 0;
-                      }
-                      else
-                      {
-                        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                          Ntag_local(Iarea,ItagLag,0,Isize) = Ntemp_Tag(ItagLag,Iarea,0,Isize);
-                      }
-                    }
-                  }
-                }
-    }
-
-    // E1: Add animals at end of projection to NotReported
-    for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+      // D4c: Movement
+      Nmove_Tag.setZero();
+      IsMoves = 0;
       for (int Iarea=0; Iarea<Narea; Iarea++)
         for (int Iage=0; Iage<Nage; Iage++)
-          for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-            NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize);
+        {
+          MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
+          if (MovePointer > 0)
+          {
+            IsMoves = 1;
+            IdestArea = dat.MoveSpec(MovePointer,2);
+            for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+              MoveVec(Isize) = ActMove(MovePointer,Isize);
+            for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+              {
+                Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+              }
+          }
+        }
+
+      if (IsMoves==1)
+      {
+        for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+          for (int Iarea=0; Iarea<Narea; Iarea++)
+            for (int Iage=0; Iage<Nage; Iage++)
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
+      }
+
+      // D4d: Copy back and update ages
+      for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++) {
+        for (int Iarea=0; Iarea<Narea; Iarea++) {
+          if (Istep<dat.Nstep-1) {
+            for (int Iage=0; Iage<Nage; Iage++) {
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++) {
+                Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+              }
+            }
+          }
+          else
+          {
+            if (Nage-1 > 0)
+            {
+              for (int Iage=0; Iage<Nage-1; Iage++)
+                for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                  Ntag_local(Iarea,ItagLag,Iage+1,Isize) = Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                Ntag_local(Iarea,ItagLag,Nage-1,Isize) = Ntemp_Tag(ItagLag,Iarea,Nage-1,Isize) + Ntemp_Tag(ItagLag,Iarea,Nage-2,Isize);
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                Ntag_local(Iarea,ItagLag,0,Isize) = 0;
+            }
+            else
+            {
+              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                Ntag_local(Iarea,ItagLag,0,Isize) = Ntemp_Tag(ItagLag,Iarea,0,Isize);
+            }
+          }
+        }
+      }
+    }
+
+  // E1: Add animals at end of projection to NotReported
+  for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
+    for (int Iarea=0; Iarea<Narea; Iarea++)
+      for (int Iage=0; Iage<Nage; Iage++)
+        for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+          NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize);
 
   // Total reported and rescale recaptures
   TotalReported = 0;
@@ -1844,7 +1921,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           TotalReported += RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep);
           RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
         }
-        NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
+  NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
 
   // DIAGNOSTIC: Check if model predicted ANY recaptures
   //FILE* fp2 = fopen("tagdym_recapture_summary.txt", "w");
@@ -1864,9 +1941,9 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log((RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10)/(thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10));
             LikeTag2 -= LikeCompT;
           }
-          TagLike2(SexPass,GrpPass) += LikeTag2;
+  TagLike2(SexPass,GrpPass) += LikeTag2;
 
-          return(NeglogLikelihood);
+  return(NeglogLikelihood);
 }
 
 
@@ -2149,7 +2226,7 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-    //// Deal with Efficiency Pars  ///////
+  //// Deal with Efficiency Pars  ///////
   // Apply priors on Rec Pars if requested
   Type EffParPriorPen = 0;
   int nrowEP = EffparsPrior.rows();

@@ -1739,9 +1739,9 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
 
   # Growth parameters linking conditions
   if(NgrowthPars>0) {
-    GrowLink <- as.numeric(GrowthFile[(Index):(Index+NgrowthPars-1),5])
+    GrowparsLink <- as.numeric(GrowthFile[(Index):(Index+NgrowthPars-1),5])
     GrowparsPrior <- apply(as.matrix(GrowthFile[(Index):(Index+NgrowthPars-1),6:8]),2,as.numeric)
-  } else {GrowLink <- 0; GrowparsPrior <- c(0,0)}
+  } else {GrowparsLink <- 0; GrowparsPrior <- c(0,0)}
 
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Specifications",Char3="for")+2;  #  Changed from 3 to 2 as there was some erroneous text in original growth file
   GrowthPnt <- array(0,dim=c(GeneralSpecs$Narea,GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nyear,GeneralSpecs$Nstep))
@@ -1793,7 +1793,7 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   ReturnObj$NgrowthPatterns <- NgrowthPatterns
   ReturnObj$GrowthSpecs <- GrowthSpecs
   ReturnObj$GrowthPnt <- GrowthPnt
-  ReturnObj$GrowLink <- GrowLink
+  ReturnObj$GrowparsLink <- GrowparsLink
   ReturnObj$GrowparsPrior <- GrowparsPrior
   ReturnObj$TransInp <-TransInp
   ReturnObj$NfixedGrowth <- NfixedGrowth

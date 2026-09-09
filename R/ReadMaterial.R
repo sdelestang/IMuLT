@@ -1737,6 +1737,12 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+7),1])))==0, NgrowthPatterns*8, 0)
   write(paste("Number of growth parameters",NgrowthPars),EchoFile,append=T,ncol=3+GeneralSpecs$Nsex)
 
+  # Growth parameters linking conditions
+  if(NgrowthPars>0) {
+    GrowLink <- as.numeric(GrowthFile[(Index):(Index+NgrowthPars-1),5])
+    GrowparsPrior <- apply(as.matrix(GrowthFile[(Index):(Index+NgrowthPars-1),6:8]),2,as.numeric)
+  } else {GrowLink <- 0; GrowparsPrior <- c(0,0)}
+
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Specifications",Char3="for")+2;  #  Changed from 3 to 2 as there was some erroneous text in original growth file
   GrowthPnt <- array(0,dim=c(GeneralSpecs$Narea,GeneralSpecs$Nsex,GeneralSpecs$Nage,GeneralSpecs$Nyear,GeneralSpecs$Nstep))
   Ipnt <- 0
@@ -1787,12 +1793,13 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   ReturnObj$NgrowthPatterns <- NgrowthPatterns
   ReturnObj$GrowthSpecs <- GrowthSpecs
   ReturnObj$GrowthPnt <- GrowthPnt
+  ReturnObj$GrowLink <- GrowLink
+  ReturnObj$GrowparsPrior <- GrowparsPrior
   ReturnObj$TransInp <-TransInp
   ReturnObj$NfixedGrowth <- NfixedGrowth
   ReturnObj$NfixedGrowthSex <- NfixedGrowthSex
   ReturnObj$NgrowthPars <- NgrowthPars
   return(ReturnObj)
-
 }
 
 
@@ -2137,60 +2144,60 @@ ReadProjFile <- function(ProjFile, GeneralSpecs, Phi1, Catch1, Echo = TRUE)
 #'
 #' @keywords internal
 ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,GrowthFile,MoveFile,
-                                 GeneralSpecs,ControlSpecs,SelexSpecs,RetenSpecs,GrowthSpecs,MoveSpecs)
+                              GeneralSpecs,ControlSpecs,SelexSpecs,RetenSpecs,GrowthSpecs,MoveSpecs)
 {
- # Main parameters
- # R0, M-bar, M-at-age-offset, WjotyesScaleM, RedsScaleQ, SigmaR
- OK <- 1
- NmainPars = 4+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
- Index <- MatchTable(ControlFile,Char1="#",Char2="Basic",Char3="parameters");
- MainPars <- rep(0,NmainPars)
- MainBnd <- matrix(0,nrow=NmainPars,ncol=2)
- MainPhase <- rep(NA,NmainPars)
- for (Ipar in 1:NmainPars)
+  # Main parameters
+  # R0, M-bar, M-at-age-offset, WjotyesScaleM, RedsScaleQ, SigmaR
+  OK <- 1
+  NmainPars = 4+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Basic",Char3="parameters");
+  MainPars <- rep(0,NmainPars)
+  MainBnd <- matrix(0,nrow=NmainPars,ncol=2)
+  MainPhase <- rep(NA,NmainPars)
+  for (Ipar in 1:NmainPars)
   {
-   MainPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
-   MainBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
-   MainBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
-   MainPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
- }
- write("Starting values for main parameters",EchoFile,append=T)
- write(MainPars,EchoFile,append=T)
- if(is.na(sum(MainPars))) { warning("\nThere are NA's in Main Pars\n", call. = FALSE); OK <- 0   }
+    MainPars[Ipar] <- as.numeric(ControlFile[Index+Ipar,3])
+    MainBnd[Ipar,1] <- as.numeric(ControlFile[Index+Ipar,1])
+    MainBnd[Ipar,2] <- as.numeric(ControlFile[Index+Ipar,2])
+    MainPhase[Ipar] <- as.numeric(ControlFile[Index+Ipar,4])
+  }
+  write("Starting values for main parameters",EchoFile,append=T)
+  write(MainPars,EchoFile,append=T)
+  if(is.na(sum(MainPars))) { warning("\nThere are NA's in Main Pars\n", call. = FALSE); OK <- 0   }
 
- # Recruitment estimation
- Index <- MatchTable(ControlFile,Char1="#",Char2="Recruitment_deviations");
- RecPhase <- as.numeric(ControlFile[Index+3,1])
- write(paste("Phase for recruitment estimates",RecPhase),EchoFile,append=T)
- NrecDev <- ControlSpecs$RecYr2-ControlSpecs$RecYr1+1
- RecDevBnd <- matrix(0,nrow=NrecDev,ncol=2)
- RecDevBnd[,1] <- -15
- RecDevBnd[,2] <-  15
- RecDevPhase <- rep(RecPhase,NrecDev)
+  # Recruitment estimation
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Recruitment_deviations");
+  RecPhase <- as.numeric(ControlFile[Index+3,1])
+  write(paste("Phase for recruitment estimates",RecPhase),EchoFile,append=T)
+  NrecDev <- ControlSpecs$RecYr2-ControlSpecs$RecYr1+1
+  RecDevBnd <- matrix(0,nrow=NrecDev,ncol=2)
+  RecDevBnd[,1] <- -15
+  RecDevBnd[,2] <-  15
+  RecDevPhase <- rep(RecPhase,NrecDev)
 
- Index <- MatchTable(ControlFile,Char1="#",Char2="Spatial_deviations_in_recruitment");
- RecSpatPhase <- as.numeric(ControlFile[Index+3,1])
- write(paste("Phase for spatial recruitment estimates",RecSpatPhase),EchoFile,append=T)
- NrecSpatDev <- (ControlSpecs$RecSpatYr2-ControlSpecs$RecSpatYr1+1)*(GeneralSpecs$Narea-1)
- RecSpatDevBnd <- matrix(0,nrow=NrecSpatDev,ncol=2)
- RecSpatDevBnd[,1] <- -15
- RecSpatDevBnd[,2] <-  15
- RecSpatDevPhase <- rep(RecSpatPhase,NrecSpatDev)
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Spatial_deviations_in_recruitment");
+  RecSpatPhase <- as.numeric(ControlFile[Index+3,1])
+  write(paste("Phase for spatial recruitment estimates",RecSpatPhase),EchoFile,append=T)
+  NrecSpatDev <- (ControlSpecs$RecSpatYr2-ControlSpecs$RecSpatYr1+1)*(GeneralSpecs$Narea-1)
+  RecSpatDevBnd <- matrix(0,nrow=NrecSpatDev,ncol=2)
+  RecSpatDevBnd[,1] <- -15
+  RecSpatDevBnd[,2] <-  15
+  RecSpatDevPhase <- rep(RecSpatPhase,NrecSpatDev)
 
- Index <- MatchTable(ControlFile,Char1="#",Char2="Prespecify_rec_devs");
- PreSpecifyRecDevs <- as.numeric(ControlFile[Index+1,1])
- RecDevPars <- rep(0,NrecDev)
- if (PreSpecifyRecDevs == 1)
-  for (Dyr in 1: NrecDev) RecDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])
- #print(RecDevPars);
- if(is.na(sum(RecDevPars))) { warning("\nThere are NA's in Recruitment deviations Pars\n", call. = FALSE); OK <- 0   }
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Prespecify_rec_devs");
+  PreSpecifyRecDevs <- as.numeric(ControlFile[Index+1,1])
+  RecDevPars <- rep(0,NrecDev)
+  if (PreSpecifyRecDevs == 1)
+    for (Dyr in 1: NrecDev) RecDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])
+  #print(RecDevPars);
+  if(is.na(sum(RecDevPars))) { warning("\nThere are NA's in Recruitment deviations Pars\n", call. = FALSE); OK <- 0   }
 
- Index <- MatchTable(ControlFile,Char1="#",Char2="Prespecify_spatial_rec_devs");
- PreSpecifySpatRecDevs <- as.numeric(ControlFile[Index+1,1])
- RecSpatDevPars <- rep(0,NrecSpatDev)
- if (PreSpecifySpatRecDevs == 1){
-   for (Dyr in 1: NrecSpatDev) RecSpatDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])}
- if (NrecSpatDev==0) { NrecSpatDev <- 1; RecSpatDevPars = 0; RecSpatDevBnd <- matrix(c(-15,15),ncol=2,nrow=2); RecSpatDevPhase <- -1; }
+  Index <- MatchTable(ControlFile,Char1="#",Char2="Prespecify_spatial_rec_devs");
+  PreSpecifySpatRecDevs <- as.numeric(ControlFile[Index+1,1])
+  RecSpatDevPars <- rep(0,NrecSpatDev)
+  if (PreSpecifySpatRecDevs == 1){
+    for (Dyr in 1: NrecSpatDev) RecSpatDevPars[Dyr] <-  as.numeric(ControlFile[Index+1+Dyr,1])}
+  if (NrecSpatDev==0) { NrecSpatDev <- 1; RecSpatDevPars = 0; RecSpatDevBnd <- matrix(c(-15,15),ncol=2,nrow=2); RecSpatDevPhase <- -1; }
  if(is.na(sum(PreSpecifySpatRecDevs))) { warning("\nThere are NA's in Spatial Recruitment Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(SelexFile,Char1="#",Char2="Selectivity",Char3="Parameters")+1;

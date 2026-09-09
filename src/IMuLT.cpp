@@ -2211,6 +2211,38 @@ Type objective_function<Type>::operator() ()
     }
   }
 
+  //// Deal with Browth Pars //////
+  // Apply priors on Growth Pars if requested
+  Type GrowParPriorPen = 0;
+  nrowMP = GrowparsPrior.rows();
+  for (int r=0; r<nrowMP; r++) {
+    // Normal prior
+    if(GrowparsPrior(r,0)==1){
+      GrowParPriorPen += -dnorm(GrowPars(r,0), GrowparsPrior(r,1), GrowparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(GrowparsPrior(r,0)==2){
+      ScaleMP = square(GrowparsPrior(r,2))/GrowparsPrior(r,1);
+      ShapeMP = GrowparsPrior(r,1)/ScaleMP;
+      GrowParPriorPen += -dgamma(GrowPars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(GrowparsPrior(r,0)==3){
+      Type mulog  = log(GrowparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(GrowparsPrior(r,2)/GrowparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(GrowparsPrior(r,2)/GrowparsPrior(r,1))));
+      GrowParPriorPen += -dnorm(log(GrowPars(r,0)), mulog, sdlog, true) + log(GrowPars(r,0));
+    }
+  }
+
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<GrowparsLink.size();mp++){
+    if(GrowparsLink(mp)>0) GrowPars(mp)=GrowPars(GrowparsLink(mp)-1);
+    if(GrowparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * GrowparsLink(mp);
+      GrowPars(mp) += GrowPars(Link-1);
+    }
+  }
+
     // Split MainPars out into their various groups
   Rbar = MainPars(0);
   for(int Iarea=0;Iarea<Narea;Iarea++){
@@ -2752,7 +2784,7 @@ if(thedata.IsTagData==1){
   neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalties derived from parameter priors
-  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen;
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen;
 
   // Now do projections.
   // ProjType==1 (catch-based): dataset.Catch already holds the projected catch
@@ -2949,6 +2981,9 @@ if(thedata.IsTagData==1){
     REPORT(RecParPriorPen);
     REPORT(SelParPriorPen);
     REPORT(EffParPriorPen);
+    REPORT(GrowParPriorPen);
+    REPORT(MoveParPriorPen);
+
 
     REPORT(MainPars);
     REPORT(RecruitPars);

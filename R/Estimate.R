@@ -445,7 +445,8 @@ LoadPars <- function(aask=''){
     SelPars     = InitialVars$SelPars,
     RecDevs     = InitialVars$RecDevs,
     efpars      = InitialVars$efpars,
-    MovePars    = InitialVars$MovePars
+    MovePars    = InitialVars$MovePars,
+    GrowthPars  = InitialVars$GrowthPars
   )
 
   bnd_issues <- do.call(rbind, lapply(names(bnd_groups), function(grp) {
@@ -487,7 +488,7 @@ LoadPars <- function(aask=''){
     EffPars     = list(phase = InitialVars$efpars$Phase,        link = Data$EffparsLink),
     RecSpatDevs = list(phase = InitialVars$RecSpatDevs$Phase,   link = NULL),
     MovePars    = list(phase = InitialVars$MovePars$Phase,      link = Data$MoveparsLink)#,
-    #GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = NULL)
+    GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = Data$GrowparsLink)
   )
   par_summary <- do.call(rbind, lapply(names(par_info), function(grp) {
     ph <- par_info[[grp]]$phase
@@ -519,7 +520,7 @@ LoadPars <- function(aask=''){
     }
   }
   cat("------------------------\n\n")
-  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,dummy=0)
+  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,GrowthPars=NULL,dummy=0)
   (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
 }
 
@@ -644,7 +645,7 @@ AdjustPhase <- function(dum = ' ') {
 
   MaxPhase <- 0
   Innames  <- c("MainPars", "RecruitPars", "PuerPowPars", "SelPars",
-                "RecDevs", "RecSpatDevs", "efpars", "MovePars")
+                "RecDevs", "RecSpatDevs", "efpars", "MovePars", "GrowthPars")
 
   for (i in seq_along(Innames)) {
 
@@ -1064,7 +1065,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   link_map <- list(MainPars    = Data$MparsLink,
                    RecruitPars = Data$RecparsLink,
                    SelPars     = Data$SelparsLink,
-                   efpars      = Data$EffparsLink)
+                   efpars      = Data$EffparsLink,
+                   GrowthPars  = Data$GrowparsLink)
   for (pname in names(link_map)) {
     lv <- link_map[[pname]]
     if (!is.null(lv)) {

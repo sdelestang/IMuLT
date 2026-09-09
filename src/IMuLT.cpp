@@ -2223,28 +2223,28 @@ Type objective_function<Type>::operator() ()
   for (int r=0; r<nrowMP; r++) {
     // Normal prior
     if(GrowparsPrior(r,0)==1){
-      GrowParPriorPen += -dnorm(GrowPars(r,0), GrowparsPrior(r,1), GrowparsPrior(r,2), true);
+      GrowParPriorPen += -dnorm(GrowthPars(r,0), GrowparsPrior(r,1), GrowparsPrior(r,2), true);
     }
     // Gamma prior
     if(GrowparsPrior(r,0)==2){
       ScaleMP = square(GrowparsPrior(r,2))/GrowparsPrior(r,1);
       ShapeMP = GrowparsPrior(r,1)/ScaleMP;
-      GrowParPriorPen += -dgamma(GrowPars(r,0), ShapeMP, ScaleMP, true);
+      GrowParPriorPen += -dgamma(GrowthPars(r,0), ShapeMP, ScaleMP, true);
     }
     // Log-normal prior
     if(GrowparsPrior(r,0)==3){
       Type mulog  = log(GrowparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(GrowparsPrior(r,2)/GrowparsPrior(r,1)));
       Type sdlog  = sqrt(log(Type(1.0) + square(GrowparsPrior(r,2)/GrowparsPrior(r,1))));
-      GrowParPriorPen += -dnorm(log(GrowPars(r,0)), mulog, sdlog, true) + log(GrowPars(r,0));
+      GrowParPriorPen += -dnorm(log(GrowthPars(r,0)), mulog, sdlog, true) + log(GrowthPars(r,0));
     }
   }
 
   // Adjust parameters to account for linked parameters
   for(int mp=0;mp<GrowparsLink.size();mp++){
-    if(GrowparsLink(mp)>0) GrowPars(mp)=GrowPars(GrowparsLink(mp)-1);
+    if(GrowparsLink(mp)>0) GrowthPars(mp)=GrowthPars(GrowparsLink(mp)-1);
     if(GrowparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
       Link = -1 * GrowparsLink(mp);
-      GrowPars(mp) += GrowPars(Link-1);
+      GrowthPars(mp) += GrowthPars(Link-1);
     }
   }
 

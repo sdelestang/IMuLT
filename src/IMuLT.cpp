@@ -2,9 +2,12 @@
 #include "include/RLhpp.hpp"
 
 
-// Big changes made by Simon .  Density dependent mortality, legal biomass, area-specific burn-in years
+// Big changes made by Simon .  Density dependent mortality, legal biomass, area-specific burn-in years, Growth parameterised
 
 // -------------------------------------------------------------------------------------------------------------------
+
+
+
 
 // -----------------------------------------------------------------------------------------------------
 template <class Type>
@@ -1944,6 +1947,8 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(EffparsPrior); dataset.EffparsPrior = EffparsPrior;
   DATA_IVECTOR(MoveparsLink); dataset.MoveparsLink = MoveparsLink;
   DATA_MATRIX(MoveparsPrior); dataset.MoveparsPrior = MoveparsPrior;
+  DATA_IVECTOR(GrowparsLink); dataset.GrowparsLink = GrowparsLink;
+  DATA_MATRIX(GrowparsPrior); dataset.GrowparsPrior = GrowparsPrior;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;
   DATA_SCALAR(Bias_Ramp_Yr3); dataset.Bias_Ramp_Yr3 = Bias_Ramp_Yr3;

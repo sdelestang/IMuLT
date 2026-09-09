@@ -85,8 +85,21 @@ AdjustPhase()
 # After running multiple models including diagnostics to compare model runs.
 compare_legal_biomass()
 
-# To Produce a word document of a certain run  
+# To conduct Likelihood Profile on a parameter
+ProfileLT("Parameter Name")
+
+# To conduct Jitter analysis on starting parameters
+JitterFit()
+
+# To conduct retrospective analysis
+RetroFit()
+
+# To Run model projections
+ProjectModel()
+
+# To produce a word document of a certain run's output plots  
 WriteWord()
+
 ```
 
 For quick reference anytime:

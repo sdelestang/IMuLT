@@ -408,10 +408,17 @@ print("Building Control File")
 
 #### Growth file ####
     print("Building Growth File")
-    growth <- readWorkbook(wb,sheet='Growth', startRow = 2) %>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
+    growth <- readWorkbook(wb,sheet='Growth', startRow = 2)
+    ## Check if pars provided
+    IsGPars <- ifelse(length(growth$est[!is.na(growth$est)])>0, 1, 0)
+    if(IsGPars) {
+      gpars <- growth %>% dplyr::select(lower,upper,est,Phase,Link,UsePrior,Prior,Priorsd,description)
+          }
+    growth <- growth %>% dplyr::select(startseason,endseason,sex,area,tstep,grow,matrix) %>% filter(!is.na(startseason))
+    growth %<>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
     umat <- unique(growth$matrix)
     nstm <- length(umat)
-    growth2 <- growth %>% mutate(area = as.numeric(area) - min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix) %>% summarise(areas = paste(area,collapse = ","),Years = paste(Years,collapse = ","), .groups = "drop")
+    growth2 <- growth %>% filter(!is.na(startseason)) %>% mutate(area = as.numeric(area) - min(as.numeric(area))) %>% group_by(sex, tstep, grow, matrix) %>% summarise(areas = paste(area,collapse = ","),Years = paste(Years,collapse = ","), .groups = "drop")
     Sex <- growth2$sex-1
     Tstep <- as.numeric(growth2$tstep)
     Pointer <- 0:(nrow(growth2)-1)
@@ -455,28 +462,85 @@ print("Building Control File")
     tmp <- c(tmp, "# Sex of matrices\n",paste(gspec$Sex,collapse = "\t"),"\n")
 
     tmp <- c(tmp, "# Prespecified size-transition\n")
-    STM <- growth <- readWorkbook(wb,sheet='SizeTransMatricesNew', startRow = 2, colNames = F)
-    STM[is.na(STM)] <- ''
 
-    lines <- unlist(STM$X1)  # labels are in X1
-    label_idx <- which(grepl("^# ", lines))
-    stm_list <- vector("list", length(umat))
-    names(stm_list) <- umat
-    nlbin <- length(lens)
-    for (r in 1:nstm) {
-      label_idx <- which(grepl(paste0("^# *", umat[r]), lines))
-	  if (length(label_idx) == 0)
-      {
-        stop(paste("Mismatch between STM labels in Growth and SizeTransMatricesNew sheets. Label: ",umat[r]))
-      }
+    ## If IsFPars then make STMs otherwise load them from the file pre-specified
+    if(IsGPars) {
+      lbinL <- lens
+      lbinM <- lens+(dynamics$value[dynamics$object=='lbgap']/2)
+      lbinU <- lens+(dynamics$value[dynamics$object=='lbgap'])
 
-      start <- label_idx + 1
-      mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]
-      tmp <- c(tmp,paste("\n# Matrix #",umat[r],"\n"))
-      for(rr in 1:nrow(mat_rows)){  tmp <- c(tmp,paste(round(as.numeric(mat_rows[rr,]),10),collapse = " "),"\n")
-    }}
+      ## Make STM and then load it to the file
+      for(st in 1:nstm) {
+        srt <- (st-1)*8+1
+        Pins <- gpars[srt:(srt+7),]
 
-    tmp <- c(tmp, "\n# Growth parameters\n#LB\tUP\tEstimate\tPhase\n")
+        ## Make Growth Vector
+        Amax <- exp(Pins$est[1])
+        P2   <- Pins$est[2]
+        P1   <- exp(Pins$est[3])
+        P3   <- exp(Pins$est[4])
+        P5   <- exp(Pins$est[5])
+        scale =  -1 / Pins$est[8]
+        loc   = -Pins$est[7] / Pins$est[8]
+
+        xdev  <- lbinM - P2
+        grow1 <- 1 / (1 + exp(xdev / P1))
+        grow2 <- 1 / (1 + exp(xdev / P3))
+        swap1 <- 1 / (1 + exp(xdev / P5))
+        swap2 <- 1 - swap1
+        growthvec <- Amax * (grow1 * swap1 + grow2 * swap2)
+
+        ## Make STM
+        nlbin <- length(lens)
+        STM <- matrix(0, ncol=nlbin, nrow=nlbin)
+        for (fm in 1:nlbin) {
+          mn_growth <- growthvec[fm]
+          sd_growth <- exp(Pins$est[6]) * mn_growth
+          Pmoult  <- 1/(1+exp((lbinM[fm]-loc)/scale))
+
+          probs <- rep(0, nlbin)
+          for (k in fm:(nlbin - 1)) {
+            probs[k] <- pnorm(lbinU[k], lbinM[fm] + mn_growth, sd_growth) - pnorm(lbinL[k], lbinM[fm] + mn_growth, sd_growth)
+          }
+          probs[nlbin] <- 1 - pnorm(lbinL[nlbin], lbinM[fm] + mn_growth, sd_growth)
+          probs_norm <- probs[fm:nlbin] / sum(probs[fm:nlbin])
+          STM[fm:nlbin, fm] <- Pmoult * probs_norm
+          STM[fm, fm] <- STM[fm, fm] + (1 - Pmoult)
+        }
+
+        ## Load each STM to the file
+        tmp <- c(tmp,paste("\n# Matrix #",umat[st],"\n"))
+        for(rr in 1:nlbin){  tmp <- c(tmp,paste(round(as.numeric(STM[rr,]),10),collapse = " "),"\n")      }
+    } }
+
+
+    if(!IsGPars){
+      STM <- growth <- readWorkbook(wb,sheet='SizeTransMatricesNew', startRow = 2, colNames = F)
+      STM[is.na(STM)] <- ''
+
+      lines <- unlist(STM$X1)  # labels are in X1
+      label_idx <- which(grepl("^# ", lines))
+      stm_list <- vector("list", length(umat))
+      names(stm_list) <- umat
+      nlbin <- length(lens)
+      for (r in 1:nstm) {
+        label_idx <- which(grepl(paste0("^# *", umat[r]), lines))
+  	  if (length(label_idx) == 0)
+        {
+          stop(paste("Mismatch between STM labels in Growth and SizeTransMatricesNew sheets. Label: ",umat[r]))
+        }
+
+        start <- label_idx + 1
+        mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]
+        tmp <- c(tmp,paste("\n# Matrix #",umat[r],"\n"))
+        for(rr in 1:nrow(mat_rows)){  tmp <- c(tmp,paste(round(as.numeric(mat_rows[rr,]),10),collapse = " "),"\n")
+      }}
+
+  }
+    tmp <- c(tmp, "\n# Growth parameters\n","# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
+    if(IsGPars) {
+      for(rr in 1:nrow(gpars)){  tmp <- c(tmp,paste(gpars[rr,],collapse = " "),"\n") }
+                }
 
     tmp <- c(tmp, "\n# Final check\n123456")
 

@@ -1732,7 +1732,9 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   write("Specifications for growth",EchoFile,append=T)
   write(t(GrowthSpecs),EchoFile,append=T,ncol=6)
 
-  NgrowthPars <- 0
+  Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+2;
+  ## CHeck if there are growthpars
+  NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+7),1])))==0, NgrowthPatterns*8, 0)
   write(paste("Number of growth parameters",NgrowthPars),EchoFile,append=T,ncol=3+GeneralSpecs$Nsex)
 
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Specifications",Char3="for")+2;  #  Changed from 3 to 2 as there was some erroneous text in original growth file
@@ -2266,6 +2268,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  }
  if(is.na(sum(PuerPowPars))) { warning("\nThere are NA's in Puerulus Pars\n", call. = FALSE); OK <- 0   }
 
+ Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+1;
  NlenGr <- max(1,GrowthSpecs$NgrowthPars)
  GrowthPars <- rep(0,NlenGr)
  GrowthBnd <- matrix(0,nrow=NlenGr,ncol=2)
@@ -2279,9 +2282,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
      GrowthBnd[Ipar,2] <- as.numeric(GrowthFile[Index+Ipar,2])
      GrowthPhase[Ipar] <- as.numeric(GrowthFile[Index+Ipar,4])
    }
-  }
- else
-  GrowthPhase[1] <- -100
+  }  else  GrowthPhase[1] <- -100
  if(is.na(sum(GrowthPars))) { warning("\nThere are NA's in Growth Pars\n", call. = FALSE); OK <- 0   }
 
  Index <- MatchTable(MoveFile,Char1="#",Char2="Movement",Char3="parameters")+1;

@@ -495,7 +495,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   sel_wide <- cbind(sel_wide, sel_mat[sel_wide$link + 1, sel_lb_cols, drop = FALSE])
   sel_wide$descrip <- fleets$description[match(sel_wide$fleet, fleets$fleet - 1)]
 
-  print(names(sel_wide))
   .plot_hist_curve(sel_wide, sel_lb_cols, "Selectivity", "Selectivity_Retention",
                    "Selectivity of the gear applied by the model, by fleet.",
                    "Selectivity_by_fleet", name_col = "name")

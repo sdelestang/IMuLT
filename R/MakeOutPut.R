@@ -1700,6 +1700,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         grepl("^MovePars_",    Parameter) ~ MigrateParName[.idx],
         grepl("^SelPars_",     Parameter) ~ SelectParName[.idx],
         grepl("^RecDevs_",     Parameter) ~ RDevName[.idx],
+        grepl("^GrowthPars_",     Parameter) ~ RDevName[.idx],
         TRUE ~ Parameter
       )
     ) %>%

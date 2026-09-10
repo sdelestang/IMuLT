@@ -487,7 +487,7 @@ LoadPars <- function(aask=''){
     RecDevs     = list(phase = InitialVars$RecDevs$Phase,       link = NULL),
     EffPars     = list(phase = InitialVars$efpars$Phase,        link = Data$EffparsLink),
     RecSpatDevs = list(phase = InitialVars$RecSpatDevs$Phase,   link = NULL),
-    MovePars    = list(phase = InitialVars$MovePars$Phase,      link = Data$MoveparsLink)#,
+    MovePars    = list(phase = InitialVars$MovePars$Phase,      link = Data$MoveparsLink),
     GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = Data$GrowparsLink)
   )
   par_summary <- do.call(rbind, lapply(names(par_info), function(grp) {

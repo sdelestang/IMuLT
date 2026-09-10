@@ -210,8 +210,13 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
   SelectParName <- GetSelectParNames(selx)
-  GrowthParName <- rep(readWorkbook(wb,sheet='Growth', startRow = 2)$matrix,8)
-  GrowthParName <- paste0('Grow_',GrowthParName,readWorkbook(wb,sheet='Growth', startRow = 2)$matrix)
+
+  growth_sheet <- readWorkbook(wb, sheet='Growth', startRow = 2)
+  growth_ptr   <- growth_sheet %>% filter(!is.na(startseason))
+  umat         <- unique(growth_ptr$matrix)
+  GrowthParPerPattern <- c("AveGrowth", "Inflection", "Slope1", "Slope2",
+                           "SlopeSwap", "LsigGorw", "Pmoultinf", "Pmoultslp")
+  GrowthParName <- paste0('Grow_', rep(umat, each = 8), '_', GrowthParPerPattern)
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))

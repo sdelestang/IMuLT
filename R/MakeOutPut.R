@@ -210,6 +210,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
   SelectParName <- GetSelectParNames(selx)
+  GrowthParName <- rep(readWorkbook(wb,sheet='Growth', startRow = 2)$matrix,8)
+  GrowthParName <- paste0('Grow_',GrowthParName,readWorkbook(wb,sheet='Growth', startRow = 2)$matrix)
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
@@ -415,9 +417,13 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   # ── Helper: build a readable label from a data frame of metadata rows ────────
-  # (columns expected: sex, age, year, tstep -- one row per instance the
-  # curve applied to; collapses each dimension to a compact range/list)
-  .make_label <- function(df) {
+  .make_label <- function(df, name_col = NULL) {
+    if (!is.null(name_col) && name_col %in% names(df)) {
+      nm  <- paste(unique(df[[name_col]]), collapse = " / ")
+      uv  <- sort(unique(df$year))
+      yrs <- if (length(uv) == 1) paste0("Year ", uv) else paste0("Years ", .collapse_ranges(uv))
+      return(paste0(nm, " | ", yrs))
+    }
     dims <- list(Sex = df$sex, Age = df$age, Year = df$year, Tstep = df$tstep)
     parts <- mapply(function(nm, vals) {
       uv <- sort(unique(vals))
@@ -428,20 +434,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   # ── Helper: hash a matrix of length-bin values into a curve identity ─────────
-  # Two rows with identical values (to 8dp) are treated as the same curve --
-  # this is how "does this fleet's pattern vary by year/tstep/sex" gets
-  # detected automatically, without needing separate pointer/link bookkeeping.
   .curve_id_hash <- function(mat) {
     apply(round(as.matrix(mat), 8), 1, function(r) paste(r, collapse = "_"))
   }
 
   # ── Unified plotter: one grid (facet_wrap(~descrip)), coloured by curve.
-  # When a fleet's curve never varies (the common case), each panel shows a
-  # single flat-coloured line -- identical in spirit to the projection report's
-  # .plot_proj_curve(). When it does vary (by year/tstep/sex), multiple
-  # coloured lines appear within that one panel, labelled with the range each
-  # applies to -- avoiding a combinatorial explosion of separate plots.
-  .plot_hist_curve <- function(df, lb_cols, value_label, category, caption, filename_stub) {
+  .plot_hist_curve <- function(df, lb_cols, value_label, category, caption, filename_stub, name_col = NULL) {
     if (nrow(df) == 0) return(invisible(NULL))
     df$curve_id <- .curve_id_hash(df[, lb_cols, drop = FALSE])
 
@@ -452,7 +450,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       mutate(lbin_mm = lbin[bin_idx])
 
     lbl <- df %>% group_by(curve_id) %>%
-      group_map(~ data.frame(curve_id = .y$curve_id, label = .make_label(.x))) %>%
+      group_map(~ data.frame(curve_id = .y$curve_id, label = .make_label(.x, name_col))) %>%
       bind_rows()
     long <- left_join(long, lbl, by = "curve_id")
 
@@ -470,8 +468,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   # ── Selectivity: expand the pattern table (sel) into per-fleet/sex/age/year/
-  # tstep rows via the link/pointer table (fleet3), matching how the model
-  # itself resolves SelPnt -> ActSelex (link+1 = row, 0-indexed pointer). ──────
   fleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), selx, 1, char=F)
   sel <- findNclean(c('Full','Selectivity'), dat, 1)
   sel <- sel[,2:ncol(sel)]
@@ -492,14 +488,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   .plot_hist_curve(sel_wide, sel_lb_cols, "Selectivity", "Selectivity_Retention",
                    "Selectivity of the gear applied by the model, by fleet.",
-                   "Selectivity_by_fleet")
+                   "Selectivity_by_fleet", name_col = "comment")
 
   # ── High-grading: Output.RL's "#Retention" block is a genuine, separate,
-  # compact pattern table (flat proportion across all bins) -- pointed to by
-  # RETENSPEC.DAT via ReadRetenFile()'s RetPnt, structurally mirroring how
-  # SELEXSPEC.DAT points into "#Full Selectivity". Note RETENSPEC.DAT's
-  # header names this column "Step" (no colon), unlike SELEXSPEC.DAT's
-  # "Step:". ─────────────────────────────────────────────────────────────
   retfleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), retenx, 1, char=F)
   hgpat <- findNclean('#Retention', dat, 1)
   hgpat <- hgpat[,2:ncol(hgpat)]
@@ -518,13 +509,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                    "HighGrading_by_fleet")
 
   # ── Legal size: Output.RL's "#Legal Selectivity by sex age fleet year
-  # tstep" block is a binary (0/1) step function, already fully expanded per
-  # fleet/sex/age/year/tstep -- no pointer/link resolution needed. NOTE this
-  # block's sex/age/fleet/tstep are 1-indexed, unlike sel_wide/hg_wide (which
-  # inherit 0-indexing from SELEXSPEC.DAT/RETENSPEC.DAT) -- converting to
-  # 0-based here so all three tables share one convention, both for the
-  # Combined join below and for the descrip lookup (which already assumes
-  # 0-based via fleets$fleet - 1). ──────────────────────────────────────────
   legal_wide <- findNclean(c('#Legal','Selectivity','by','sex'), dat, 1)
   names(legal_wide) <- c('sex', 'age', 'fleet', 'year', 'tstep',
                          paste0('lb', 1:(ncol(legal_wide) - 5)))
@@ -540,9 +524,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                    "Legal-size assignment applied by the model, by fleet.",
                    "LegalSize_by_fleet")
 
-  # ── Combined: Selectivity x High-grading x Legal size, joined on
-  # (fleet, sex, age, year). tstep is taken from the legal-size side, since
-  # that's the most finely time-resolved of the three. ─────────────────────
+  # ── Combined: Selectivity x High-grading x Legal size
   join_keys <- c("fleet", "sex", "age", "year")
   sel_for_join <- sel_wide %>% dplyr::select(all_of(join_keys), descrip, all_of(sel_lb_cols)) %>%
     rename_with(~ paste0(.x, "_sel"), all_of(sel_lb_cols))
@@ -1700,7 +1682,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
         grepl("^MovePars_",    Parameter) ~ MigrateParName[.idx],
         grepl("^SelPars_",     Parameter) ~ SelectParName[.idx],
         grepl("^RecDevs_",     Parameter) ~ RDevName[.idx],
-        grepl("^GrowthPars_",     Parameter) ~ RDevName[.idx],
+        grepl("^GrowthPars_",  Parameter) ~ GrowthParName[.idx],
         TRUE ~ Parameter
       )
     ) %>%

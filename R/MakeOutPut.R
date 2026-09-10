@@ -889,10 +889,14 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ### Index/CPUE tuning summary ###
   print("Making Index Tuning Table")
   cpue_tune <- findNclean(c('Data_set','N','Sigma'), dat, 1)
-  cpue_q    <- findNclean(c('Data_set','N','Q'), dat, 1)
-
-  index_tab <- merge(cpue_tune, cpue_q[,c('Data_set','Q')], by = 'Data_set', all.x = TRUE)
+  cpue_raw  <- findNclean(c('Index','data'), dat, 2)
+  cpue_self <- EstimateCpueSelfRMS(cpue_raw)
+  index_tab <- merge(cpue_tune, cpue_self[,c('Data_set','selfRMS','dof')], by = 'Data_set', all.x = TRUE)
   index_tab <- index_tab[order(index_tab$Data_set), ]
+  min_dof <- 5
+  index_tab$Ratio <- ifelse(index_tab$dof >= min_dof,
+                            index_tab$Sigma_used / index_tab$selfRMS, NA)
+  index_tab$SuggestedLambdaMult <- round(index_tab$Ratio^2, 2)
   for (cc in setdiff(names(index_tab), 'Data_set')) {
     suppressWarnings(index_tab[[cc]] <- round(index_tab[[cc]], 3))
   }
@@ -903,7 +907,10 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addtable(intable=index_tab, filen=filen, rundir=rundir, category="Index",
            caption=paste("CPUE tuning by data series: self-tuned sigma, sigma actually used in",
                          "the likelihood after the floor/ceiling blend, likelihood contribution,",
-                         "lambda weighting, and fitted catchability (Q)."))
+                         "lambda weighting, model-independent self-consistency (selfRMS, from a",
+                         "smooth trend fit to the raw index alone), and a suggested LambdaCpue2",
+                         "multiplier (Sigma_used/selfRMS)^2 -- blank where the series has too few",
+                         "points (dof < 5) for selfRMS to be reliable."))
 
   #### Fishing Efficiency ####
   print("Making Fishing Efficiency")

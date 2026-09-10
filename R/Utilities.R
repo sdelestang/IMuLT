@@ -282,3 +282,26 @@ EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
   # }
   ceiling
 }
+
+## Model-independent self-consistency check, same method used to derive
+## SigmaCpueCeiling in Filebuilder: fit each series' log(Observed) to a
+## low-order polynomial trend in Year (no population model involved), and
+## compute the RMS of residual/Relative_CV -- the same statistic Sigma
+## computes, but against a smooth trend instead of the fitted model. The
+## gap between Sigma_used and this tells you how much of a series' capped
+## resistance is genuine index noise vs. still-unresolved model tension.
+EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
+  cpue_raw %>%
+    group_by(Data_set) %>%
+    group_modify(~{
+      d <- .x %>% arrange(Year)
+      n <- nrow(d)
+      if (n < 3) return(data.frame(n = n, dof = NA_real_, selfRMS = NA_real_))
+      deg <- min(3, max(1, floor((n - 2) / 3)))
+      deg <- min(deg, n - 2)
+      fit <- lm(log(d$Observed) ~ poly(d$Year, deg, raw = TRUE))
+      dof <- n - (deg + 1)
+      data.frame(n = n, dof = dof,
+                 selfRMS = sqrt(mean((residuals(fit) / d$Relative_CV)^2)))
+    }) %>% ungroup()
+}

@@ -130,6 +130,7 @@ struct TheData{
   vector<int> EffCrIndCpue;
   vector<int> EffCrLag;
   Type SigmaCpueOffset;
+  Type SigmaCpueCeiling;
   int NcatchDataSeries;
   vector<int> FixSigmaCatchN;
   Type SigmaCatchNOffset;

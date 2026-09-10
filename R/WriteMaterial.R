@@ -568,21 +568,26 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Data_set Fleet Sex Year Time_step Observed Relative_CV Predicted Residual",OutputFile,append=T)
   ResCpue <- matrix(0,nrow=TheData$Ncpue,ncol=9)
   for (Ipnt in 1:TheData$Ncpue)
-   {
+  {
     ResCpue[Ipnt,] <- c(TheData$IndexI[Ipnt,]+c(1,1,0,GeneralSpecs$Year1,1),TheData$IndexR[Ipnt,],Report$PredCpue[Ipnt,])
-   }
+  }
   write(t(ResCpue),OutputFile,ncol=9,append=T)
-  write("\n#Data_set N Sigma Likelihood",OutputFile,append=T)
+  write("\n#Data_set N Sigma Sigma_used Likelihood Lambda",OutputFile,append=T)
   for (IdataSet in (0:(Data$NcpueDataSeries-1)))
-   {
+  {
     IndexPoints <- which(TheData$FixSigmaCpue==IdataSet)-1
     if (length(IndexPoints) >0)
-     {
+    {
       Use <- TheData$IndexI[,1] %in% IndexPoints
-      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaCpue[IdataSet+1],Report$CpueLikeComp[IdataSet+1],Report$LambdaCpue2[IdataSet+1])
+      # Sigma is the raw self-tuned MLE (sqrt(SS/N)); Sigma_used is what
+      # actually entered the likelihood after the floor/ceiling blend --
+      # the gap between the two shows how hard either is biting for this
+      # series (e.g. Sigma_used sitting right at SigmaCpueCeiling flags a
+      # series the model was inflating away from a defensible CV).
+      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaCpue[IdataSet+1],Report$SigmaCpueUse[IdataSet+1],Report$CpueLikeComp[IdataSet+1],Report$LambdaCpue2[IdataSet+1])
       write(Summ,OutputFile,append=T)
     }
-   }
+  }
   write("\n#Data_set N Q",OutputFile,append=T)
   for (IdataSet in (0:(Data$NcpueDataSeries-1)))
   {

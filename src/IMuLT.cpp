@@ -894,9 +894,11 @@ template <class Type>
 Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, array<Type> &Z,
                     matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
                     matrix<Type> &WeightLen, matrix<Type> &PredCpue,
-                    vector<Type> &CpueLikeComps, vector<Type> &SigmaCpue, vector<Type> &Qval, matrix<Type> &CpueEcreep, vector<Type> &Qpars, vector<Type> &efpars,matrix<Type> M, Type QRedsPar) {
+                    vector<Type> &CpueLikeComps, vector<Type> &SigmaCpue, vector<Type> &SigmaCpueUse,
+                    vector<Type> &Qval, matrix<Type> &CpueEcreep, vector<Type> &Qpars, vector<Type> &efpars,
+                    matrix<Type> M, Type QRedsPar) {
 
-  Type selexFU,retainFU,selretwght,SigmaUse,ScaleRedQ;
+  Type selexFU,retainFU,selretwght,ScaleRedQ;
   int Ifleet,Jsex,Iyear,Istep,IdataSet,IndexPoint,IndexPoint2;
   int PntCnt,Iarea,Isex1,Isex2;
   int SelPointer,RetPointer,LegalPointer,IenvPnt;
@@ -988,11 +990,14 @@ Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, 
     {
       // Note that this account for the minimum sigma
       SigmaCpue(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
-      SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
+      Type SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
       SigmaUse = SigmaCpue(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
+      Type CeilDiff = SigmaUse - thedata.SigmaCpueCeiling;
+      SigmaUse = SigmaUse - CeilDiff/(1.0+exp(-10.0*CeilDiff));
+      SigmaCpueUse(IdataSet) = SigmaUse;
       CpueLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
       NeglogLikelihood += thedata.LambdaCpue2(IdataSet)*CpueLikeComps(IdataSet);
-    }
+      }
   return(NeglogLikelihood);
 
 }
@@ -2059,6 +2064,7 @@ Type objective_function<Type>::operator() ()
   DATA_IVECTOR(EffCrLag); thedata.EffCrLag = EffCrLag;
   DATA_IVECTOR(TreatQcpue); thedata.TreatQcpue = TreatQcpue;
   DATA_SCALAR(SigmaCpueOffset); thedata.SigmaCpueOffset = SigmaCpueOffset;
+  DATA_SCALAR(SigmaCpueCeiling); thedata.SigmaCpueCeiling = SigmaCpueCeiling;
   DATA_INTEGER(LarvalLikeOpt); thedata.LarvalLikeOpt = LarvalLikeOpt;
   DATA_INTEGER(Larval_Offset); thedata.Larval_Offset = Larval_Offset;
   DATA_INTEGER(NLarvalData); thedata.NLarvalData = NLarvalData;
@@ -2088,18 +2094,15 @@ Type objective_function<Type>::operator() ()
   DATA_INTEGER(NcatchDataSeries); thedata.NcatchDataSeries = NcatchDataSeries;
   DATA_IVECTOR(FixSigmaCatchN); thedata.FixSigmaCatchN = FixSigmaCatchN;
   DATA_SCALAR(SigmaCatchNOffset); thedata.SigmaCatchNOffset = SigmaCatchNOffset;
-
   DATA_MATRIX(WeightLen);
   DATA_MATRIX(SelexFI);
   DATA_MATRIX(RetenFI);
   DATA_MATRIX(LegalFI);
-
   DATA_INTEGER(Nzone);
   DATA_IVECTOR(NareasPerZone);
   DATA_IMATRIX(AreasPerZone);
   DATA_IARRAY(LegalPnt);
   DATA_MATRIX(LegalRef);
-
   DATA_INTEGER(NvarTypes);
   DATA_IVECTOR(VarTypes);
 
@@ -2453,6 +2456,7 @@ Type objective_function<Type>::operator() ()
   matrix<Type> PredLarval(NLarvalData,2);                                 // Predicted larval data and residuals
   vector<Type> CpueLikeComps(NcpueDataSeries);                            // Cpue likelihood by fleet
   vector<Type> SigmaCpue(NcpueDataSeries);                                // Sigmas
+  vector<Type> SigmaCpueUse(NcpueDataSeries);                             // Sigmas actually used in the likelihood (post floor/ceiling)
   vector<Type> CpueQ(NcpueDataSeries);                                    // Catchability
   matrix<Type> CpueEcreep(Nyear+MaxProjYr+1,EffCrLag.size());
   vector<Type> NumbersLikeComps(NcatchDataSeries);                        // Numbers likelihood by series
@@ -2844,7 +2848,7 @@ if(thedata.IsTagData==1){
 
   CatchLike = CatchLikelihood(dataset,thedata, N,Z,Hrate,ActSelex,ActReten,ActLegal, WeightLen, CatchCheck,QRedsPar);
   NumbersLike = NumbersLikelihood(dataset,thedata, N,Z,Hrate,ActSelex,ActReten,ActLegal, WeightLen, PredNumbers, NumbersLikeComps,SigmaNumbers,QRedsPar);
-  CpueLike = CpueLikelihood(dataset,thedata, N, Z, ActSelex, ActReten,ActLegal, WeightLen, PredCpue, CpueLikeComps,SigmaCpue,CpueQ,CpueEcreep,Qpars,efpars,M,QRedsPar);
+  CpueLike = CpueLikelihood(dataset,thedata, N, Z, ActSelex, ActReten,ActLegal, WeightLen, PredCpue,CpueLikeComps, SigmaCpue, SigmaCpueUse, CpueQ, CpueEcreep, Qpars, efpars, M, QRedsPar);
   LengthLike = LengthLikelihood(dataset,thedata, N,ActSelex,ActReten,ActLegal,  PredLengthComp,LengthLikeComps,Select,QRedsPar);
   LarvalLike = LarvalLikelihood(dataset,thedata, RecruitmentByArea,PuerulusByArea,PredLarval,LarvalLikeComps,PuerPowPars);
 
@@ -3010,6 +3014,7 @@ if(thedata.IsTagData==1){
   	REPORT(LarvalLike)
   	REPORT(LarvalLikeComps);
   	REPORT(SigmaCpue);
+  	REPORT(SigmaCpueUse);
   	REPORT(CpueQ);
   	REPORT(PredNumbers);
   	REPORT(SigmaNumbers);

@@ -881,6 +881,25 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 
+  ### Index/CPUE tuning summary ###
+  print("Making Index Tuning Table")
+  cpue_tune <- findNclean(c('Data_set','N','Sigma'), dat, 1)
+  cpue_q    <- findNclean(c('Data_set','N','Q'), dat, 1)
+
+  index_tab <- merge(cpue_tune, cpue_q[,c('Data_set','Q')], by = 'Data_set', all.x = TRUE)
+  index_tab <- index_tab[order(index_tab$Data_set), ]
+  for (cc in setdiff(names(index_tab), 'Data_set')) {
+    suppressWarnings(index_tab[[cc]] <- round(index_tab[[cc]], 3))
+  }
+  row.names(index_tab) <- 1:nrow(index_tab)
+  index_tab[is.na(index_tab)] <- ''
+
+  filen <- "Index_Tuning.csv"
+  addtable(intable=index_tab, filen=filen, rundir=rundir, category="Index",
+           caption=paste("CPUE tuning by data series: self-tuned sigma, sigma actually used in",
+                         "the likelihood after the floor/ceiling blend, likelihood contribution,",
+                         "lambda weighting, and fitted catchability (Q)."))
+
   #### Fishing Efficiency ####
   print("Making Fishing Efficiency")
   filename <- filenametopath(rundir,paste0("Fishing_Efficiency.png"))

@@ -880,15 +880,15 @@ BuildInputFiles <- function(end_override = NULL){
   #### Retainment file ####
   print("Building Retain/Discard File")
 
-  hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, area, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.01)*0.01)
+  hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, fleet, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.01)*0.01)
   hglist <- sort(unique(c(hgrad$propfl,1)))
-  hgrad99 <- hgrad %>% filter(area==99)
+  hgrad99 <- hgrad %>% filter(fleet==99)
 
   dat <- expand.grid(sex=sexs, age=(1:ages)-1, fleet=sort(unique(fleets$fleet))-1, step=sort(unique(times$tstep))-1)
   dat2 <- matrix(length(hglist)-1, nrow=nrow(dat), ncol=length(startseason:endseason))
   for(r in 1:nrow(hgrad)){
-    if(hgrad$area[r]==99) fl <- fleets$fleet[fleets$group=='comm']-1
-    if(hgrad$area[r]!=99) fl <- fleets$fleet[fleets$group=='comm' & fleets$newarea==hgrad$area[r]]-1
+    if(hgrad$fleet[r]==99) fl <- fleets$fleet-1
+    if(hgrad$fleet[r]!=99) fl <- hgrad$fleet[r]-1
     dat2[dat$fleet%in%fl & dat$step==(hgrad$tstep[r]-1),(startseason:endseason)==hgrad$season[r]]  <- which(hglist==hgrad$propfl[r])-1}
 
   dat <- cbind(dat,dat2)

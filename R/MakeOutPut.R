@@ -493,7 +493,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   print(names(sel_wide))
   .plot_hist_curve(sel_wide, sel_lb_cols, "Selectivity", "Selectivity_Retention",
                    "Selectivity of the gear applied by the model, by fleet.",
-                   "Selectivity_by_fleet", name_col = "comment")
+                   "Selectivity_by_fleet", name_col = "name")
 
   # ── High-grading: Output.RL's "#Retention" block is a genuine, separate,
   retfleet2 <- findNclean(c('#', 'Sex','Age', 'Fleet'), retenx, 1, char=F)

@@ -263,7 +263,7 @@ EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
     }) %>%
     ungroup()
 
-  if (verbose) print(selfRMS)
+  #if (verbose) print(selfRMS)
 
   reliable <- selfRMS %>% filter(dof >= min_dof)
   if (nrow(reliable) == 0) {
@@ -275,10 +275,10 @@ EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
   }
 
   ceiling <- max(max(reliable$selfRMS) * safety_factor, min_ceiling)
-  if (verbose) {
-    cat("Data-driven SigmaCpueCeiling:", round(ceiling, 3),
-        "(max selfRMS", round(max(reliable$selfRMS), 3),
-        "x safety factor", safety_factor, ")\n")
-  }
+  # if (verbose) {
+  #   cat("Data-driven SigmaCpueCeiling:", round(ceiling, 3),
+  #       "(max selfRMS", round(max(reliable$selfRMS), 3),
+  #       "x safety factor", safety_factor, ")\n")
+  # }
   ceiling
 }

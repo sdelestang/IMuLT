@@ -212,7 +212,7 @@ BuildInputFiles <- function(end_override = NULL){
   tmp <- c(tmp, "\n# Efficiency creep (value points to index, 0 = no index)\n", paste(effcreep, collapse=" "))
   tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
   tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
-  tmp <- c(tmp, "# Maximum sigma\n", round(SigmaCpueCeiling, 3), "\n")
+  tmp <- c(tmp, "\n# Maximum sigma\n", round(SigmaCpueCeiling, 3))
   #Size of cpue data
   tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
 
@@ -888,7 +888,7 @@ BuildInputFiles <- function(end_override = NULL){
   dat2 <- matrix(length(hglist)-1, nrow=nrow(dat), ncol=length(startseason:endseason))
   for(r in 1:nrow(hgrad)){
     if(hgrad$area[r]==99) fl <- fleets$fleet[fleets$group=='comm']-1
-    if(hgrad$area[r]!=99) fl <- fleets$fleet[fleets$group=='comm' & fleets$newarea==hgrad$oldarea[r]]-1
+    if(hgrad$area[r]!=99) fl <- fleets$fleet[fleets$group=='comm' & fleets$newarea==hgrad$area[r]]-1
     dat2[dat$fleet%in%fl & dat$step==(hgrad$tstep[r]-1),(startseason:endseason)==hgrad$season[r]]  <- which(hglist==hgrad$propfl[r])-1}
 
   dat <- cbind(dat,dat2)

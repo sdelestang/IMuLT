@@ -4,7 +4,7 @@
 \alias{ReadProjFile}
 \title{Parse Projection Specifications from PROJSPEC.DAT}
 \usage{
-ReadProjFile(ProjFile, GeneralSpecs, Phi1, Catch1)
+ReadProjFile(ProjFile, GeneralSpecs, Phi1, Catch1, Echo = TRUE)
 }
 \arguments{
 \item{ProjFile}{Data frame from read.table() of PROJSPEC.DAT}

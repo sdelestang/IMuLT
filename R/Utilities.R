@@ -222,3 +222,63 @@ GetSelectParNames <- function(selx){
 
   paste0('Sel_', trimws(raw_comment))
 }
+
+#### Determine data-driven ceiling for CPUE sigma (SigmaCpueCeiling) ####
+## SigmaCpue (and SigmaCpueUse, which this ceiling caps) is a
+## dimensionless multiplier on the input CV -- see IMuLT.cpp's
+## CpueLikelihood(): the residual it computes is log(obs/pred)/CV_input,
+## and SigmaCpue = sqrt(mean(residual^2)) is the RMS of that ratio, so
+## SigmaCpue ~= 1 means the input CVs already explain the year-to-year
+## noise. A ceiling picked once by hand risks clipping genuine index
+## noise in a future dataset where that noise happens to be larger, or
+## being needlessly loose where it's smaller -- so this derives it fresh
+## from Udat every time Filebuilder runs.
+##
+## For each CpueInd (the same grouping "Treatment of sigma" uses), fits
+## log(Index) to a low-order polynomial trend in Year with no population
+## model involved at all, and computes the RMS of residual/CV -- the same
+## statistic SigmaCpue computes, but against a smooth trend instead of a
+## fitted model. That's a model-independent floor on plausible extra
+## variance: even a population model fitting a series perfectly on trend
+## would still show at least this much SigmaCpue, purely from index
+## noise. Series with too few points (dof < min_dof) are excluded from
+## driving the ceiling -- with only a couple of residual degrees of
+## freedom the estimate is too noisy to be informative either way.
+EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
+                                     min_ceiling = 1.5, verbose = TRUE) {
+
+  selfRMS <- Udat %>%
+    group_by(CpueInd) %>%
+    group_modify(~{
+      d <- .x %>% arrange(Year)
+      n <- nrow(d)
+      logidx <- log(d$Index)
+      deg <- min(3, max(1, floor((n - 2) / 3)))
+      deg <- min(deg, n - 2)
+      fit <- lm(logidx ~ poly(d$Year, deg, raw = TRUE))
+      resid_std <- residuals(fit) / d$CV
+      dof <- n - (deg + 1)
+      data.frame(n = n, deg = deg, dof = dof,
+                 selfRMS = sqrt(mean(resid_std^2)))
+    }) %>%
+    ungroup()
+
+  if (verbose) print(selfRMS)
+
+  reliable <- selfRMS %>% filter(dof >= min_dof)
+  if (nrow(reliable) == 0) {
+    warning("No CPUE series has enough points (dof >= ", min_dof, ") to ",
+            "estimate a data-driven SigmaCpueCeiling -- falling back to ",
+            min_ceiling, ". Lower min_dof, or set the ceiling by hand for ",
+            "this run.")
+    return(min_ceiling)
+  }
+
+  ceiling <- max(max(reliable$selfRMS) * safety_factor, min_ceiling)
+  if (verbose) {
+    cat("Data-driven SigmaCpueCeiling:", round(ceiling, 3),
+        "(max selfRMS", round(max(reliable$selfRMS), 3),
+        "x safety factor", safety_factor, ")\n")
+  }
+  ceiling
+}

@@ -197,7 +197,7 @@ BuildInputFiles <- function(end_override = NULL){
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
   Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd)) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
   Udat %<>% mutate(Sex=adjsex(Sex, nsex,section='CPUE'))
-
+  SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
   cpuenumbers <- unique(Udat$CpueInd)
 
   ## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8
@@ -212,6 +212,7 @@ BuildInputFiles <- function(end_override = NULL){
   tmp <- c(tmp, "\n# Efficiency creep (value points to index, 0 = no index)\n", paste(effcreep, collapse=" "))
   tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
   tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
+  tmp <- c(tmp, "# Maximum sigma\n", round(SigmaCpueCeiling, 3), "\n")
   #Size of cpue data
   tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
 

@@ -446,6 +446,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   EffCrIndCpue  <- as.numeric(DataFile[Index+12,1:NcpueDataSeries]);
   EffCrLag  <- as.numeric(DataFile[Index+14,1:max(EffCrIndCpue)]);
   SigmaCpueOffset <- as.numeric(DataFile[Index+16,1]);
+  SigmaCpueCeiling <- as.numeric(DataFile[Index+18,1]);
   Index <- MatchTable(DataFile,Char1="#",Char2="The",Char3="cpue",Char4="data"); Ncpue  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   write(paste("Number of cpue points",Ncpue),EchoFile,append=T)
   IndexI <- matrix(0,nrow=Ncpue,ncol=5)
@@ -567,6 +568,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   ReturnObj$IndexType <- IndexType
   ReturnObj$FixSigmaCpue <- FixSigmaCpue
   ReturnObj$SigmaCpueOffset <- SigmaCpueOffset
+  ReturnObj$SigmaCpueCeiling <- SigmaCpueCeiling
   ReturnObj$TreatQcpue <- TreatQcpue
   ReturnObj$EnvIndCpue <- EnvIndCpue
   ReturnObj$EffCrIndCpue <- EffCrIndCpue

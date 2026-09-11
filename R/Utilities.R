@@ -305,3 +305,25 @@ EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
                  selfRMS = sqrt(mean((residuals(fit) / d$Relative_CV)^2)))
     }) %>% ungroup()
 }
+
+
+.diagnose_singular_hessian <- function(H, g, pnames, n_report = 6) {
+  eig <- tryCatch(eigen(H, symmetric = TRUE), error = function(e) NULL)
+  if (is.null(eig)) {
+    cat("    (could not eigen-decompose H for diagnostics)\n")
+    return(invisible(NULL))
+  }
+
+  min_idx  <- which.min(eig$values)
+  loadings <- eig$vectors[, min_idx]
+  ord      <- order(abs(loadings), decreasing = TRUE)[seq_len(min(n_report, length(loadings)))]
+
+  cat(sprintf("    Smallest Hessian eigenvalue: %.3e (near-flat direction)\n", eig$values[min_idx]))
+  cat("    Parameters loading heaviest on that direction:\n")
+  for (i in ord) {
+    cat(sprintf("      %-15s loading = %+.4f | grad = %+.3e\n",
+                pnames[i], loadings[i], g[i]))
+  }
+  invisible(list(eigenvalues = eig$values, flat_loadings = loadings,
+                 ranked_index = ord, worst_par = pnames[ord[1]]))
+}

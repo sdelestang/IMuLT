@@ -987,7 +987,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             panel.border = element_rect(fill = NA, colour = "grey20"),
             axis.text.x = element_text(vjust = 0.0, angle = 0)) +
       scale_x_discrete('Area',breaks=1:nareas,labels=rec2$Nme, limits=as.character(c(1:6)))+
-      ylab('Relative mean recruitment')
+      ylab('Relative mean recruitment') + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
   )
   caption <- "Relative mean recruitment by area."
   addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
@@ -1002,7 +1002,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       theme(panel.background = element_rect(fill = "white",colour = NA),
             panel.border = element_rect(fill = NA, colour = "grey20"),
             axis.text.x = element_text(vjust = 0.0, angle = 0)) +
-      ylab('Recruitment (numbers)')
+      ylab('Recruitment (numbers)') + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
   )
   caption <- "Annual mean recruitment by area."
   addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
@@ -1018,7 +1018,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             panel.border = element_rect(fill = NA, colour = "grey20"),
             axis.text.x = element_text(vjust = 0.0, angle = 0)) +
       ylab('Recruitment (numbers)')+
-      facet_wrap(~Area)
+      facet_wrap(~Area) + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
   )
   caption <- "Annual mean recruitment by area with 95% CI."
   addplot(filen=filename,rundir=rundir,category="Recruitment",caption=caption)
@@ -1404,7 +1404,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     }
   }
 #### Model Outputs ####
-  ### Relative Legal Biomass by area
+  ### Relative Legal Biomass by area ###
   print("Making Legal Biomass")
   lb <- findNclean(c('#Legal','Biomass', 'by'), dat, 2, convert = 2)
   if(ncol(lb)==3) lb$se <- 0
@@ -1435,7 +1435,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           theme(panel.background = element_rect(fill = "white",colour = NA),
                 panel.border = element_rect(fill = NA, colour = "grey20"),
                 axis.text.x = element_text(vjust = 0.5, angle = 45))+
-          ylab('B/B0')+xlab('Year'))
+          ylab('B/B0')+xlab('Year')+
+          scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))))
   caption <- "Annual estimates of all Biomass relative to Virgin."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
 
@@ -1470,7 +1471,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           geom_point(size=0.75)+
           theme(panel.background = element_rect(fill = "white",colour = NA),
                 panel.border = element_rect(fill = NA, colour = "grey20"),
-                axis.text.x = element_text(vjust = 0.5, angle = 45)))
+                axis.text.x = element_text(vjust = 0.5, angle = 45))+
+          scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))))
 
   caption <- "Annual estimates (95% CI) of Legal Biomass (assignment of legal based on reference selectivity)."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
@@ -1486,7 +1488,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           facet_wrap(~areaname)+
           theme(panel.background = element_rect(fill = "white",colour = NA),
                 panel.border = element_rect(fill = NA, colour = "grey20"),
-                axis.text.x = element_text(vjust = 0.5, angle = 45)))
+                axis.text.x = element_text(vjust = 0.5, angle = 45)) +
+          scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05))))
 
   caption <- "Annual estimates (95% CI) of Legal Biomass (assignment of legal based on reference selectivity) in each model area."
   addplot(filen=filename,rundir=rundir,category="Biomass",caption=caption)
@@ -1579,7 +1582,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       theme(panel.background = element_rect(fill = "white",colour = NA),
             panel.border = element_rect(fill = NA, colour = "grey20"),
             axis.text.x = element_text(vjust = 0.5, angle = 45))+
-      ylab('Egg Production')
+      ylab('Egg Production') + scale_y_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.05)))
   )
 
   caption <- "Estimated relative egg production (95% CI) of the whole fishery."

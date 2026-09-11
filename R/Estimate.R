@@ -1479,7 +1479,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
               cat("  Newton step", ns, "failed (Hessian singular?):",
                   conditionMessage(e), "\n")
               if (exists("H", inherits = TRUE) && exists("g", inherits = TRUE)) {
-                .diagnose_singular_hessian(H, g, pnames)
+                .diagnose_singular_hessian(H, g, pnames, e = e)
               } else {
                 cat("    (H not yet computed — failure occurred before solve())\n")
               }

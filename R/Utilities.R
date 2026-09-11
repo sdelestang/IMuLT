@@ -307,7 +307,7 @@ EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
 }
 
 
-.diagnose_singular_hessian <- function(H, g, pnames, n_report = 6) {
+.diagnose_singular_hessian <- function(H, g, pnames, e = NULL, n_report = 6) {
   eig <- tryCatch(eigen(H, symmetric = TRUE), error = function(e) NULL)
   if (is.null(eig)) {
     cat("    (could not eigen-decompose H for diagnostics)\n")
@@ -315,15 +315,47 @@ EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
   }
 
   min_idx  <- which.min(eig$values)
+  min_val  <- eig$values[min_idx]
   loadings <- eig$vectors[, min_idx]
   ord      <- order(abs(loadings), decreasing = TRUE)[seq_len(min(n_report, length(loadings)))]
 
-  cat(sprintf("    Smallest Hessian eigenvalue: %.3e (near-flat direction)\n", eig$values[min_idx]))
-  cat("    Parameters loading heaviest on that direction:\n")
-  for (i in ord) {
-    cat(sprintf("      %-15s loading = %+.4f | grad = %+.3e\n",
-                pnames[i], loadings[i], g[i]))
+  ## Verdict: negative eigenvalue = non-convex/saddle, not just flat.
+  if (min_val < -1e-6) {
+    cat(sprintf("    Hessian is NOT positive semi-definite (smallest eigenvalue = %.3e) -- likely a saddle point.\n", min_val))
+  } else {
+    cat(sprintf("    Smallest eigenvalue: %.3e (near-zero/flat direction, not negative)\n", min_val))
   }
-  invisible(list(eigenvalues = eig$values, flat_loadings = loadings,
-                 ranked_index = ord, worst_par = pnames[ord[1]]))
+
+  ## Prime suspect: single largest loading on the offending eigenvector.
+  top <- ord[1]
+  cat(sprintf("    Prime suspect: %s (loading = %+.4f, grad = %+.3e)\n",
+              pnames[top], loadings[top], g[top]))
+
+  ## Cross-reference against LAPACK's own pivot index, if supplied via the
+  ## error condition (dgesv reports "U[i,i] = 0" -- i is a 1-based pivot
+  ## index into the same parameter ordering as H/g/pnames).
+  if (!is.null(e)) {
+    pivot <- regmatches(conditionMessage(e),
+                        regexpr("U\\[[0-9]+,[0-9]+\\]", conditionMessage(e)))
+    if (length(pivot) == 1) {
+      pivot_idx <- as.integer(sub("U\\[([0-9]+),.*", "\\1", pivot))
+      if (!is.na(pivot_idx) && pivot_idx <= length(pnames)) {
+        cat(sprintf("    LAPACK pivot failure at index %d: %s\n",
+                    pivot_idx, pnames[pivot_idx]))
+      }
+    }
+  }
+
+  ## Remaining loadings, for context -- a spread of similarly-sized loadings (as opposed to one dominant one) means this is a genuine
+  ## multi-parameter combination, not a single bad parameter.
+  if (length(ord) > 1) {
+    cat("    Other parameters sharing this direction:\n")
+    for (i in ord[-1]) {
+      cat(sprintf("      %-15s loading = %+.4f | grad = %+.3e\n",
+                  pnames[i], loadings[i], g[i]))
+    }
+  }
+
+  invisible(list(eigenvalue = min_val, flat_loadings = loadings,
+                 ranked_index = ord, worst_par = pnames[top]))
 }

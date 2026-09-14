@@ -277,6 +277,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   like <- rbind(like,like[1,])
   like[1,3] <- like[1,2]
   like[nrow(like),] <- c('Total', Tsum,dat[3,4])
+  like$Id[like$Id=='Tag1'] <- 'Tag_Growth'
+  like$Id[like$Id=='Tag2'] <- 'Tag_Movement'
   suppressWarnings(like[,2] <- round(as.numeric(like[,2]),2))
   suppressWarnings(like[,3] <- round(as.numeric(like[,3]),2))
   row.names(like) <- 1:nrow(like)
@@ -293,7 +295,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   Prior_Rec <-  as.numeric(dat[15,4])
   Prior_Sel <-  as.numeric(dat[16,4])
   Prior_Eff <-  as.numeric(dat[17,4])
-  dfram <- data.frame(id=c('Initial Nunbers','Recruitment Deviations', 'Recruitment Devs Smoother','Priors on Main Pars','Priors on Recruit Pars','Priors on Selectivity Pars','Priors on Efficiency Pars'),Value=c(round(INP,1),round(RP,1),round(RSP,1),round(Prior_Main,1),round(Prior_Rec,1),round(Prior_Sel,1),round(Prior_Eff,1)))
+  Grow_Eff <-  as.numeric(dat[18,4])
+  Move_Eff <-  as.numeric(dat[19,4])
+  dfram <- data.frame(id=c('Initial Nunbers','Recruitment Deviations', 'Recruitment Devs Smoother','Priors on Main Pars','Priors on Recruit Pars','Priors on Selectivity Pars','Priors on Efficiency Pars','Priors on Growth Pars','Priors on Movement Pars'),Value=c(round(INP,1),round(RP,1),round(RSP,1),round(Prior_Main,1),round(Prior_Rec,1),round(Prior_Sel,1),round(Prior_Eff,1),round(Grow_Eff,1),round(Move_Eff,1)))
   filen <- "Penality.csv"  # csv files only
   addtable(intable=dfram,filen=filen,rundir=rundir,category="Like",
            caption="Penalities added to likelihoods.")

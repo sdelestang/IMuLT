@@ -206,6 +206,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Recruitment parameters penalty",Report$RecParPriorPen),OutputFile,append=T)
   write(paste("Selectivity parameters penalty",Report$SelParPriorPen),OutputFile,append=T)
   write(paste("Efficiency parameters penalty",Report$EffParPriorPen),OutputFile,append=T)
+  write(paste("Growth parameters penalty",Report$GrowParPriorPen),OutputFile,append=T)
+  write(paste("Movement parameters penalty",Report$MoveParPriorPen),OutputFile,append=T)
 
   write("\n# Likelihood by fleet",OutputFile,append=T)
   write(paste("Cpue likelihood",paste(Report$CpueLikeComp[])),OutputFile,append=T)

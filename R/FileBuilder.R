@@ -325,10 +325,8 @@ BuildInputFiles <- function(end_override = NULL){
   tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='numbers'], "\t\t# Weight on catch-numbers data\n")
   tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='length'], "\t\t# Weight on Length-frequency data\n")
   tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='larvae'], "\t\t# Weight on larval data\n")
-  tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag1'], "\t\t# Weight on Tag1 data\n")
-  tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='tag2'], "\t\t# Weight on Tag2 data\n")
-  # tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialN'], "\t\t# Weight on initial numbers\n")
-  # tmp <- c(tmp, wei$value[wei$form=='global' & wei$type=='initialPen'], "\t\t# Weight on initial penalty (InitOpt=3 or 5)\n")
+  tmp <- c(tmp, wei$value[wei$form=='global' & wei$type%in%c('tag1','tag_growth')], "\t\t# Weight on Tag data for growth\n")
+  tmp <- c(tmp, wei$value[wei$form=='global' & wei$type%in%c('tag2','tag_move')], "\t\t# Weight on Tag data for movement\n")
 
   wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
   wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)

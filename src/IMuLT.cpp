@@ -2671,9 +2671,10 @@ for (int Iyear=0;Iyear<Nyear-1;Iyear++) {
 
 
 // Tagging data
+TagLike1.setZero();   // add this line, unconditionally, right after declaration
+TagLike2.setZero();
 if(thedata.IsTagData==1){
-  RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();  TagLike1.setZero();  TagLike2.setZero();
-
+  RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
   for (int SexPass=0; SexPass<Nsex; SexPass++)
     for (int GrpPass=0; GrpPass<NtagGroups; GrpPass++)
       XX = TagDym(dataset,thedata, SexPass, GrpPass, N, ActSelex, ActReten, ActLegal, ActGrowth, ActMove, M, Hrate, QRedsPar, MWhitesPar, RecapNum, NotReported, TagLike1, TagLike2, PredTagSize);

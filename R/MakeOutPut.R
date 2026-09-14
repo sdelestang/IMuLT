@@ -869,7 +869,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
               geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
               facet_grid(Time_step~aSex)+
               scale_color_manual(values=c("red","black")) +
-              scale_size_manual(values = c(0.5, 0.5)) +
+              scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
               theme(panel.background = element_rect(fill = "white",colour = NA),
                     panel.border = element_rect(fill = NA, colour = "grey20"),
                     axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
@@ -879,7 +879,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                          geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
                          facet_wrap(~Time_step)+
                          scale_color_manual(values=c("red","black")) +
-                         scale_size_manual(values = c(0.5, 0.5)) +
+                         scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
                          theme(panel.background = element_rect(fill = "white",colour = NA),
                                panel.border = element_rect(fill = NA, colour = "grey20"),
                                axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
@@ -908,7 +908,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   filen <- "Index_Tuning.csv"
   addtable(intable=index_tab, filen=filen, rundir=rundir, category="Index",
-           caption=paste("CPUE tuning by data series: self-tuned sigma, sigma actually used in",
+           caption=paste("CPUE tuning by data series: self-tuned sigma actually used in",
                          "the likelihood after the floor/ceiling blend, likelihood contribution,",
                          "lambda weighting, model-independent self-consistency (selfRMS, from a",
                          "smooth trend fit to the raw index alone), and a suggested LambdaCpue2",

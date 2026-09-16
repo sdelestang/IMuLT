@@ -480,8 +480,8 @@ BuildInputFiles <- function(end_override = NULL){
       P1   <- exp(Pins$est[3])
       P3   <- exp(Pins$est[4])
       P5   <- exp(Pins$est[5])
-      scale =  -1 / Pins$est[8]
-      loc   = -Pins$est[7] / Pins$est[8]
+      scale = 1 / exp(Pins$est[8])
+      loc   = Pins$est[7] / exp(Pins$est[8])
 
       xdev  <- lbinM - P2
       grow1 <- 1 / (1 + exp(xdev / P1))

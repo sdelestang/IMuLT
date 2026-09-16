@@ -570,10 +570,11 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
       Type Pa   =     GrowthPars(Base+6);    // P7 -- moult intercept (a), raw
       Type Pb   =     GrowthPars(Base+7);    // P8 -- moult slope (b), raw
 
-      // a/b -> loc/scale for the moult logistic, done here (see header
-      // comment above) rather than upstream in the growthspec file.
-      Type Ploc   = -Pa/Pb;
-      Type Pscale = -1.0/Pb;
+      // a/b -> loc/scale for the moult logistic. Pb is now log(slope_magnitude);
+      // the true slope is forced negative (-exp(Pb)) so Pmoult can only decrease
+      // with size.
+      Type Ploc   = Pa/exp(Pb);
+      Type Pscale = 1.0/exp(Pb);
 
       vector<Type> GrowthVec(Nsize);
       vector<Type> PmoultVec(Nsize);

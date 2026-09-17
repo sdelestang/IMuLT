@@ -471,17 +471,17 @@ BuildInputFiles <- function(end_override = NULL){
 
     ## Make STM and then load it to the file
     for(st in 1:nstm) {
-      srt <- (st-1)*8+1
-      Pins <- gpars[srt:(srt+7),]
+      srt <- (st-1)*7+1
+      Pins <- gpars[srt:(srt+6),]
 
       ## Make Growth Vector
       Amax <- exp(Pins$est[1])
       P2   <- Pins$est[2]
       P1   <- exp(Pins$est[3])
       P3   <- exp(Pins$est[4])
-      P5   <- exp(Pins$est[5])
-      scale = 1 / exp(Pins$est[8])
-      loc   = Pins$est[7] / exp(Pins$est[8])
+      P5   <- 0.1   # swap/blend slope -- FIXED, not estimated
+      scale = 1 / exp(Pins$est[7])
+      loc   = Pins$est[6] / exp(Pins$est[7])
 
       xdev  <- lbinM - P2
       grow1 <- 1 / (1 + exp(xdev / P1))
@@ -495,7 +495,7 @@ BuildInputFiles <- function(end_override = NULL){
       STM <- matrix(0, ncol=nlbin, nrow=nlbin)
       for (fm in 1:nlbin) {
         mn_growth <- growthvec[fm]
-        sd_growth <- exp(Pins$est[6]) * mn_growth
+        sd_growth <- exp(Pins$est[5]) * mn_growth
         Pmoult  <- 1/(1+exp((lbinM[fm]-loc)/scale))
 
         probs <- rep(0, nlbin)

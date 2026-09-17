@@ -1735,8 +1735,7 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   write(t(GrowthSpecs),EchoFile,append=T,ncol=6)
 
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+2;
-  ## CHeck if there are growthpars
-  NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+7),1])))==0, NgrowthPatterns*8, 0)
+  NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+6),1])))==0, NgrowthPatterns*7, 0)
   write(paste("Number of growth parameters",NgrowthPars),EchoFile,append=T,ncol=3+GeneralSpecs$Nsex)
 
   # Growth parameters linking conditions

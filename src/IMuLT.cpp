@@ -559,16 +559,20 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
       Isex = dat.GrowthSpecs(IgrowthPattern,2);
       IgrowthParPnt += 1;
       int Nsize = dat.Nlen(Isex);
-      int Base  = IgrowthParPnt*8;
+      // 7 estimated parameters per pattern now (was 8): P5 (the swap/blend
+      // slope) is hard-fixed at 0.1 below, no longer read from GrowthPars
+      // at all -- mirrors the growmodPar/Growth_P5_fixed change in the R
+      // side of this model.
+      int Base  = IgrowthParPnt*7;
 
       Type Amax = exp(GrowthPars(Base+0));   // P1
       Type P2   =     GrowthPars(Base+1);    // P2
       Type P1_  = exp(GrowthPars(Base+2));   // P3 -- slope before inflection
       Type P3_  = exp(GrowthPars(Base+3));   // P4 -- slope after inflection
-      Type P5_  = exp(GrowthPars(Base+4));   // P5 -- swap/blend slope
-      Type sigG = exp(GrowthPars(Base+5));   // P6 -- CV of growth spread
-      Type Pa   =     GrowthPars(Base+6);    // P7 -- moult intercept (a), raw
-      Type Pb   =     GrowthPars(Base+7);    // P8 -- moult slope (b), raw
+      Type P5_  = Type(0.1);                 // swap/blend slope -- FIXED, not estimated
+      Type sigG = exp(GrowthPars(Base+4));   // P6 -- CV of growth spread
+      Type Pa   =     GrowthPars(Base+5);    // P7 -- moult intercept (a), raw
+      Type Pb   =     GrowthPars(Base+6);    // P8 -- moult slope (b), raw
 
       // a/b -> loc/scale for the moult logistic. Pb is now log(slope_magnitude);
       // the true slope is forced negative (-exp(Pb)) so Pmoult can only decrease
@@ -2295,7 +2299,7 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-  //// Deal with Browth Pars //////
+  //// Deal with Growth Pars //////
   // Apply priors on Growth Pars if requested
   Type GrowParPriorPen = 0;
   nrowMP = GrowparsPrior.rows();

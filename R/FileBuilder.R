@@ -924,7 +924,18 @@ BuildInputFiles <- function(end_override = NULL){
   fleetyr <- fleetyr[egap$season%in%startseason:endseason,]
   pars <- sort(unique(as.vector(as.matrix(fleetyr))))
 
-  egappar_sum <- egappar %>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex)) %>% group_by(yearlink,Sex,form,uniq) %>% summarise(num=length(Sex), .groups = 'drop') %>% ungroup() %>% mutate(type=case_when(form=='logistic'~3, form=='doublelogistic'~9, form=='knife'~4)) %>% as.data.frame() %>% arrange(Sex) %>% ungroup() %>% mutate(pattern=as.numeric(rownames(.))-1, Pointer=pattern) %>% dplyr::select(pattern, type, Sex, num, Pointer, uniq, yearlink)
+  egappar_sum <- egappar %>% mutate(Sex=ifelse(sex=='F',0,1), Sex=Sex-min(Sex)) %>%
+    group_by(yearlink,Sex,form,uniq) %>% summarise(num=length(Sex), .groups = 'drop') %>%
+    ungroup() %>%
+    mutate(type=case_when(
+      form=='logistic'~3,
+      form=='doublelogistic'~9,
+      form=='doublelogistic2'~10,
+      form=='knife'~4
+    )) %>%
+    as.data.frame() %>% arrange(Sex) %>% ungroup() %>%
+    mutate(pattern=as.numeric(rownames(.))-1, Pointer=pattern) %>%
+    dplyr::select(pattern, type, Sex, num, Pointer, uniq, yearlink)
 
   egappar_sumog <- egappar_sum
   for(p in pars){
@@ -960,7 +971,7 @@ BuildInputFiles <- function(end_override = NULL){
 
   tmp <- list()
   tmp <- c(tmp, "# Selex specification\n# Number Selex Patterns\n",negappar)
-  tmp <- c(tmp, "\n# Pattern Type Sex Npars Pointer # Type PRESPECIFIED 1, COEFFICIENTS 2, LOGISTIC 3, KNIFE 4, DOUBLELOG 9\n")
+  tmp <- c(tmp, "\n# Pattern Type Sex Npars Pointer # Type PRESPECIFIED 1, COEFFICIENTS 2, LOGISTIC 3, KNIFE 4, DOUBLELOG 9, DOUBLELOG2 10\n")
   for(i in 1:nrow(egappar_sum)){ tmp <- c(tmp,paste(egappar_sum[i,1:5],collapse = " "),"\n")}
 
   ids <- paste(0:7, unique(egappar$comment), sep='=', collapse = ", ")
@@ -985,8 +996,20 @@ BuildInputFiles <- function(end_override = NULL){
     if(unique(tmpegappar$form)=='doublelogistic'){
       qselect <- (1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p2']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p1']))))*(1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p4']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p3']))))
       qselect <- qselect/max(qselect)}
+    if(unique(tmpegappar$form)=='doublelogistic2'){
+      P1 <- tmpegappar$par[tolower(tmpegappar$id)=='p1']
+      P2 <- tmpegappar$par[tolower(tmpegappar$id)=='p2']
+      P3 <- tmpegappar$par[tolower(tmpegappar$id)=='p3']
+      P4 <- tmpegappar$par[tolower(tmpegappar$id)=='p4']
+
+      asc  <- 1.0/(1.0+exp(-log(999)*(lens-P1)/(P2-P1)))
+      desc <- 1.0/(1.0+exp( log(999)*(lens-P3)/(P3-P4)))
+      qselect <- asc * desc
+      qselect <- qselect/max(qselect)
+    }
     qselect <- round(qselect,4)
-    tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")}
+    tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")
+    }
 
   gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
 

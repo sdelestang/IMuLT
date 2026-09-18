@@ -88,15 +88,10 @@ ExpandSelectPars <- function(wb, startseason, endseason){
     }
   }
 
-  ## --- Safety check: enforce canonical parameter order within each block ---
-  ## Downstream code matches parameters by string content (id2), not row
-  ## position, but the *written* order in SELEXSPEC.dat (and therefore the
-  ## SelPars_n indexing TMB uses) depends on whatever row order survives
-  ## here. Force a fixed, known-good order per selectivity form so a
-  ## differently-ordered Excel sheet can't silently scramble the .dat file.
   canonical_order <- list(
-    logistic       = c('p1','p2'),
-    doublelogistic = c('p1','p2','p3','p4')
+    logistic        = c('p1','p2'),
+    doublelogistic  = c('p1','p2','p3','p4'),
+    doublelogistic2 = c('p1','p2','p3','p4')
   )
 
   block_ids <- unique(tegappar$uniq)

@@ -171,12 +171,12 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
     }
 
     // Estimated up to a constant
-   /* if (PatSpec(IselPattern,1) == SELEX_COEFFICIENTS)
-    {
-      for (int Isize=0;Isize<PatSpec(IselPattern,3);Isize++) { IselParPnt += 1; ActSelex(IselPattern,Isize) = exp(SelPars(IselParPnt)); }
-      for (int Isize=PatSpec(IselPattern,3);Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1;
-    }
-    */
+    /* if (PatSpec(IselPattern,1) == SELEX_COEFFICIENTS)
+     {
+     for (int Isize=0;Isize<PatSpec(IselPattern,3);Isize++) { IselParPnt += 1; ActSelex(IselPattern,Isize) = exp(SelPars(IselParPnt)); }
+     for (int Isize=PatSpec(IselPattern,3);Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1;
+     }
+     */
 
     // Logistic
     if (PatSpec(IselPattern,1) == SELEX_LOGISTIC) // SELEX_LOGISTIC
@@ -187,7 +187,7 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1.0/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)));
     }
 
-      // Double Logistic
+    // Double Logistic
     // if (PatSpec(IselPattern,1) == SELEX_DOUBLE_LOGISTIC)
     // {
     //   p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); p3 = SelPars(IselParPnt+3); p4 = SelPars(IselParPnt+4);
@@ -211,72 +211,84 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       for (int Isize=0;Isize<MaxLen; Isize++) {
         ActSelex(IselPattern,Isize) =  (1 / (1 + exp(-log(999) * (dat.MidLenBin(Isex,Isize) - p1) / (p2 - p1)))) * (1 / (1 + exp(log(999) * (dat.MidLenBin(Isex,Isize) - (p2+p3+p4)) / ((p2+p3+p4) - (p2+p3)))));
         if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
-          for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1 has v little impact as it is already v close
-           ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+      for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1 has v little impact as it is already v close
+        ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
 
     }
 
-
+    if (PatSpec(IselPattern,1) == SELEX_DOUBLE_LOGISTIC2)
+    {
+      p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); p3 = SelPars(IselParPnt+3); p4 = SelPars(IselParPnt+4);
+      IselParPnt += 4;
+      Isex = PatSpec(IselPattern,2);
+      MaxTmp = 0.0;
+      for (int Isize=0;Isize<MaxLen; Isize++) {
+        ActSelex(IselPattern,Isize) = (1.0 / (1.0 + exp(-log(999) * (dat.MidLenBin(Isex,Isize) - p1) / (p2 - p1))))
+        * (1.0 / (1.0 + exp( log(999) * (dat.MidLenBin(Isex,Isize) - p3) / (p3 - p4))));
+        if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
+      for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
+        ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }
+    }
 
     /*
-    // Knife-edged
-    if (PatSpec(IselPattern,1) == SELEX_KNIFE)
-    {
-      LML = SelPars(IselParPnt+1);
-      IselParPnt += 1;
-      Isex = PatSpec(IselPattern,2);
-      for (int Isize=0;Isize<MaxLen; Isize++)
-      {
-        if (dat.LowLenBin(Isex,Isize+1) <= LML)
-          Mult = 0;
-        else
-          if (dat.LowLenBin(Isex,Isize) >= LML)
-            Mult = 1;
-          else
-            Mult = (dat.LowLenBin(Isex,Isize+1)-LML) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
-          ActSelex(IselPattern,Isize) = Mult;
-      }
-    }
-    // flat
-    if (PatSpec(IselPattern,1) == SELEX_CONSTANT1)
-    {
-      for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1.0;
-    }
-    // Logistic
-    if (PatSpec(IselPattern,1) == SELEX_LOGISTIC_OFFSET)
-    {
-      p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); Offset = SelPars(IselParPnt+3);
-      IselParPnt += 3;
-      Isex = PatSpec(IselPattern,2);
-      for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = Offset/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)));
-    }
+     // Knife-edged
+     if (PatSpec(IselPattern,1) == SELEX_KNIFE)
+     {
+     LML = SelPars(IselParPnt+1);
+     IselParPnt += 1;
+     Isex = PatSpec(IselPattern,2);
+     for (int Isize=0;Isize<MaxLen; Isize++)
+     {
+     if (dat.LowLenBin(Isex,Isize+1) <= LML)
+     Mult = 0;
+     else
+     if (dat.LowLenBin(Isex,Isize) >= LML)
+     Mult = 1;
+     else
+     Mult = (dat.LowLenBin(Isex,Isize+1)-LML) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
+     ActSelex(IselPattern,Isize) = Mult;
+     }
+     }
+     // flat
+     if (PatSpec(IselPattern,1) == SELEX_CONSTANT1)
+     {
+     for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = 1.0;
+     }
+     // Logistic
+     if (PatSpec(IselPattern,1) == SELEX_LOGISTIC_OFFSET)
+     {
+     p1 = SelPars(IselParPnt+1); p2 = SelPars(IselParPnt+2); Offset = SelPars(IselParPnt+3);
+     IselParPnt += 3;
+     Isex = PatSpec(IselPattern,2);
+     for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = Offset/(1.0+exp(-p2*(dat.MidLenBin(Isex,Isize)-p1)));
+     }
 
-    // Knife-edged
-    if (PatSpec(IselPattern,1) == SELEX_KNIFE_OFFSET)
-    {
-      LML = SelPars(IselParPnt+1);
-      Offset = SelPars(IselParPnt+2);
-      IselParPnt += 2;
-      Isex = PatSpec(IselPattern,2);
-      for (int Isize=0;Isize<MaxLen; Isize++)
-      {
-        if (dat.LowLenBin(Isex,Isize+1) <= LML)
-          Mult = 0;
-        else
-          if (dat.LowLenBin(Isex,Isize) >= LML)
-            Mult = 1;
-          else
-            Mult = (dat.LowLenBin(Isex,Isize+1)-LML) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
-          ActSelex(IselPattern,Isize) = Mult*Offset;
-      }
-    }
-    // flat
-    if (PatSpec(IselPattern,1) == SELEX_CONSTANT_OFFSET)
-    {
-      Offset = SelPars(IselParPnt+1);
-      IselParPnt += 1;
-      for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = Offset;
-    }
+     // Knife-edged
+     if (PatSpec(IselPattern,1) == SELEX_KNIFE_OFFSET)
+     {
+     LML = SelPars(IselParPnt+1);
+     Offset = SelPars(IselParPnt+2);
+     IselParPnt += 2;
+     Isex = PatSpec(IselPattern,2);
+     for (int Isize=0;Isize<MaxLen; Isize++)
+     {
+     if (dat.LowLenBin(Isex,Isize+1) <= LML)
+     Mult = 0;
+     else
+     if (dat.LowLenBin(Isex,Isize) >= LML)
+     Mult = 1;
+     else
+     Mult = (dat.LowLenBin(Isex,Isize+1)-LML) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
+     ActSelex(IselPattern,Isize) = Mult*Offset;
+     }
+     }
+     // flat
+     if (PatSpec(IselPattern,1) == SELEX_CONSTANT_OFFSET)
+     {
+     Offset = SelPars(IselParPnt+1);
+     IselParPnt += 1;
+     for (int Isize=0;Isize<MaxLen; Isize++) ActSelex(IselPattern,Isize) = Offset;
+     }
      */
   }
 

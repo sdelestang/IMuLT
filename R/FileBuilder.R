@@ -91,7 +91,7 @@ BuildInputFiles <- function(end_override = NULL){
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
-  if(length(dynamics$value[dynamics$object=='estimateVariance'])>0){
+  if(length(dynamics$value[dynamics$object=='estimateVariance'])>1){
     Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
     dynamics <- dynamics[dynamics$object!='estimateVariance', ]
     dynamics$value <- as.numeric(dynamics$value)
@@ -195,9 +195,9 @@ BuildInputFiles <- function(end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd)) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
-  Udat %<>% mutate(Sex=adjsex(Sex, nsex,section='CPUE'))
-  SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
+  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE'))
+  SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat[1:10,])
   cpuenumbers <- unique(Udat$CpueInd)
 
   ## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8

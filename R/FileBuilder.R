@@ -994,8 +994,16 @@ BuildInputFiles <- function(end_override = NULL){
     if(unique(tmpegappar$form)=='logistic')
       qselect <- 1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p2']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p1'])))
     if(unique(tmpegappar$form)=='doublelogistic'){
-      qselect <- (1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p2']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p1']))))*(1.0/(1.0+exp(-tmpegappar$par[tolower(tmpegappar$id)=='p4']*(lens-tmpegappar$par[tolower(tmpegappar$id)=='p3']))))
-      qselect <- qselect/max(qselect)}
+      P1 <- tmpegappar$par[tolower(tmpegappar$id)=='p1']
+      P2 <- tmpegappar$par[tolower(tmpegappar$id)=='p2']
+      P3 <- tmpegappar$par[tolower(tmpegappar$id)=='p3']
+      P4 <- tmpegappar$par[tolower(tmpegappar$id)=='p4']
+
+      asc  <- 1.0/(1.0+exp(-log(999)*(lens-P1)/(P2-P1)))
+      desc <- 1.0/(1.0+exp( log(999)*(lens-(P2+P3+P4))/P4))
+      qselect <- asc * desc
+      qselect <- qselect/max(qselect)
+      }
     if(unique(tmpegappar$form)=='doublelogistic2'){
       P1 <- tmpegappar$par[tolower(tmpegappar$id)=='p1']
       P2 <- tmpegappar$par[tolower(tmpegappar$id)=='p2']
@@ -1003,7 +1011,7 @@ BuildInputFiles <- function(end_override = NULL){
       P4 <- tmpegappar$par[tolower(tmpegappar$id)=='p4']
 
       asc  <- 1.0/(1.0+exp(-log(999)*(lens-P1)/(P2-P1)))
-      desc <- 1.0/(1.0+exp( log(999)*(lens-P3)/(P3-P4)))
+      desc <- 1.0/(1.0+exp( log(999)*(lens-P4)/(P4-P3)))
       qselect <- asc * desc
       qselect <- qselect/max(qselect)
     }

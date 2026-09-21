@@ -223,8 +223,9 @@ matrix<Type> SetUpSelex(dataSet<Type> &dat,  vector<Type> &SelPars, matrix<Type>
       Isex = PatSpec(IselPattern,2);
       MaxTmp = 0.0;
       for (int Isize=0;Isize<MaxLen; Isize++) {
+        // SetUpSelex, SELEX_DOUBLE_LOGISTIC2
         ActSelex(IselPattern,Isize) = (1.0 / (1.0 + exp(-log(999) * (dat.MidLenBin(Isex,Isize) - p1) / (p2 - p1))))
-        * (1.0 / (1.0 + exp( log(999) * (dat.MidLenBin(Isex,Isize) - p3) / (p3 - p4))));
+        * (1.0 / (1.0 + exp( log(999) * (dat.MidLenBin(Isex,Isize) - p4) / (p4 - p3))));
         if(ActSelex(IselPattern,Isize)>MaxTmp) MaxTmp = ActSelex(IselPattern,Isize); }
       for (int Isize=0;Isize<MaxLen; Isize++) { // re-scale to a max of 1
         ActSelex(IselPattern,Isize) = ActSelex(IselPattern,Isize)/MaxTmp; }

@@ -1076,6 +1076,7 @@ BuildInputFiles <- function(end_override = NULL){
       }
     }}
   gauge4 <- gauge3 %>% filter(UseArea==1) %>% mutate(Area=fleets$newarea[match(Fleet,fleets$fleet)])
+  if(nrow(gauge4)==0) warning("There are no areas selected to determine legal biomass on the retention tab")
   for(r in 1:nrow(gauge4)){
     tgau <- gauge4[r,]
     if(tgau$StartSeason=='X') {SS <- startseason}else{SS <- tgau$StartSeason}

@@ -284,6 +284,7 @@ BuildInputFiles <- function(end_override = NULL){
 
   # Get discard mortality rate
   gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>%  dplyr::select(StartSeason,EndSeason,Fleet,Age,DiscardMortality) %>% mutate(StartSeason=ifelse(StartSeason=='X', startseason, StartSeason),EndSeason=ifelse(EndSeason=='X', endseason, EndSeason), Age=ifelse(Age=='X',paste(ages,collapse=','),Age), primary=1)
+  gauge %<>% tidyr::separate_rows(Fleet, sep = ",", convert = TRUE) %>% tidyr::separate_rows(Age, sep = ",", convert = TRUE)
   gauge2 <- gauge %>% filter(Fleet=='X')
   if(nrow(gauge2)>0){
     gauge %<>% filter(Fleet!='X')

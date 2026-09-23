@@ -862,13 +862,26 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   hgrad <- readWorkbook(wb,sheet='HighGrading', startRow = 2) %>% group_by(season, fleet, tstep) %>% summarise(prop=mean(prop), .groups = 'drop') %>% mutate(propfl=1-trunc(prop/0.01)*0.01)
   hglist <- sort(unique(c(hgrad$propfl,1)))
   hgrad99 <- hgrad %>% filter(fleet==99)
+  NoHGpat <- which(hglist == 1) - 1            # pattern index for retention = 1.0 (no high-grading)
 
   dat <- expand.grid(sex=sexs, age=(1:ages)-1, fleet=sort(unique(fleets$fleet))-1, step=sort(unique(times$tstep))-1)
-  dat2 <- matrix(length(hglist)-1, nrow=nrow(dat), ncol=length(startseason:endseason))
+  dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
   for(r in 1:nrow(hgrad)){
     if(hgrad$fleet[r]==99) fl <- fleets$fleet-1
     if(hgrad$fleet[r]!=99) fl <- hgrad$fleet[r]-1
     dat2[dat$fleet%in%fl & dat$step==(hgrad$tstep[r]-1),(startseason:endseason)==hgrad$season[r]]  <- which(hglist==hgrad$propfl[r])-1}
+
+  ## Fleets/years not on the HighGrading tab have no high-grading (retention = 1.0) -- expected default
+  dat2[dat2 == -1] <- NoHGpat
+
+  ## Report where high-grading IS applied, as a check on the HighGrading tab
+  hg_on <- hgrad %>% filter(propfl < 1) %>%
+    mutate(desc = ifelse(fleet == 99, "all fleets", fleets$description[match(fleet, fleets$fleet)])) %>%
+    group_by(fleet, desc) %>%
+    summarise(years = paste(range(season), collapse = "-"), mean_retained = round(mean(propfl), 2), .groups = "drop")
+  if (nrow(hg_on)) message("High-grading applied:\n",
+                           paste0("  Fleet ", hg_on$fleet, " (", hg_on$desc, "): ", hg_on$years,
+                                  ", mean retention ", hg_on$mean_retained, collapse = "\n"))
 
   dat <- cbind(dat,dat2)
   dat %<>% arrange(sex, age, fleet, step)
@@ -889,7 +902,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Final check\n123456")
 
   write.table(tmp, paste(floc,'/RETAINSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
-
 
   #### Selection file ####
   print("Building Gear selectivity File")
@@ -984,7 +996,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
       desc <- 1.0/(1.0+exp( log(999)*(lens-(P2+P3+P4))/P4))
       qselect <- asc * desc
       qselect <- qselect/max(qselect)
-      }
+    }
     if(unique(tmpegappar$form)=='doublelogistic2'){
       P1 <- tmpegappar$par[tolower(tmpegappar$id)=='p1']
       P2 <- tmpegappar$par[tolower(tmpegappar$id)=='p2']
@@ -998,7 +1010,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     }
     qselect <- round(qselect,4)
     tmp <- c(tmp, paste(qselect, collapse = "\t"),"\n")
-    }
+  }
 
   gauge <- readWorkbook(wb,sheet='Retention', startRow = 2) %>% mutate(hash='#', type=1, Extra=0, pointer=pos-1, pos=pointer) %>% dplyr::select(pos, type, Extra, pointer, hash, id)
 
@@ -1025,7 +1037,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   leg <- expand.grid(Sex=sexs, Age=0:(ages-1),  Fleet=sort(unique(fleets$fleet))-1,Step=sort(unique(times$tstep))-1)
   id <- paste(leg[,1],leg[,2],leg[,3],leg[,4], sep="-")
-  code <- matrix(0, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
+  code <- matrix(-1, nrow=nrow(leg), ncol=length(startseason:endseason), dimnames = list(pat=id,year=paste('Y',startseason:endseason,sep='')))
   Yrs <- startseason:endseason
   for(r in 1:nrow(gauge3)){
     tgau <- gauge3[r,]
@@ -1036,6 +1048,25 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     if(tgau$TimeStep=='X') {Ts <- sort(unique(times$tstep))-1} else{Ts <- as.numeric(tgau$TimeStep)-1}
     if(tgau$Age=='X') {Ag <-  sort(unique(1:ages))-1}else{Ag <- as.numeric(tgau$Age)-1}
     code[leg$Sex%in%Sx & leg$Age%in%Ag & leg$Fleet%in%Ft & leg$Step%in%Ts, SS<=Yrs & ES>=Yrs] <- tgau$pos-1
+  }
+
+  ## Anything not covered by a Retention-tab row defaults to legal pattern 0 -- warn so it isn't silent
+  unassigned <- which(code == -1, arr.ind = TRUE)
+  if (nrow(unassigned) > 0) {
+    miss <- data.frame(leg[unassigned[, 1], ], year = Yrs[unassigned[, 2]]) %>%
+      mutate(fleet = Fleet + 1,
+             desc  = fleets$description[match(fleet, fleets$fleet)],
+             sex   = if (nsex == 2) c('F','M')[Sex + 1] else 'All') %>%
+      group_by(fleet, desc) %>%
+      summarise(sexes = paste(sort(unique(sex)), collapse = ","),
+                ages  = paste(sort(unique(Age + 1)), collapse = ","),
+                years = paste(range(year), collapse = "-"), .groups = "drop")
+    warning("No legal assignment on the Retention tab for the following fleets; defaulting to legal pattern 0 (",
+            gauge$id[match(1, gauge$pos)], "):\n",
+            paste0("  Fleet ", miss$fleet, " (", miss$desc, "): sex ", miss$sexes,
+                   ", ages ", miss$ages, ", years ", miss$years, collapse = "\n"),
+            call. = FALSE)
+    code[code == -1] <- 0
   }
 
   code <- cbind(leg, code)

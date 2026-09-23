@@ -195,14 +195,15 @@ BuildInputFiles <- function(end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate( CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
-  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE'))
+  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+  tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
+  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric)
   SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat[1:10,])
   cpuenumbers <- unique(Udat$CpueInd)
 
   ## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8
   tmp <- c(tmp, "\n# Index data \n#Number of cpue datasets\n", length(cpuenumbers))
-  tmp <- c(tmp, "\n# Type of index (1=weight;2=numbers)\n", paste(c(rep(1,length(cpuenumbers))), collapse=" "))
+  tmp <- c(tmp, "\n# Type of index (1=weight;2=numbers)\n", paste(tmpUdat$numwei, collapse=" "))
   tmp <- c(tmp, "\n# Treatment of sigma (unique value represents a unique SS for the series)\n", paste((1:length(cpuenumbers))-1, collapse=" "))  ## Fixsigma
   tmp <- c(tmp, "\n# Treatment of q (a value represents a unique q for that series)\n", paste(cpuenumbers, collapse=" "))
   tmp <- c(tmp, "\n# Environmental Index (value points to index, 0 = no index)\n", paste(rep(0,100)[1:length(cpuenumbers)], collapse=" "))

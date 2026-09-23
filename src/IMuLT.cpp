@@ -322,11 +322,11 @@ matrix<Type> SetUpLegal(dataSet<Type> &dat, matrix<Type> &LegalFI, matrix<int> &
 // plus a quadratic penalty on the distance outside. Value and slope are continuous at eps and 1-eps.
 template <class Type>
 Type SoftUnit(Type x, Type eps, Type wt, Type &pen){
-  pen += wt * CondExpLt(x, eps,     square(x - eps),     Type(0));
-  pen += wt * CondExpGt(x, 1 - eps, square(x - 1 + eps), Type(0));
-  Type lo = CondExpGe(x, eps, x, eps/(Type(2) - x/eps));   // lower side
+  pen += wt * CppAD::CondExpLt(x, eps,     square(x - eps),     Type(0));
+  pen += wt * CppAD::CondExpGt(x, 1 - eps, square(x - 1 + eps), Type(0));
+  Type lo = CppAD::CondExpGe(x, eps, x, eps/(Type(2) - x/eps));   // lower side
   Type y  = 1 - lo;
-  Type hi = CondExpGe(y, eps, y, eps/(Type(2) - y/eps));   // upper side, mirrored
+  Type hi = CppAD::CondExpGe(y, eps, y, eps/(Type(2) - y/eps));   // upper side, mirrored
   return 1 - hi;
 }
 

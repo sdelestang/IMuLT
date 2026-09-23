@@ -66,7 +66,7 @@
 #' See the IMuLT User Guide for ModelStructure.xlsx template format and specifications.
 #'
 #' @export
-BuildInputFiles <- function(end_override = NULL, Suffix=''){
+BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   # Ensure the wd is set to the same location as ModelStructure.xls
   MSdir <- gsub('/ModelStructure.xlsx','',find_model_file())
@@ -121,7 +121,8 @@ BuildInputFiles <- function(end_override = NULL, Suffix=''){
 
   ## Create a new folder for the model if one does not exist
   (files <- list.files(pattern = 'AgeRun'))
-  (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),"_",Suffix,sep=''))
+  if(Suffix!='') Suffix <- paste0("_",Suffix)
+  (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),Suffix,sep=''))
   if(!(nfile%in%files)) {
     dir.create(paste(nfile,sep='')) ;  dir.create(paste(nfile,"/Output",sep=''))
   }

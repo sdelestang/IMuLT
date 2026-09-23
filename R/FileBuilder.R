@@ -409,186 +409,117 @@ BuildInputFiles <- function(end_override = NULL){
 
   #### Growth file ####
   print("Building Growth File")
-  graw <- readWorkbook(wb,sheet='Growth', startRow = 2)
-  ## Check if pars provided
-  IsGPars <- ifelse(length(graw$est[!is.na(graw$est)])>0, 1, 0)
+  graw <- readWorkbook(wb, sheet = 'Growth', startRow = 2)
+  IsGPars  <- any(!is.na(graw$est))
+  seasons  <- startseason:endseason
+  lbgap    <- as.numeric(dynamics$value[dynamics$object == 'lbgap'])
+  parorder <- c("AveGrowth","Inflection","Slope1","Slope2","LsigGorw","Pmoultinf","Pmoultslp")
 
-  growth <- graw %>% dplyr::select(startseason,endseason,sex,area,tstep,grow,matrix) %>% filter(!is.na(startseason))
-  growth %<>% mutate(sex=adjsex(sex,nsex,section='Growth')) %>% rowwise() %>% mutate(Years=paste(startseason, endseason, sep='-')) %>% tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% arrange(startseason,  sex, area, tstep) %>% as.data.frame()
+  ## Helper: one tab/space-separated line per row
+  tabrows <- function(df, sep = "\t", lead = "") {
+    df <- as.data.frame(df)
+    paste0(lead, do.call(paste, c(unname(as.list(df)), sep = sep)), "\n")
+  }
 
-  ## umat defines pattern order. The pointer table, pattern specs, STMs and growth parameters must all follow it.
-  umat <- unique(growth$matrix)
+  ## 1. Growth specification rows, one per matrix x area
+  gsp <- graw %>% filter(!is.na(startseason)) %>%
+    dplyr::select(startseason, endseason, sex, area, tstep, grow, matrix)
+  if (any(is.na(gsp$matrix) | gsp$matrix == "")) stop("Every growth specification row needs a matrix label.", call. = FALSE)
+  umat <- unique(gsp$matrix)                  # pattern order = order matrices appear on the sheet
   nstm <- length(umat)
+  gsp <- gsp %>% mutate(sex = adjsex(sex, nsex, section = 'Growth')) %>%
+    tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% mutate(area = as.numeric(area))
 
-  ## Each matrix label must map to a single sex / tstep / compound value
-  chk <- growth %>% group_by(matrix) %>%
-    summarise(nsex = n_distinct(sex), ntstep = n_distinct(tstep), ngrow = n_distinct(grow), .groups = "drop") %>%
-    filter(nsex > 1 | ntstep > 1 | ngrow > 1)
-  if (nrow(chk) > 0) stop("Growth matrix label(s) used with more than one sex, tstep or compound value: ",
-                          paste(chk$matrix, collapse = ", "), ". Give each combination its own matrix label.", call. = FALSE)
+  ## 2. One row per pattern (matrix), in umat order
+  pat <- gsp %>% group_by(matrix) %>%
+    summarise(nsex = n_distinct(sex), ntstep = n_distinct(tstep), ngrow = n_distinct(grow),
+              sex = first(sex), tstep = first(tstep), grow = first(grow),
+              areas = paste(sort(unique(area - 1)), collapse = ","),
+              Years = paste(unique(paste(startseason, endseason, sep = "-")), collapse = ","), .groups = "drop") %>%
+    slice(match(umat, matrix))
+  if (any(pat$nsex > 1 | pat$ntstep > 1 | pat$ngrow > 1))
+    stop("Growth matrix label(s) used with more than one sex, tstep or compound value: ",
+         paste(pat$matrix[pat$nsex > 1 | pat$ntstep > 1 | pat$ngrow > 1], collapse = ", "), call. = FALSE)
 
-  ## One row per matrix, in umat order
-  growth2 <- growth %>% mutate(area = as.numeric(area) - min(as.numeric(area))) %>%
-    group_by(matrix) %>%
-    summarise(sex = first(sex), tstep = first(tstep), grow = first(grow),
-              areas = paste(unique(area), collapse = ","), Years = paste(unique(Years), collapse = ","), .groups = "drop")
-  growth2 <- growth2[match(umat, growth2$matrix), ]
-  stopifnot(identical(growth2$matrix, umat))
+  gspec <- data.frame(Pattern = 0:(nstm-1), Type = ifelse(IsGPars, 2, 1), Sex = pat$sex - 1, Extra = 0,
+                      Pointer = 0:(nstm-1), Mpower = 1, hash = '#', tsteps = pat$tstep,
+                      growthareas = pat$areas, Years = pat$Years, Compound = pat$grow)
 
-  Sex      <- growth2$sex - 1
-  Tstep    <- as.numeric(growth2$tstep)
-  Pointer  <- 0:(nstm - 1)
-  compound <- as.numeric(growth2$grow)
-  Area     <- growth2$areas
-  Years    <- growth2$Years
+  ## 3. Pointer table: which pattern each sex/age/area/step uses in each year
+  dat <- expand.grid(sex = sexs, age = (1:ages)-1, area = sort(unique(areas$AreaCode))-1, step = sort(unique(times$tstep))-1)
+  pnt <- matrix(-1, nrow(dat), length(seasons), dimnames = list(NULL, seasons))
+  for (r in seq_len(nrow(gsp))) {
+    g <- gsp[r, ]
+    pnt[dat$sex == g$sex-1 & dat$area == g$area-1 & dat$step == g$tstep-1,
+        seasons %in% g$startseason:g$endseason] <- match(g$matrix, umat) - 1
+  }
+  dat <- cbind(dat, pnt) %>% arrange(sex, age, area, step)
 
-  gspec <- data.frame(Pattern=0:(nstm-1), Type=1, Sex=Sex, Extra=0, Pointer=Pointer, Mpower=1, hash='#',
-                      tsteps=Tstep, growthareas=Area, Years=Years, Compound=compound)
-  if(IsGPars) { gspec$Type=2 } ## Change to estimatable
+  miss <- dat %>% tidyr::pivot_longer(-c(sex, age, area, step), names_to = "year", values_to = "p") %>%
+    group_by(sex, age, area, year) %>% filter(all(p == -1)) %>% distinct(sex, age, area, year)
+  if (nrow(miss)) warning("No growth assigned for:\n",
+                          paste0("sex=", miss$sex, " age=", miss$age, " area=", miss$area, " year=", miss$year, collapse = "\n"), call. = FALSE)
 
-  ## Growth parameters: 7 per matrix, in umat order
-  if(IsGPars) {
+  ## 4. Growth parameters: 7 per matrix, matched by matrixmap/Parid and put in umat x parorder order
+  if (IsGPars) {
     gpars <- graw %>% filter(!is.na(est)) %>%
-      dplyr::select(lower,upper,est,Phase,Link,UsePrior,Prior,Priorsd,description, dplyr::any_of("matrix"))
-    if (nrow(gpars) != 7*nstm) stop("Growth tab has ", nrow(gpars), " parameter rows; ", nstm,
-                                    " growth matrices need ", 7*nstm, " (7 each).", call. = FALSE)
+      dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd, matrixmap, Parid) %>%
+      arrange(match(matrixmap, umat), match(Parid, parorder))
+    expect <- tidyr::expand_grid(matrixmap = umat, Parid = parorder)
+    if (!identical(gpars$matrixmap, expect$matrixmap) || !identical(gpars$Parid, expect$Parid))
+      stop("Growth parameters need exactly one row for each of ", paste(parorder, collapse = ", "),
+           " for every growth matrix. Check the 'matrixmap' and 'Parid' columns.", call. = FALSE)
+    oob <- with(gpars, est < lower | est > upper)
+    if (any(oob)) warning("Growth parameter start values outside their bounds:\n",
+                          paste(" ", gpars$matrixmap[oob], gpars$Parid[oob], gpars$est[oob], collapse = "\n"), call. = FALSE)
+  }
 
-    if ("matrix" %in% names(gpars) && all(!is.na(gpars$matrix))) {
-      ## Parameter rows carry their matrix label: pair by label, not position
-      cnt <- table(factor(gpars$matrix, levels = umat))
-      if (any(!gpars$matrix %in% umat) || any(cnt != 7))
-        stop("Growth parameter rows must have exactly 7 rows per matrix label used in the growth specification. Problem labels: ",
-             paste(unique(c(setdiff(gpars$matrix, umat), names(cnt)[cnt != 7])), collapse = ", "), call. = FALSE)
-      gpars <- gpars[order(match(gpars$matrix, umat)), ]   # order() is stable, so P1..P7 keep their sequence
-    } else {
-      ## No labels on the parameter rows: pairing is positional. Show it so it can be checked.
-      message("Growth parameters are paired with matrices by position. Check this pairing:")
-      print(data.frame(pattern = 0:(nstm-1), matrix = umat, sex = Sex,
-                       first_par_description = gpars$description[seq(1, by = 7, length.out = nstm)]))
+  ## 5. Size-transition matrices, in umat order
+  makeSTM <- function(p) {                    # p = est values in parorder; mirrors SetUpGrow() in IMuLT.cpp
+    nl <- length(lens); lbinM <- lens + lbgap/2
+    xdev  <- lbinM - p[2]
+    swap1 <- 1/(1 + exp(xdev/0.1))            # blend slope fixed at 0.1
+    incr  <- exp(p[1]) * (swap1/(1 + exp(xdev/exp(p[3]))) + (1 - swap1)/(1 + exp(xdev/exp(p[4]))))
+    loc <- p[6]/exp(p[7]); scale <- 1/exp(p[7])
+    pmoult <- 1/(1 + exp((lbinM - loc)/scale))
+    STM <- matrix(0, nl, nl)
+    for (fm in 1:nl) {
+      pr <- diff(pnorm(c(lens[fm:nl], Inf), lbinM[fm] + incr[fm], exp(p[5]) * incr[fm]))   # bins fm..nl, top bin open
+      STM[fm:nl, fm] <- pmoult[fm] * pr/sum(pr)
+      STM[fm, fm]    <- STM[fm, fm] + 1 - pmoult[fm]
     }
-    gpars <- gpars %>% dplyr::select(lower,upper,est,Phase,Link,UsePrior,Prior,Priorsd,description)
+    STM
   }
 
-  dat <- expand.grid(sex=sexs, age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
-  dat2 <- matrix(-1, nrow=nrow(dat), ncol=length(startseason:endseason))
-  seasons <- startseason:endseason
-  for(r in 1:nrow(growth)){
-    dat2[dat$sex==growth$sex[r]-1  & dat$area==as.numeric(growth$area[r])-1 & dat$step==as.numeric(growth$tstep[r])-1, seasons%in%growth$startseason[r]:growth$endseason[r]] <-  which(growth$matrix[r]==umat)-1     }
-
-  dat <- cbind(dat,dat2)
-  dat %<>% arrange(sex,age,area,step)
-  ## Check for complete data - does every sex age area moult at least once every year?
-  tdat <- dat %>% tidyr::pivot_longer(cols = -c(sex, age, area, step), names_to = "year", values_to = "value") %>%
-    mutate(year = as.integer(year)) %>% group_by(sex, age, area, year) %>%
-    summarise(has_valid = any(value != -1), .groups = "drop") %>% filter(!has_valid) %>% as.data.frame()
-  if (nrow(tdat) > 0) {
-    missing_str <- paste(
-      apply(tdat[, c("sex", "age", "area", "year")], 1, function(x)
-        paste0("sex=", x["sex"], " age=", x["age"], " area=", x["area"], " year=", x["year"])
-      ),
-      collapse = "\n"
-    )
-    warning("The following sex/age/area/year combinations have no growth assigned:\n", missing_str)
+  if (IsGPars) {
+    STMs <- lapply(umat, function(m) makeSTM(gpars$est[gpars$matrixmap == m]))
+  } else {
+    sheet <- readWorkbook(wb, sheet = 'SizeTransMatricesNew', startRow = 2, colNames = FALSE)
+    nl <- length(lens)
+    STMs <- lapply(umat, function(m) {
+      i <- which(grepl(paste0("^# *", m), sheet$X1))
+      if (!length(i)) stop("No matrix labelled '", m, "' on the SizeTransMatricesNew sheet.", call. = FALSE)
+      apply(sheet[i[1] + 1:nl, 1:nl], 2, as.numeric)
+    })
   }
 
-  ## Cross-check: the sex recorded for each pattern must match the sex that points to it
-  used_sex <- sapply(0:(nstm-1), function(p) unique(dat$sex[apply(dat[, -(1:4)] == p, 1, any)]))
-  bad <- which(sapply(seq_len(nstm), function(k) length(used_sex[[k]]) > 0 && any(used_sex[[k]] != Sex[k])))
-  if (length(bad) > 0) stop("Growth pattern sex mismatch for pattern(s) ", paste(bad - 1, collapse = ", "),
-                            " (matrix ", paste(umat[bad], collapse = ", "), ").", call. = FALSE)
+  ## 6. Write GROWTHSPEC.DAT
+  out <- c(
+    "# Growth specification\n\n# Number of growth Patterns (Mpower is legacy and needed for power function on growth)\n", nstm, "\n",
+    "# ", paste(names(gspec), collapse = "\t"), "\n",
+    tabrows(gspec, lead = "\t"),
+    "\n# Specifications for growth\t\n# Sex\tAge\tArea\tStep\t", paste(seasons, collapse = "\t"), "\n",
+    tabrows(dat),
+    "\n# Number prespecified size-transition\n", nstm, "\n",
+    "# Sex of matrices\n", paste(gspec$Sex, collapse = "\t"), "\n",
+    "# Prespecified size-transition\n",
+    unlist(lapply(seq_len(nstm), function(k) c(paste("\n# Matrix #", umat[k], "\n"), tabrows(round(STMs[[k]], 10), sep = " ")))),
+    "\n# Growth parameters\n# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n",
+    if (IsGPars) tabrows(gpars %>% transmute(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd,
+                                             ID = paste0(matrixmap, ":", Parid)), sep = " "),
+    "\n# Final check\n123456\n")
+  cat(out, file = file.path(floc, "GROWTHSPEC.DAT"), sep = "")
 
-  tmp <- list()
-  tmp <- c(tmp, "# Growth specification\n\n# Number of growth Patterns (Mpower is legacy and needed for power function on growth)\n",nrow(gspec),"\n")
-  tmp <- c(tmp, "# ", paste(colnames(gspec),collapse='\t'),"\n")
-  for(i in 1:nrow(gspec)){ tmp <- c(tmp,'\t',paste(gspec[i,],collapse = "\t"),"\n")}
-
-  tmp <- c(tmp, "\n# Specifications for growth\t\n# Sex\tAge\tArea\tStep\t",paste(startseason:endseason,collapse = "\t"),"\n")
-  for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
-
-  tmp <- c(tmp, "\n# Number prespecified size-transition\n",length(unique(gspec$Pointer)),"\n")
-  tmp <- c(tmp, "# Sex of matrices\n",paste(gspec$Sex,collapse = "\t"),"\n")
-
-  tmp <- c(tmp, "# Prespecified size-transition\n")
-
-  ## If IsGPars then make STMs otherwise load them from the file pre-specified
-  if(IsGPars) {
-    lbinL <- lens
-    lbinM <- lens+(dynamics$value[dynamics$object=='lbgap']/2)
-    lbinU <- lens+(dynamics$value[dynamics$object=='lbgap'])
-
-    ## Make STM and then load it to the file
-    for(st in 1:nstm) {
-      srt <- (st-1)*7+1
-      Pins <- gpars[srt:(srt+6),]
-
-      ## Make Growth Vector
-      Amax <- exp(Pins$est[1])
-      P2   <- Pins$est[2]
-      P1   <- exp(Pins$est[3])
-      P3   <- exp(Pins$est[4])
-      P5   <- 0.1   # swap/blend slope -- FIXED, not estimated
-      scale = 1 / exp(Pins$est[7])
-      loc   = Pins$est[6] / exp(Pins$est[7])
-
-      xdev  <- lbinM - P2
-      grow1 <- 1 / (1 + exp(xdev / P1))
-      grow2 <- 1 / (1 + exp(xdev / P3))
-      swap1 <- 1 / (1 + exp(xdev / P5))
-      swap2 <- 1 - swap1
-      growthvec <- Amax * (grow1 * swap1 + grow2 * swap2)
-
-      ## Make STM
-      nlbin <- length(lens)
-      STM <- matrix(0, ncol=nlbin, nrow=nlbin)
-      for (fm in 1:nlbin) {
-        mn_growth <- growthvec[fm]
-        sd_growth <- exp(Pins$est[5]) * mn_growth
-        Pmoult  <- 1/(1+exp((lbinM[fm]-loc)/scale))
-
-        probs <- rep(0, nlbin)
-        for (k in fm:(nlbin - 1)) {
-          probs[k] <- pnorm(lbinU[k], lbinM[fm] + mn_growth, sd_growth) - pnorm(lbinL[k], lbinM[fm] + mn_growth, sd_growth)
-        }
-        probs[nlbin] <- 1 - pnorm(lbinL[nlbin], lbinM[fm] + mn_growth, sd_growth)
-        probs_norm <- probs[fm:nlbin] / sum(probs[fm:nlbin])
-        STM[fm:nlbin, fm] <- Pmoult * probs_norm
-        STM[fm, fm] <- STM[fm, fm] + (1 - Pmoult)
-      }
-
-      ## Load each STM to the file
-      tmp <- c(tmp,paste("\n# Matrix #",umat[st],"\n"))
-      for(rr in 1:nlbin){  tmp <- c(tmp,paste(round(as.numeric(STM[rr,]),10),collapse = " "),"\n")      }
-    } }
-
-
-  if(!IsGPars){
-    STM <- readWorkbook(wb,sheet='SizeTransMatricesNew', startRow = 2, colNames = F)
-    STM[is.na(STM)] <- ''
-
-    lines <- unlist(STM$X1)  # labels are in X1
-    nlbin <- length(lens)
-    for (r in 1:nstm) {
-      label_idx <- which(grepl(paste0("^# *", umat[r]), lines))
-      if (length(label_idx) == 0)
-      {
-        stop(paste("Mismatch between STM labels in Growth and SizeTransMatricesNew sheets. Label: ",umat[r]))
-      }
-
-      start <- label_idx + 1
-      mat_rows <- STM[start:(start + nlbin - 1), 1:nlbin]
-      tmp <- c(tmp,paste("\n# Matrix #",umat[r],"\n"))
-      for(rr in 1:nrow(mat_rows)){  tmp <- c(tmp,paste(round(as.numeric(mat_rows[rr,]),10),collapse = " "),"\n")
-      }}
-
-  }
-  tmp <- c(tmp, "\n# Growth parameters\n","# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
-  if(IsGPars) {
-    for(rr in 1:nrow(gpars)){  tmp <- c(tmp,paste(gpars[rr,],collapse = " "),"\n") }
-  }
-
-  tmp <- c(tmp, "\n# Final check\n123456")
-
-  write.table(tmp, paste(floc,'/GROWTHSPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
 
   #### Reproduction file ####
   print("Building Reproduction File")

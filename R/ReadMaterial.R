@@ -831,6 +831,19 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   Index <- MatchTable(ControlFile,Char1="#",Char2="Efficiency",Char3="parameters");
   NefficPar <- as.numeric(ControlFile[Index+1,1])
 
+  ## Check efficiency creep parameter count against the creep setup in DATA.DAT.
+  ## Each series needs ceiling((Nyear-1)/lag) pars: creep applies to year-to-year transitions, not years.
+  EffCrLag <- DataSpecs$EffCrLag
+  if (length(EffCrLag) > 0) {
+    need <- sum(ceiling((GeneralSpecs$Nyear - 1) / EffCrLag))
+    if (NefficPar != need)
+      stop("CONTROL.DAT has ", NefficPar, " efficiency creep parameters but the creep setup needs ", need,
+           " (", length(EffCrLag), " series, lags ", paste(EffCrLag, collapse = ","),
+           ", ", GeneralSpecs$Nyear - 1, " transitions). Rebuild the input files.", call. = FALSE)
+    if (asnum(ControlFile[Index+NefficPar+2,1]))
+      stop("More efficiency creep parameter rows than the stated count (", NefficPar, ") in CONTROL.DAT.", call. = FALSE)
+  }
+
   write("READ IN THE CONTROL FILE\n\n",EchoFile,append=T)
   ReturnObj <- NULL
   ReturnObj$Fleet_area <- Fleet_area
@@ -1735,7 +1748,7 @@ ReadGrowthFile <- function(GrowthFile,GeneralSpecs)
   write(t(GrowthSpecs),EchoFile,append=T,ncol=6)
 
   Index <- MatchTable(GrowthFile,Char1="#",Char2="Growth",Char3="parameters")+2;
-  NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+6),1])))==0, NgrowthPatterns*7, 0)
+  suppressWarnings(NgrowthPars <- ifelse(sum(is.na(as.numeric(GrowthFile[Index:(Index+6),1])))==0, NgrowthPatterns*7, 0))
   write(paste("Number of growth parameters",NgrowthPars),EchoFile,append=T,ncol=3+GeneralSpecs$Nsex)
 
   # Growth parameters linking conditions

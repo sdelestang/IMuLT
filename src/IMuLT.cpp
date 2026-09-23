@@ -932,25 +932,22 @@ Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, 
   CpueEcreep.setZero();
 
   // Make efficiency creep matrix from parameters with time lags
-  int Lenefseries = CpueEcreep.rows();  // N years
-  int Nefseries = CpueEcreep.cols();    // Number of unique Lags times
-  int efcnt = -1; int parcnt = -1;
-  Type Tmppar;  // store temporary parameter
+  int Lenefseries = CpueEcreep.rows();
+  int Nefseries = CpueEcreep.cols();
+  int parstart = 0;
   for (int Nef=0;Nef<Nefseries;Nef++){
-    CpueEcreep(0,Nef) = 1.0;  // Set first year to 1 (no efficiency creep)
-    parcnt = parcnt + 1;
-    efcnt = 0;
+    int lag  = thedata.EffCrLag(Nef);
+    int npar = (dat.Nyear - 1 + lag - 1) / lag;                 // ceiling((Nyear-1)/lag)
+    CpueEcreep(0,Nef) = 1.0;                                    // first year = no creep
     for (int Yef=1;Yef<Lenefseries;Yef++){
-      if(Yef<(dat.Nyear))  {
-        efcnt = efcnt+1;
-        Tmppar = efpars(parcnt);                                         // read current par
-        CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef) * (1+(Tmppar/100)); // apply it
-        if(efcnt==thedata.EffCrLag(Nef)){                                // THEN check lag
-          efcnt = 0;
-          parcnt = parcnt + 1;
-        }
-      } else { CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);}
+      if (Yef < dat.Nyear) {
+        int ip = parstart + (Yef-1)/lag;
+        CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef) * (1 + (efpars(ip)/100));
+      } else {
+        CpueEcreep(Yef,Nef) = CpueEcreep(Yef-1,Nef);            // no creep in projection years
+      }
     }
+    parstart += npar;
   }
 
   for (int Ipnt=0;Ipnt<thedata.Ncpue;Ipnt++)

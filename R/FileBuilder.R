@@ -385,7 +385,8 @@ BuildInputFiles <- function(end_override = NULL){
   vals   <- nrow(ecpar1)
   if (vals < n_need){ stop("Not enough parameters have been provided in the Efficiency tab ","(", vals, " supplied, ", n_need, " required).", call. = FALSE)}
 
-  nECpar <- floor((endseason-startseason+1)/effic$temporal.cover)
+  nyrs   <- endseason - startseason + 1
+  nECpar <- ceiling((nyrs - 1) / effic$temporal.cover[1:nECvec])   # creep applies to transitions, not years
   tmp <- c(tmp, sum(nECpar),"\t# Number of Efficiency parameters \n")
   for(nv in 1:nECvec){
     for(np in 1:nECpar[nv]){

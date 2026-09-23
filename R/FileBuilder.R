@@ -4,8 +4,16 @@
 #' model. Reads model structure and parameters from a ModelStructure.xlsx workbook and
 #' generates a complete set of properly formatted input files in a new run directory.
 #'
+#' @param end_override Optional numeric. Last year of the assessment. If supplied, it
+#'   overrides the \code{endseason} value on the Dynamics sheet (e.g. for building
+#'   retrospective peels). Default \code{NULL} uses the Dynamics sheet value.
+#' @param Suffix Optional character string appended to the run directory name, so that
+#'   alternative runs with the same areas, ages and years can sit side by side
+#'   (e.g. \code{"_tags"} gives \code{8Area3AgeRun45_25_tags}). Default \code{""} (no suffix).
+#'
 #' @details
-#' The function requires a ModelStructure.xlsx file in the current working directory.
+#' The function requires a ModelStructure.xlsx file, located via \code{find_model_file()};
+#' the working directory is switched to its folder if needed.
 #' This Excel workbook must contain the following sheets:
 #' \itemize{
 #'   \item Dynamics - Model dynamics and temporal settings
@@ -19,38 +27,46 @@
 #'   \item Growth, lengthweight, maturity, etc. - Biological parameters
 #' }
 #'
+#' If the run directory already exists, its input files are overwritten; the
+#' \code{Output} subfolder and its contents are left in place.
+#'
 #' The function creates the following output files in the run directory:
 #' \itemize{
 #'   \item STARTER.DAT - File paths and run settings
-#'   \item DATA.DAT - Catch, CPUE, and biological data
+#'   \item DATA.DAT - Catch, CPUE, length-frequency and puerulus data
 #'   \item CONTROL.DAT - Model control parameters and biological specifications
 #'   \item GROWTHSPEC.DAT - Growth transition matrices and parameters
+#'   \item REPOSPEC.DAT - Maturity, multiple spawning and fecundity specifications
 #'   \item MOVESPEC.DAT - Movement/migration specifications
+#'   \item TAGSPEC.DAT, TAGPROP.DAT - Tag release/recapture data and reporting-type proportions
 #'   \item RECRUITSPEC.DAT - Recruitment specifications and parameters
 #'   \item RETAINSPEC.DAT - Retention (high-grading) specifications
 #'   \item SELEXSPEC.DAT - Gear selectivity and legal size specifications
 #'   \item PROJECTIONS.DAT - Future projection settings
 #' }
 #'
-#' @return NULL (invisibly). Creates a new directory containing all model input files.
-#'   The directory name follows the pattern: `[nAreas]`Area`[nAges]`AgeRun`[startYY]`_`[endYY]`
+#' @return The full path of the run directory (invisibly). The directory name follows
+#'   the pattern \code{[nAreas]Area[nAges]AgeRun[startYY]_[endYY][Suffix]}.
 #'
 #' @examples
 #' \dontrun{
-#' # Ensure ModelStructure.xlsx is in current directory
-#' setwd("path/to/model/directory")
-#'
-#' # Build all input files
+#' # Build all input files for the years on the Dynamics sheet
 #' BuildInputFiles()
+#' # -> e.g. "8Area3AgeRun45_25"
 #'
-#' # Files will be created in a new directory like: "8Area8AgeRun92_23"
+#' # Same model with a suffix, for a sensitivity run
+#' BuildInputFiles(Suffix = "_tags")
+#' # -> "8Area3AgeRun45_25_tags"
+#'
+#' # Build a run ending in 2020 and keep the path
+#' floc <- BuildInputFiles(end_override = 2020)
 #' }
 #'
 #' @seealso
 #' See the IMuLT User Guide for ModelStructure.xlsx template format and specifications.
 #'
 #' @export
-BuildInputFiles <- function(end_override = NULL){
+BuildInputFiles <- function(end_override = NULL, Suffix=''){
 
   # Ensure the wd is set to the same location as ModelStructure.xls
   MSdir <- gsub('/ModelStructure.xlsx','',find_model_file())
@@ -74,18 +90,6 @@ BuildInputFiles <- function(end_override = NULL){
     if(is.numeric(x)){ xout <- x }
     return(as.numeric(xout))
   }
-
-  # safe_loadWorkbook <- function(file) {
-  #   tryCatch(
-  #     suppressWarnings(loadWorkbook(file = file)),
-  #     error = function(e) {
-  #       stop("'", file, "' appears to be open in Excel. Close it first and retry.", call. = FALSE)
-  #     }
-  #   )
-  # }
-  #
-  # ## Open up file with all info
-  # wb <- safe_loadWorkbook("ModelStructure.xlsx")
 
   wb <- load_model_structure()
 
@@ -117,7 +121,7 @@ BuildInputFiles <- function(end_override = NULL){
 
   ## Create a new folder for the model if one does not exist
   (files <- list.files(pattern = 'AgeRun'))
-  (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),sep=''))
+  (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),"_",Suffix,sep=''))
   if(!(nfile%in%files)) {
     dir.create(paste(nfile,sep='')) ;  dir.create(paste(nfile,"/Output",sep=''))
   }

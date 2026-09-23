@@ -318,49 +318,65 @@ matrix<Type> SetUpLegal(dataSet<Type> &dat, matrix<Type> &LegalFI, matrix<int> &
 }
 // -------------------------------------------------------------------------------------------------------------------
 
+// posfun-style soft clamp to [eps, 1-eps]: identity inside, smooth approach to 0/1 outside,
+// plus a quadratic penalty on the distance outside. Value and slope are continuous at eps and 1-eps.
+template <class Type>
+Type SoftUnit(Type x, Type eps, Type wt, Type &pen){
+  pen += wt * CondExpLt(x, eps,     square(x - eps),     Type(0));
+  pen += wt * CondExpGt(x, 1 - eps, square(x - 1 + eps), Type(0));
+  Type lo = CondExpGe(x, eps, x, eps/(Type(2) - x/eps));   // lower side
+  Type y  = 1 - lo;
+  Type hi = CondExpGe(y, eps, y, eps/(Type(2) - y/eps));   // upper side, mirrored
+  return 1 - hi;
+}
+
+// -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>
- matrix<Type> SetUpMove(dataSet<Type> &dat,  vector<Type> &MovePars ){
+matrix<Type> SetUpMove(dataSet<Type> &dat,  vector<Type> &MovePars, Type &MovePen ){
 
- // This function sets up all the movement patterns
+  // This function sets up all the movement patterns.
+  // Movement rates are kept in (0,1) by SoftUnit(): used as estimated between MoveEps and 1-MoveEps,
+  // smoothly squashed outside that range, with a penalty (added to MovePen) pulling them back.
+  int MaxLen; MaxLen = dat.MaxLen;
+  matrix<Type> ActMove(dat.NmovePatterns,MaxLen);
+  int ImoveParPnt,Isex;
+  Type rate,ChangePnt,Mult;
+  Type MoveEps = Type(0.001);                   // edge of the flat (penalty-free) region
+  Type MoveWt  = Type(1000);                    // penalty weight outside [MoveEps, 1-MoveEps]
 
- int MaxLen; MaxLen = dat.MaxLen;
- matrix<Type> ActMove(dat.NmovePatterns,MaxLen);
- int ImoveParPnt,Isex;
- Type rate,ChangePnt,Mult;
-
- ActMove.setZero();
- ImoveParPnt = -1;
- for (int ImovePattern=0;ImovePattern<dat.NmovePatterns;ImovePattern++)
+  ActMove.setZero();
+  ImoveParPnt = -1;
+  for (int ImovePattern=0;ImovePattern<dat.NmovePatterns;ImovePattern++)
   {
-   // Constant
-   if (dat.MoveSpec(ImovePattern,1) == MOVE_CONSTANT)
+    // Constant
+    if (dat.MoveSpec(ImovePattern,1) == MOVE_CONSTANT)
     {
-     rate = MovePars(ImoveParPnt+1);
-     ImoveParPnt += 1;
-     for (int Isize=0;Isize<dat.MaxLen;Isize++) ActMove(ImovePattern,Isize) = rate;
+      rate = SoftUnit(MovePars(ImoveParPnt+1), MoveEps, MoveWt, MovePen);
+      ImoveParPnt += 1;
+      for (int Isize=0;Isize<dat.MaxLen;Isize++) ActMove(ImovePattern,Isize) = rate;
     }
-   // Knife-edged (uses lengths for sex=1)
-   if (dat.MoveSpec(ImovePattern,1) == MOVE_KNIFE)
+    // Knife-edged (uses lengths for sex=1); change point in mm is not constrained
+    if (dat.MoveSpec(ImovePattern,1) == MOVE_KNIFE)
     {
-     ChangePnt = MovePars(ImoveParPnt+1);
-     rate = MovePars(ImoveParPnt+2);
-     ImoveParPnt += 2;
-     Isex = 0;
-     for (int Isize=0;Isize<dat.MaxLen; Isize++)
+      ChangePnt = MovePars(ImoveParPnt+1);
+      rate = SoftUnit(MovePars(ImoveParPnt+2), MoveEps, MoveWt, MovePen);
+      ImoveParPnt += 2;
+      Isex = 0;
+      for (int Isize=0;Isize<dat.MaxLen; Isize++)
       {
-       if (dat.LowLenBin(Isex,Isize+1) <= ChangePnt)
-        Mult = 0;
-       else
-        if (dat.LowLenBin(Isex,Isize) >= ChangePnt)
-         Mult = 1;
+        if (dat.LowLenBin(Isex,Isize+1) <= ChangePnt)
+          Mult = 0;
         else
-         Mult = (dat.LowLenBin(Isex,Isize+1)-ChangePnt) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
-       ActMove(ImovePattern,Isize) = rate*Mult;
+          if (dat.LowLenBin(Isex,Isize) >= ChangePnt)
+            Mult = 1;
+        else
+          Mult = (dat.LowLenBin(Isex,Isize+1)-ChangePnt) / (dat.LowLenBin(Isex,Isize+1)-dat.LowLenBin(Isex,Isize));
+        ActMove(ImovePattern,Isize) = rate*Mult;
       }
     }
   }
- return(ActMove);
+  return(ActMove);
 }
 
 // -------------------------------------------------------------------------------------------------------------------
@@ -2513,7 +2529,8 @@ Type objective_function<Type>::operator() ()
   ActSelex = SetUpSelex(dataset, SelPars, SelexFI, SelSpec, NselPatterns);
   ActReten = SetUpSelex(dataset, RetPars, RetenFI, RetSpec, NretPatterns);
   ActLegal = SetUpLegal(dataset, LegalFI, LegalSpec, NlegalPatterns);
-  ActMove = SetUpMove(dataset, MovePars);
+  Type MovePen = 0;
+  ActMove = SetUpMove(dataset, MovePars, MovePen);
   Test2 = SetUpRecruit(dataset, RecruitPars, RecSpatDevs, ActRecruitAreaSexDist, ActRecruitLenDist );
   ActGrowth = SetUpGrow(dataset, GrowthPars);
 
@@ -2884,7 +2901,7 @@ if(thedata.IsTagData==1){
   neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalties derived from parameter priors
-  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen;
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen + MovePen;
 
   // Now do projections.
   // ProjType==1 (catch-based): dataset.Catch already holds the projected catch
@@ -3084,6 +3101,7 @@ if(thedata.IsTagData==1){
     REPORT(EffParPriorPen);
     REPORT(GrowParPriorPen);
     REPORT(MoveParPriorPen);
+    REPORT(MovePen);
 
 
     REPORT(MainPars);

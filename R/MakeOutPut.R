@@ -288,16 +288,23 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
            caption="Raw and weighted likelihoods.")
 
   ### Penalties ####
-  INP <- as.numeric(dat[11,4])
-  RP <-  as.numeric(dat[12,3])
-  RSP <-  as.numeric(dat[13,4])
-  Prior_Main <-  as.numeric(dat[14,4])
-  Prior_Rec <-  as.numeric(dat[15,4])
-  Prior_Sel <-  as.numeric(dat[16,4])
-  Prior_Eff <-  as.numeric(dat[17,4])
-  Grow_Eff <-  as.numeric(dat[18,4])
-  Move_Eff <-  as.numeric(dat[19,4])
-  dfram <- data.frame(id=c('Initial Nunbers','Recruitment Deviations', 'Recruitment Devs Smoother','Priors on Main Pars','Priors on Recruit Pars','Priors on Selectivity Pars','Priors on Efficiency Pars','Priors on Growth Pars','Priors on Movement Pars'),Value=c(round(INP,1),round(RP,1),round(RSP,1),round(Prior_Main,1),round(Prior_Rec,1),round(Prior_Sel,1),round(Prior_Eff,1),round(Grow_Eff,1),round(Move_Eff,1)))
+  INP        <- as.numeric(dat[11,4])
+  RP         <- as.numeric(dat[12,3])
+  RSP        <- as.numeric(dat[13,4])
+  Prior_Main <- as.numeric(dat[14,4])
+  Prior_Rec  <- as.numeric(dat[15,4])
+  Prior_Sel  <- as.numeric(dat[16,4])
+  Prior_Eff  <- as.numeric(dat[17,4])
+  Prior_Grow <- as.numeric(dat[18,4])
+  Prior_Move <- as.numeric(dat[19,4])
+  Move_Pen   <- as.numeric(dat[20,4])
+  dfram <- data.frame(id = c('Initial Numbers', 'Recruitment Deviations', 'Recruitment Devs Smoother',
+                             'Priors on Main Pars', 'Priors on Recruit Pars', 'Priors on Selectivity Pars',
+                             'Priors on Efficiency Pars', 'Priors on Growth Pars', 'Priors on Movement Pars',
+                             'Keep Movement between 0:1'),
+                      Value = round(c(INP, RP, RSP, Prior_Main, Prior_Rec, Prior_Sel, Prior_Eff,
+                                      Prior_Grow, Prior_Move, Move_Pen), 1))
+
   filen <- "Penality.csv"  # csv files only
   addtable(intable=dfram,filen=filen,rundir=rundir,category="Like",
            caption="Penalities added to likelihoods.")
@@ -885,7 +892,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                                axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
                          ylab('Catch rate (kg/pot)'))}
               }
-    caption <- paste(unique(tdat3$aSex), unique(tdat3$Descrip), "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+    caption <- paste(paste(unique(tdat3$aSex), collapse = " & "), unique(tdat3$Descrip),
+                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
 
@@ -1319,55 +1327,10 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                            pearson = (Obs - Est) / sqrt(Est + 1e-5),
                            yt = year + tstep / (max(tstep) + 1))
 
-    # Plot 1: Aggregated obs vs est by release area x recapture area
-    tag_agg <- tag %>%
-      group_by(RLArea, RCArea) %>%
-      summarise(TotalObs = sum(Obs, na.rm = TRUE),
-                TotalEst = sum(Est, na.rm = TRUE),
-                .groups = "drop")
-
-    mx <- ceiling(max(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
-    mn <- floor(min(log(c(tag_agg$TotalObs, tag_agg$TotalEst) + 1e-5)))
-
-    filename <- filenametopath(rundir, paste0("Tag_recapt_by_release.png"))
-    plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
-    parset(plots = c(1, 1))
-    suppressWarnings(print(
-      ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
-        geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
-        geom_point(size = 3) +
-        facet_wrap(~RLArea) +
-        coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
-        theme(panel.background = element_rect(fill = "white", colour = NA),
-              panel.border = element_rect(fill = NA, colour = "grey20")) +
-        xlab("log(Total Observed)") + ylab("log(Total Estimated)")
-    ))
-    caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
-    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-
-    # Plot 2: Pearson residuals by release area, faceted by recapture area
+    # Pearson residuals by release area, faceted by recapture area
     for (a in as.numeric(sort(unique(tag$RelArea)))) {
       tmp <- tag[tag$RelArea == a, ]
-      filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
-      plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
-      parset(plots = c(1, 1))
-      suppressWarnings(print(
-        ggplot(tag_agg, aes(x = log(TotalObs + 1e-5), y = log(TotalEst + 1e-5), color = RCArea)) +
-          geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
-          geom_point(size = 3) +
-          facet_wrap(~RLArea) +
-          coord_equal(xlim = c(mn, mx), ylim = c(mn, mx)) +
-          theme(panel.background = element_rect(fill = "white", colour = NA),
-                panel.border = element_rect(fill = NA, colour = "grey20")) +
-          xlab("log(Total Observed)") + ylab("log(Total Estimated)")
-      ))
-      caption <- "Aggregated observed vs estimated tag recaptures by release and recapture area."
-      addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
-    }
-    # Plot 2: Pearson residuals by release area, faceted by recapture area
-    for (a in as.numeric(sort(unique(tag$RelArea)))) {
-      tmp <- tag[tag$RelArea == a, ]
-      filename <- filenametopath(rundir, paste0("Tag_recapt_by_release", a, ".png"))
+      filename <- filenametopath(rundir, paste0("Tag_resid_relarea", a, ".png"))
       plotprep(width = 7, height = 7, filename = filename, cex = 0.9, verbose = FALSE)
       parset(plots = c(1, 1))
       suppressWarnings(print(
@@ -1383,22 +1346,23 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       caption <- paste("Pearson residuals of tag recaptures for release area", a, ".")
       addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
     }
+
+    # Size composition of recaptures by sex and release area, faceted by recapture area
     tag <- findNclean(c('#Tagging','length'), dat, 2, convert = 2)
-    tag %<>% pivot_longer(
-      cols = c(ObsProp, EstProp),
-      names_to = "Type",
-      values_to = "Proportion"    )
+    tag %<>% pivot_longer(cols = c(ObsProp, EstProp), names_to = "Type", values_to = "Proportion")
     for(s in as.numeric(sort(unique(tag$Sex)))){
       for(a in as.numeric(sort(unique(tag$RelArea)))){
-        filename <- filenametopath(rundir,paste0("Tag_recapt_by_release",s,a,".png"))
+        filename <- filenametopath(rundir, paste0("Tag_lencomp_sex", s, "_relarea", a, ".png"))
         plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
         parset(plots=c(1,1))
-        tmp <- tag %>% filter(RelArea==a & Sex==s) %>% group_by(Type,RecArea) %>% mutate(Proportion=Proportion/(sum(Proportion)+1e-7)) %>% mutate(lbin=lbin[Size])
+        tmp <- tag %>% filter(RelArea==a & Sex==s) %>% group_by(Type,RecArea) %>%
+          mutate(Proportion=Proportion/(sum(Proportion)+1e-7)) %>% mutate(lbin=lbin[Size])
         suppressWarnings(print(ggplot(tmp, aes(x=lbin, y=Proportion, colour=Type))+
                                  geom_point()+geom_line()+
-                                 facet_wrap(~RecArea, scale='free_y')+
-                                 scale_color_discrete(
-                                   name = "Type", labels = c("Observed", "Estimated")) +
+                                 facet_wrap(~RecArea, scales='free_y')+
+                                 scale_colour_manual(name = "Type",
+                                                     values = c(ObsProp = "black", EstProp = "red"),
+                                                     labels = c(ObsProp = "Observed", EstProp = "Estimated")) +
                                  theme(panel.background = element_rect(fill = "white",colour = NA),
                                        panel.border = element_rect(fill = NA, colour = "grey20"))+
                                  xlab("Length Bin (mm)")+ylab("Proportion")+ggtitle(paste('Sex',s,'Release Area',a))))
@@ -1407,6 +1371,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       }
     }
   }
+
 #### Model Outputs ####
   ### Relative Legal Biomass by area ###
   print("Making Legal Biomass")
@@ -1502,7 +1467,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   lb <- findNclean(c('#Harvest','rate'), dat, 2)
   colnames(lb) <- c('Zone','Year','est', 'sd', 'est76')[1:ncol(lb)]
   if(exists('lb$sd')) lb %<>% mutate(up95=est+sd*SclErr,lw95=est-sd*SclErr)
-  filename <- filenametopath(rundir,paste0(Sex, "HarvestRate_Biom.png"))
+  filename <- filenametopath(rundir,paste0("HarvestRate_Biom.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=Fdims(length(unique(lb$Zone))))
   for(i in 1:length(unique(lb$Zone))){
@@ -1525,7 +1490,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   catch <- findNclean('Catches', dat, 2)
   catch%<>% mutate(fdate = Year + Step/7)
   areas <- unique(catch$Area)
-  filename <- filenametopath(rundir,paste0(Sex, "F_Mort.png"))
+  filename <- filenametopath(rundir,paste0("F_Mort.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=Fdims(length(unique(areas))))
   for(i in 1:length(areas)){
@@ -1572,7 +1537,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   egg <- findNclean(c('#Egg','Production','Total'), dat, 2) %>% filter(Year>=GeneralSpecs$Year1)
   if(ncol(egg)==2) egg$se <- 0
   egg %<>% mutate(lwr=est-se*SclErr, upr=est+se*SclErr)
-  filename <- filenametopath(rundir,paste0(Sex, "Breeding_Biomass1.png"))
+  filename <- filenametopath(rundir,paste0("Breeding_Biomass1.png"))
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=Fdims(1))
 
@@ -1600,7 +1565,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     egg2 <- egg %>% mutate(Loc=case_when(area == 2 ~ "South", area %in% c(4,6) ~ 'Central', area == 8 ~ "North", area == 5 ~'Abrolhos', .default = "other")) %>% filter(Loc!='other') %>% mutate(Loc=factor(Loc, levels=c("North",'Abrolhos','Central',"South")))
     if(length(egg2$se)==0) egg2$se <- 0
     egg2 %<>% group_by(year, Loc) %>% summarise(est=sum(est), se=sqrt(sum(se^2)))
-    filename <- filenametopath(rundir,paste0(Sex, "BSMA.png"))
+    filename <- filenametopath(rundir,paste0("BSMA.png"))
     plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=Fdims(length(unique(egg2$Loc))))
     for(i in 1:length(unique(egg2$Loc))){

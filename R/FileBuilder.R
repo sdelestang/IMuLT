@@ -203,7 +203,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% dplyr::select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
   tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
   Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric)
-  SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat[1:10,])
+  SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
   cpuenumbers <- unique(Udat$CpueInd)
 
   ## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8
@@ -419,7 +419,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   IsGPars  <- any(!is.na(graw$est))
   seasons  <- startseason:endseason
   lbgap    <- as.numeric(dynamics$value[dynamics$object == 'lbgap'])
-  parorder <- c("AveGrowth","Inflection","Slope1","Slope2","LsigGorw","Pmoultinf","Pmoultslp")
+  parorder <- c("AveGrowth","Inflection","Slope1","Slope2","LsigGrow","Pmoultinf","Pmoultslp")
 
   ## Helper: one tab/space-separated line per row
   tabrows <- function(df, sep = "\t", lead = "") {

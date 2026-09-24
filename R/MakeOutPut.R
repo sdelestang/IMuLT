@@ -215,8 +215,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   growth_ptr   <- growth_sheet %>% filter(!is.na(startseason))
   umat         <- unique(growth_ptr$matrix)
   GrowthParPerPattern <- c("AveGrowth", "Inflection", "Slope1", "Slope2",
-                           "SlopeSwap", "LsigGorw", "Pmoultinf", "Pmoultslp")
-  GrowthParName <- paste0('Grow_', rep(umat, each = 8), '_', GrowthParPerPattern)
+                           "LsigGrow", "Pmoultinf", "Pmoultslp")
+  GrowthParName <- paste0('Grow_', rep(umat, each = length(GrowthParPerPattern)), '_', GrowthParPerPattern)
 
   find <- function(KeyWord, DataFile, Offset){
     KeyWord <- unlist(strsplit(as.character(KeyWord),' '))

@@ -254,36 +254,32 @@ EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
   selfRMS <- Udat %>%
     group_by(CpueInd) %>%
     group_modify(~{
-      d <- .x %>% arrange(Year)
+      d <- .x %>% filter(!is.na(Index), Index > 0, !is.na(CV), CV > 0) %>% arrange(Year)
       n <- nrow(d)
-      logidx <- log(d$Index)
-      deg <- min(3, max(1, floor((n - 2) / 3)))
-      deg <- min(deg, n - 2)
-      fit <- lm(logidx ~ poly(d$Year, deg, raw = TRUE))
+      if (n < 3) return(data.frame(n = n, deg = NA, dof = 0, selfRMS = NA))   # too short for a trend fit
+      deg <- min(3, max(1, floor((n - 2) / 3)), n - 2)
+      fit <- lm(log(d$Index) ~ stats::poly(d$Year, deg, raw = TRUE))
       resid_std <- residuals(fit) / d$CV
-      dof <- n - (deg + 1)
-      data.frame(n = n, deg = deg, dof = dof,
+      data.frame(n = n, deg = deg, dof = n - (deg + 1),
                  selfRMS = sqrt(mean(resid_std^2)))
     }) %>%
     ungroup()
 
-  #if (verbose) print(selfRMS)
+  if (verbose) print(as.data.frame(selfRMS))
 
-  reliable <- selfRMS %>% filter(dof >= min_dof)
+  reliable <- selfRMS %>% filter(dof >= min_dof, !is.na(selfRMS))
   if (nrow(reliable) == 0) {
     warning("No CPUE series has enough points (dof >= ", min_dof, ") to ",
             "estimate a data-driven SigmaCpueCeiling -- falling back to ",
-            min_ceiling, ". Lower min_dof, or set the ceiling by hand for ",
-            "this run.")
+            min_ceiling, ". Lower min_dof, or set the ceiling by hand for this run.",
+            call. = FALSE)
     return(min_ceiling)
   }
 
   ceiling <- max(max(reliable$selfRMS) * safety_factor, min_ceiling)
-  # if (verbose) {
-  #   cat("Data-driven SigmaCpueCeiling:", round(ceiling, 3),
-  #       "(max selfRMS", round(max(reliable$selfRMS), 3),
-  #       "x safety factor", safety_factor, ")\n")
-  # }
+  if (verbose) cat("Data-driven SigmaCpueCeiling:", round(ceiling, 3),
+                   "(max selfRMS", round(max(reliable$selfRMS), 3),
+                   "x safety factor", safety_factor, ")\n")
   ceiling
 }
 

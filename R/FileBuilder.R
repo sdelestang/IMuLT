@@ -983,7 +983,8 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Pattern Type Sex Npars Pointer # Type PRESPECIFIED 1, COEFFICIENTS 2, LOGISTIC 3, KNIFE 4, DOUBLELOG 9, DOUBLELOG2 10\n")
   for(i in 1:nrow(egappar_sum)){ tmp <- c(tmp,paste(egappar_sum[i,1:5],collapse = " "),"\n")}
 
-  ids <- paste(0:7, unique(egappar$comment), sep='=', collapse = ", ")
+  pnm <- GetSelectPatternNames(wb, startseason, endseason)
+  ids <- paste(pnm$link, pnm$name, sep = "=", collapse = ", ")
 
   tmp <- c(tmp, paste0("# Specifications for selectivity (for example escape gaps),", ids,". \n"), "# Sex Age Fleet Step: ",paste(startseason:endseason,collapse = " "),"\n")
 

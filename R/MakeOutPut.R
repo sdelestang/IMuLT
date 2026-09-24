@@ -1063,7 +1063,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
   parset(plots=Fdims(dim(recfrac)[2]-1))
   for(cl in 2:dim(recfrac)[2]) {
-    suppressWarnings(plot(recfrac[,1], recfrac[,cl], axes=F, pch=16,xlab='Lower length bin (mm)', ylab='Proportion', type='o',cex=0.7, ylim=c(0,max(recfrac[,2:ncol(recfrac)])), main=))
+    suppressWarnings(plot(recfrac[,1], recfrac[,cl], axes=F, pch=16,xlab='Lower length bin (mm)', ylab='Proportion', type='o',cex=0.7, ylim=c(0,max(recfrac[,2:ncol(recfrac)])), main=colnames(recfrac)[cl]))
     lines(recfrac[,1], recfrac[,cl], type='o',cex=0.7, col=(cl-1))
     axis(1);axis(2)}
   caption <- "Recruiting size composition."

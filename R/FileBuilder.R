@@ -942,6 +942,22 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     }
   }
   egappar_sum %<>% mutate(Pointer=pattern)
+  tegappar  <- ExpandSelectPars(wb, startseason, endseason)
+  par_order <- unique(tegappar$uniq)
+  if (!setequal(par_order, egappar_sum$uniq))
+    stop("Selectivity patterns and parameters don't match.",
+         "\n  Patterns with no parameters: ", paste(setdiff(egappar_sum$uniq, par_order), collapse = ", "),
+         "\n  Parameters with no pattern: ",  paste(setdiff(par_order, egappar_sum$uniq), collapse = ", "), call. = FALSE)
+  egappar_sum <- egappar_sum[match(par_order, egappar_sum$uniq), ] %>%
+    mutate(pattern = 0:(n() - 1), Pointer = pattern)
+
+  ## Each pattern must have the number of parameters its type consumes in SetUpSelex
+  need <- c(`3` = 2, `9` = 4, `10` = 4)[as.character(egappar_sum$type)]
+  have <- as.numeric(table(factor(tegappar$uniq, levels = egappar_sum$uniq)))
+  if (any(is.na(need) | need != have))
+    stop("Selectivity parameter count doesn't match pattern type for: ",
+         paste(egappar_sum$uniq[is.na(need) | need != have], collapse = ", "),
+         " (knife-edge, type 4, is not implemented in SetUpSelex).", call. = FALSE)
   nes <- nrow(egappar_sum)
   negappar <- nrow(egappar_sum)
 
@@ -975,8 +991,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(code)){ tmp <- c(tmp, paste(code[i,], collapse = " "),"\n")}
 
   tmp <- c(tmp, "# Selectivity Parameters\n", "# Lower, Upper, Estimate, Phase, Link, Prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd, ID\n")
-
-  tegappar <- ExpandSelectPars(wb, startseason, endseason)
 
   for(i in 1:nrow(tegappar)){
     tmp <- c(tmp, paste(tegappar[i,], collapse = "\t"),"\n")}

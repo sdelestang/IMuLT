@@ -163,8 +163,7 @@ GetSelectPatternNames <- function(wb, startseason, endseason){
   fleetyr <- fleetyr[egap$season %in% startseason:endseason,]
   pars <- sort(unique(as.vector(as.matrix(fleetyr))))
 
-  ## One row per pattern (yearlink/sex/form block) -- same grouping and
-  ## ordering as BuildInputFiles' egappar_sum, plus the descriptive comment
+  ## One row per pattern (yearlink/sex/form block), plus the descriptive comment
   egappar_sum <- egappar %>%
     group_by(yearlink, Sex, form, uniq) %>%
     summarise(num=length(Sex), comment=dplyr::first(comment), .groups='drop') %>%
@@ -186,6 +185,16 @@ GetSelectPatternNames <- function(wb, startseason, endseason){
       egappar_sum <- rbind(egappar_sum, tmpe)
     }
   }
+
+  ## Pattern order = order ExpandSelectPars writes the parameters (as in BuildInputFiles),
+  ## because SetUpSelex consumes SelPars sequentially by pattern
+  par_order <- unique(ExpandSelectPars(wb, startseason, endseason)$uniq)
+  if (!setequal(par_order, egappar_sum$uniq))
+    stop("Selectivity patterns and parameters don't match: ",
+         paste(union(setdiff(egappar_sum$uniq, par_order), setdiff(par_order, egappar_sum$uniq)), collapse = ", "),
+         call. = FALSE)
+  egappar_sum <- egappar_sum[match(par_order, egappar_sum$uniq), ]
+  egappar_sum$pattern <- 0:(nrow(egappar_sum) - 1)
 
   data.frame(link = egappar_sum$pattern, name = egappar_sum$comment)
 }

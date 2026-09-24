@@ -95,7 +95,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
-  if(nchar(dynamics$value[dynamics$object=='estimateVariance'])>1){
+  if(!(dynamics$value[dynamics$object=='estimateVariance']==0|dynamics$value[dynamics$object=='estimateVariance']=='')){
     Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
     dynamics <- dynamics[dynamics$object!='estimateVariance', ]
     dynamics$value <- as.numeric(dynamics$value)

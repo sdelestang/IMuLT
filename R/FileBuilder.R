@@ -200,7 +200,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% dplyr::select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
   tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
   Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric)
   SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat[1:10,])
@@ -272,7 +272,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   tmp <- c(tmp, "\n# Biomass target, threshold, limit (one per area)\n")
 
-  bio <- readWorkbook(wb,sheet='Area', startRow = 2) %>% select(starts_with('biomass'))
+  bio <- readWorkbook(wb,sheet='Area', startRow = 2) %>% dplyr::select(starts_with('biomass'))
   for(i in 1:nrow(bio)){ tmp <- c(tmp, paste(bio[i,], collapse = "\t"),"\n")}
 
   tmp <- c(tmp, "\n# Fleet specification\n# Fleet Area Name\n\t")
@@ -336,7 +336,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, wei$value[wei$form=='global' & wei$type%in%c('tag2','tag_move')], "\t\t# Weight on Tag data for movement\n")
 
   wei %<>% filter(form=='individual')  ## These are pre specified in the doc.  also need to get printout if this exists
-  wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
+  wei %<>% mutate(type2=case_when(type=='cpue'~1,type=='numbers'~2,type=='length'~3,type=='larvae'~4), codeout = '#', id2 = paste(id,type)) %>% dplyr::select(type2, fleet, tstep, sex, value, codeout, id2) %>% mutate(fleet=fleet-1)
   ## Add a line for every LF by sex and fleet for francis weightings later
   lenw <- len %>% group_by(Fleet,Sex) %>% summarise(num=sum(Samp),.groups = "drop_last") %>% mutate(type2=3, fleet=Fleet-1, tstep=-1, sex=Sex-1, value=1, codeout='#')
   lenw$fleettype <- fleets$group[match(lenw$Fleet, fleets$fleet)]

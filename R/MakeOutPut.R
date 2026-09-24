@@ -459,7 +459,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
 
   # ── Unified plotter: one grid (facet_wrap(~descrip)), coloured by curve.
-  .plot_hist_curve <- function(df, lb_cols, value_label, category, caption, filename_stub, name_col = NULL) {
+  .plot_hist_curve <- function(df, lb_cols, value_label, category, caption, filename_stub,
+                               name_col = NULL, by_fleet = FALSE, fleet_category = category) {
     if (nrow(df) == 0) return(invisible(NULL))
     df$curve_id <- .curve_id_hash(df[, lb_cols, drop = FALSE])
 
@@ -474,16 +475,37 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       bind_rows()
     long <- left_join(long, lbl, by = "curve_id")
 
+    base_plot <- function(d) {
+      ggplot(d, aes(x = lbin_mm, y = value, colour = label, group = curve_id)) +
+        geom_line(linewidth = 0.8) +
+        ylim(0, 1) +
+        labs(x = "Length bin (mm)", y = value_label, colour = NULL) +
+        theme_bw()
+    }
+
+    ## Overview grid
     filename <- filenametopath(rundir, paste0(filename_stub, ".png"))
     plotprep(width = 12, height = 12, filename = filename, cex = 0.9, verbose = FALSE)
     parset(plots = c(1,1))
-    print(ggplot(long, aes(x = lbin_mm, y = value, colour = label, group = curve_id)) +
-            geom_line(linewidth = 0.8) +
-            facet_wrap(~descrip) +
-            ylim(0, 1) +
-            labs(x = "Length bin (mm)", y = value_label, colour = NULL) +
-            theme_bw() + theme(legend.position = "bottom"))
-    addplot(filen = filename, rundir = rundir, category = category, caption = caption)
+    print(base_plot(long) + facet_wrap(~descrip) +
+            theme(legend.position = if (by_fleet) "none" else "bottom"))
+    addplot(filen = filename, rundir = rundir, category = category,
+            caption = if (by_fleet) paste(caption, "Curve details are in the per-fleet plots.") else caption)
+
+    ## One plot per fleet, with legend
+    if (by_fleet) {
+      for (f in sort(unique(long$descrip))) {
+        d <- long %>% filter(descrip == f)
+        filename <- filenametopath(rundir, paste0(filename_stub, "_", gsub("[^A-Za-z0-9]", "_", f), ".png"))
+        plotprep(width = 10, height = 8, filename = filename, cex = 0.9, verbose = FALSE)
+        parset(plots = c(1,1))
+        print(base_plot(d) + ggtitle(f) +
+                theme(legend.position = "right", legend.text = element_text(size = 8)) +
+                guides(colour = guide_legend(ncol = 1)))
+        addplot(filen = filename, rundir = rundir, category = fleet_category,
+                caption = paste(caption, "Fleet", f))
+      }
+    }
     invisible(long)
   }
 
@@ -567,8 +589,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
     .plot_hist_curve(combo, sel_lb_cols, "Overall retained", "Selectivity_Retention",
                      paste("Combined proportion of encountered animals actually retained",
-                           "(selectivity x high-grading x legal size), by fleet."),
-                     "Combined_retained_by_fleet")
+                           "(selectivity x high-grading x legal size) by fleet."),
+                     "Combined_retained_by_fleet", by_fleet = TRUE, fleet_category = "Retained_by_Fleet")
   } else {
     print("Skipping Combined Selectivity x High-grading x Legal plot -- no matching (fleet,sex,age,year) rows across the three tables. Check fleet numbering/year alignment between sel_wide, hg_wide and legal_wide if this is unexpected.")
   }

@@ -4,11 +4,20 @@
 \alias{BuildInputFiles}
 \title{Build IMuLT Model Input Files from Excel Template}
 \usage{
-BuildInputFiles(end_override = NULL)
+BuildInputFiles(Suffix = "", end_override = NULL)
+}
+\arguments{
+\item{Suffix}{Optional character string appended to the run directory name, so that
+alternative runs with the same areas, ages and years can sit side by side
+(e.g. \code{"_tags"} gives \code{8Area3AgeRun45_25_tags}). Default \code{""} (no suffix).}
+
+\item{end_override}{Optional numeric. Last year of the assessment. If supplied, it
+overrides the \code{endseason} value on the Dynamics sheet (e.g. for building
+retrospective peels). Default \code{NULL} uses the Dynamics sheet value.}
 }
 \value{
-NULL (invisibly). Creates a new directory containing all model input files.
-The directory name follows the pattern: \verb{[nAreas]}Area\verb{[nAges]}AgeRun\verb{[startYY]}_\verb{[endYY]}
+The full path of the run directory (invisibly). The directory name follows
+the pattern \code{[nAreas]Area[nAges]AgeRun[startYY]_[endYY][Suffix]}.
 }
 \description{
 Creates all required input files (.DAT files) for running the IMuLT stock assessment
@@ -16,7 +25,8 @@ model. Reads model structure and parameters from a ModelStructure.xlsx workbook 
 generates a complete set of properly formatted input files in a new run directory.
 }
 \details{
-The function requires a ModelStructure.xlsx file in the current working directory.
+The function requires a ModelStructure.xlsx file, located via \code{find_model_file()};
+the working directory is switched to its folder if needed.
 This Excel workbook must contain the following sheets:
 \itemize{
 \item Dynamics - Model dynamics and temporal settings
@@ -30,13 +40,18 @@ This Excel workbook must contain the following sheets:
 \item Growth, lengthweight, maturity, etc. - Biological parameters
 }
 
+If the run directory already exists, its input files are overwritten; the
+\code{Output} subfolder and its contents are left in place.
+
 The function creates the following output files in the run directory:
 \itemize{
 \item STARTER.DAT - File paths and run settings
-\item DATA.DAT - Catch, CPUE, and biological data
+\item DATA.DAT - Catch, CPUE, length-frequency and puerulus data
 \item CONTROL.DAT - Model control parameters and biological specifications
 \item GROWTHSPEC.DAT - Growth transition matrices and parameters
+\item REPOSPEC.DAT - Maturity, multiple spawning and fecundity specifications
 \item MOVESPEC.DAT - Movement/migration specifications
+\item TAGSPEC.DAT, TAGPROP.DAT - Tag release/recapture data and reporting-type proportions
 \item RECRUITSPEC.DAT - Recruitment specifications and parameters
 \item RETAINSPEC.DAT - Retention (high-grading) specifications
 \item SELEXSPEC.DAT - Gear selectivity and legal size specifications
@@ -45,13 +60,16 @@ The function creates the following output files in the run directory:
 }
 \examples{
 \dontrun{
-# Ensure ModelStructure.xlsx is in current directory
-setwd("path/to/model/directory")
-
-# Build all input files
+# Build all input files for the years on the Dynamics sheet
 BuildInputFiles()
+# -> e.g. "8Area3AgeRun45_25"
 
-# Files will be created in a new directory like: "8Area8AgeRun92_23"
+# Same model with a suffix, for a sensitivity run
+BuildInputFiles(Suffix = "_tags")
+# -> "8Area3AgeRun45_25_tags"
+
+# Build a run ending in 2020 and keep the path
+floc <- BuildInputFiles(end_override = 2020)
 }
 
 }

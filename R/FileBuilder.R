@@ -879,9 +879,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     mutate(desc = ifelse(fleet == 99, "all fleets", fleets$description[match(fleet, fleets$fleet)])) %>%
     group_by(fleet, desc) %>%
     summarise(years = paste(range(season), collapse = "-"), mean_retained = round(mean(propfl), 2), .groups = "drop")
-  if (nrow(hg_on)) message("High-grading applied:\n",
-                           paste0("  Fleet ", hg_on$fleet, " (", hg_on$desc, "): ", hg_on$years,
-                                  ", mean retention ", hg_on$mean_retained, collapse = "\n"))
+  #if (nrow(hg_on)) message("High-grading applied:\n",
+  #                         paste0("  Fleet ", hg_on$fleet, " (", hg_on$desc, "): ", hg_on$years,
+  #                                ", mean retention ", hg_on$mean_retained, collapse = "\n"))
 
   dat <- cbind(dat,dat2)
   dat %<>% arrange(sex, age, fleet, step)

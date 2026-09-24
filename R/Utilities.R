@@ -249,7 +249,7 @@ GetSelectParNames <- function(selx){
 ## driving the ceiling -- with only a couple of residual degrees of
 ## freedom the estimate is too noisy to be informative either way.
 EstimateCpueSigmaCeiling <- function(Udat, min_dof = 5, safety_factor = 1.2,
-                                     min_ceiling = 1.5, verbose = TRUE) {
+                                     min_ceiling = 1.5, verbose = FALSE) {
 
   selfRMS <- Udat %>%
     group_by(CpueInd) %>%

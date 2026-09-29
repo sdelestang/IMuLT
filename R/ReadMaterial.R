@@ -441,12 +441,29 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   NcpueDataSeries <- as.numeric(DataFile[Index+2,1]);
   IndexType <- as.numeric(DataFile[Index+4,1:NcpueDataSeries]);
   FixSigmaCpue <- as.numeric(DataFile[Index+6,1:NcpueDataSeries]);
-  TreatQcpue <- as.numeric(DataFile[Index+8,1:NcpueDataSeries]);
-  EnvIndCpue  <- as.numeric(DataFile[Index+10,1:NcpueDataSeries]);
-  EffCrIndCpue  <- as.numeric(DataFile[Index+12,1:NcpueDataSeries]);
-  EffCrLag  <- as.numeric(DataFile[Index+14,1:max(EffCrIndCpue)]);
-  SigmaCpueOffset <- as.numeric(DataFile[Index+16,1]);
-  SigmaCpueCeiling <- as.numeric(DataFile[Index+18,1]);
+
+  # Optional: fixed sigma by series (line straight after "Treatment of sigma"). 0 = estimate.
+  # If absent (older DATA.DAT), default to all zeros and no offset for the lines below.
+  Off <- 0
+  if (identical(as.character(DataFile[Index+7,1]),"#") & identical(as.character(DataFile[Index+7,2]),"Fixed") & identical(as.character(DataFile[Index+7,3]),"sigma"))
+  {
+    FixedSigmaCpue <- as.numeric(DataFile[Index+8,1:NcpueDataSeries])
+    if (any(is.na(FixedSigmaCpue))) { print("Error reading Fixed sigma by series; not enough inputs: Stopping"); AAA }
+    if (asnum(DataFile[Index+8,NcpueDataSeries+1])) { print("Error reading Fixed sigma by series; too many inputs: Stopping"); AAA }
+    if (any(FixedSigmaCpue < 0)) { print("Error reading Fixed sigma by series; values must be >= 0: Stopping"); AAA }
+    Off <- 2
+  }
+  else
+    FixedSigmaCpue <- rep(0,NcpueDataSeries)
+
+  TreatQcpue <- as.numeric(DataFile[Index+Off+8,1:NcpueDataSeries]);
+  EnvIndCpue  <- as.numeric(DataFile[Index+Off+10,1:NcpueDataSeries]);
+  EffCrIndCpue  <- as.numeric(DataFile[Index+Off+12,1:NcpueDataSeries]);
+  EffCrLag  <- as.numeric(DataFile[Index+Off+14,1:max(EffCrIndCpue)]);
+  SigmaCpueOffset <- as.numeric(DataFile[Index+Off+16,1]);
+  SigmaCpueCeiling <- as.numeric(DataFile[Index+Off+18,1]);
+  write("Fixed sigma by cpue series (0 = estimated)",EchoFile,append=T)
+  write(FixedSigmaCpue,EchoFile,append=T,ncol=NcpueDataSeries)
   Index <- MatchTable(DataFile,Char1="#",Char2="The",Char3="cpue",Char4="data"); Ncpue  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   write(paste("Number of cpue points",Ncpue),EchoFile,append=T)
   IndexI <- matrix(0,nrow=Ncpue,ncol=5)
@@ -567,6 +584,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   ReturnObj$NcpueDataSeries <- NcpueDataSeries
   ReturnObj$IndexType <- IndexType
   ReturnObj$FixSigmaCpue <- FixSigmaCpue
+  ReturnObj$FixedSigmaCpue <- FixedSigmaCpue
   ReturnObj$SigmaCpueOffset <- SigmaCpueOffset
   ReturnObj$SigmaCpueCeiling <- SigmaCpueCeiling
   ReturnObj$TreatQcpue <- TreatQcpue

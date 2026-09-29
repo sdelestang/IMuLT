@@ -221,6 +221,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Index data \n#Number of cpue datasets\n", length(cpuenumbers))
   tmp <- c(tmp, "\n# Type of index (1=weight;2=numbers)\n", paste(tmpUdat$numwei, collapse=" "))
   tmp <- c(tmp, "\n# Treatment of sigma (unique value represents a unique SS for the series)\n", paste((1:length(cpuenumbers))-1, collapse=" "))  ## Fixsigma
+  tmp <- c(tmp, "\n# Fixed sigma by series (0 = estimate)\n", paste(FixedSigmaCpue, collapse=" "))
   tmp <- c(tmp, "\n# Treatment of q (a value represents a unique q for that series)\n", paste(cpuenumbers, collapse=" "))
   tmp <- c(tmp, "\n# Environmental Index (value points to index, 0 = no index)\n", paste(rep(0,100)[1:length(cpuenumbers)], collapse=" "))
   ## Efficiency creep
@@ -230,7 +231,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
   tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
   tmp <- c(tmp, "\n# Maximum sigma\n", round(SigmaCpueCeiling, 3))
-  tmp <- c(tmp, "\n# Fixed sigma by series (0 = estimate)\n", paste(FixedSigmaCpue, collapse=" "))
+
   #Size of cpue data
   tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
 

@@ -186,8 +186,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tstmp <- times %>% group_by(tstep) %>% mutate(prop=length(month)/nrow(times)) %>% summarise(prop=mean(prop))
   tmp <- c(tmp, "\n# The Time steps\n# \n", paste(round(tstmp$prop,5), collapse = "\t"))
 
-  # tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", dynamics$value[dynamics$object=='tune_years'])
-
   tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", paste(areas$tune_years,collapse=" "))
 
   # Length Bins cont.
@@ -202,7 +200,20 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
   Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% dplyr::select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
   tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
-  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric)
+
+  ## Fixed sigma by index (optional 'Fixsigma' column; blank/NA/missing = 0 = estimate)
+  if ("Fixsigma" %in% names(Udat)) {
+    fixsig <- Udat %>% mutate(Fixsigma = suppressWarnings(as.numeric(Fixsigma)), Fixsigma = ifelse(is.na(Fixsigma), 0, Fixsigma)) %>%
+      group_by(CpueInd) %>% summarise(nval = length(unique(Fixsigma)), Fixsigma = first(Fixsigma), .groups = "drop")
+    if (any(fixsig$nval > 1)) stop("CPUE sheet: 'Fixsigma' must be a single value per index; indices with multiple values: ",
+                                   paste(fixsig$CpueInd[fixsig$nval > 1], collapse = ", "), call. = FALSE)
+    if (any(fixsig$Fixsigma < 0)) stop("CPUE sheet: 'Fixsigma' values must be >= 0 (0 = estimate).", call. = FALSE)
+    FixedSigmaCpue <- fixsig$Fixsigma
+  } else {
+    FixedSigmaCpue <- rep(0, length(unique(Udat$CpueInd)))
+  }
+
+  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric, -any_of("Fixsigma"))
   SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
   cpuenumbers <- unique(Udat$CpueInd)
 
@@ -219,6 +230,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
   tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
   tmp <- c(tmp, "\n# Maximum sigma\n", round(SigmaCpueCeiling, 3))
+  tmp <- c(tmp, "\n# Fixed sigma by series (0 = estimate)\n", paste(FixedSigmaCpue, collapse=" "))
   #Size of cpue data
   tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
 

@@ -1019,17 +1019,24 @@ Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, 
   for (int IdataSet=0;IdataSet<thedata.NcpueDataSeries;IdataSet++)
     if (Ndata(IdataSet) >0)
     {
-      // Note that this account for the minimum sigma
       SigmaCpue(IdataSet) = sqrt(SS(IdataSet)/Ndata(IdataSet));
-      Type SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
-      SigmaUse = SigmaCpue(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
-      Type CeilDiff = SigmaUse - thedata.SigmaCpueCeiling;
-      SigmaUse = SigmaUse - CeilDiff/(1.0+exp(-10.0*CeilDiff));
-      SigmaCpueUse(IdataSet) = SigmaUse;
-      CpueLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse)+Ndata(IdataSet)/2.0;
-      NeglogLikelihood += thedata.LambdaCpue2(IdataSet)*CpueLikeComps(IdataSet);
+      Type SigmaUse;
+      if (thedata.FixedSigmaCpue(IdataSet) > 0)
+      {
+        SigmaUse = thedata.FixedSigmaCpue(IdataSet);                 // user-fixed sigma
       }
-  return(NeglogLikelihood);
+      else
+      {
+        // concentrated sigma with soft floor/ceiling
+        SigmaUse = thedata.SigmaCpueOffset-SigmaCpue(IdataSet);
+        SigmaUse = SigmaCpue(IdataSet) + SigmaUse /(1+exp(-10.0*SigmaUse));
+        Type CeilDiff = SigmaUse - thedata.SigmaCpueCeiling;
+        SigmaUse = SigmaUse - CeilDiff/(1.0+exp(-10.0*CeilDiff));
+      }
+      SigmaCpueUse(IdataSet) = SigmaUse;
+      CpueLikeComps(IdataSet) = Ndata(IdataSet)*log(SigmaUse) + SS(IdataSet)/(2.0*square(SigmaUse));
+      NeglogLikelihood += thedata.LambdaCpue2(IdataSet)*CpueLikeComps(IdataSet);
+    }  return(NeglogLikelihood);
 
 }
 
@@ -2121,6 +2128,7 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(NrelTotal); thedata.NrelTotal = NrelTotal;
   DATA_MATRIX(NotReportedObs); thedata.NotReportedObs = NotReportedObs;
   DATA_ARRAY(PropRepSplit); thedata.PropRepSplit = PropRepSplit;
+  DATA_VECTOR(FixedSigmaCpue); thedata.FixedSigmaCpue = FixedSigmaCpue;
 
   DATA_INTEGER(NcatchDataSeries); thedata.NcatchDataSeries = NcatchDataSeries;
   DATA_IVECTOR(FixSigmaCatchN); thedata.FixSigmaCatchN = FixSigmaCatchN;

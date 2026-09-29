@@ -94,7 +94,6 @@ struct dataSet{
   matrix <Type> MoveparsPrior;
   vector <int> GrowparsLink;
   matrix <Type> GrowparsPrior;
-  vector<Type> FixedSigmaCpue;
   // int InitOpt;
   Type Bias_Ramp_Yr1;
   Type Bias_Ramp_Yr2;
@@ -131,6 +130,8 @@ struct TheData{
   vector<int> EnvIndCpue;
   vector<int> EffCrIndCpue;
   vector<int> EffCrLag;
+  vector<Type> FixedSigmaCpue;
+
   Type SigmaCpueOffset;
   Type SigmaCpueCeiling;
   int NcatchDataSeries;

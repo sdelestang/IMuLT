@@ -462,8 +462,6 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   EffCrLag  <- as.numeric(DataFile[Index+Off+14,1:max(EffCrIndCpue)]);
   SigmaCpueOffset <- as.numeric(DataFile[Index+Off+16,1]);
   SigmaCpueCeiling <- as.numeric(DataFile[Index+Off+18,1]);
-  write("Fixed sigma by cpue series (0 = estimated)",EchoFile,append=T)
-  write(FixedSigmaCpue,EchoFile,append=T,ncol=NcpueDataSeries)
   Index <- MatchTable(DataFile,Char1="#",Char2="The",Char3="cpue",Char4="data"); Ncpue  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   write(paste("Number of cpue points",Ncpue),EchoFile,append=T)
   IndexI <- matrix(0,nrow=Ncpue,ncol=5)
@@ -824,7 +822,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
       {
         Fleet <- TheSpec[2]; Wght <- TheSpec[5]
         IdataSet <- unique(DataSpecs$IndexI[DataSpecs$IndexI[,2]==Fleet,1]) + 1
-        if (length(IdataSet)==0) warning("Weights by fleet: no CPUE data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
+        #if (length(IdataSet)==0) warning("Weights by fleet: no CPUE data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaCpue2[IdataSet] <- Wght
       }
       # Numbers: match by fleet (0-based, as in NumbersI[,2]); dataset IDs are 0-based -> +1 for R position

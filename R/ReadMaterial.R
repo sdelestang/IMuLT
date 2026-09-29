@@ -801,16 +801,23 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
     for (II in 1:UseLambdaDetailed)
     {
       TheSpec <-as.numeric(ControlFile[Index+2+II,1:5])
+      # CPUE: match by fleet (0-based, as in IndexI[,2]); dataset IDs are 0-based -> +1 for R position
       if (TheSpec[1]==1)
       {
-        Fleet <- TheSpec[2]+1; IdataSet <- unique(Data$IndexI[Data$IndexI[,2]==Fleet,1]); Wght <- TheSpec[5]
+        Fleet <- TheSpec[2]; Wght <- TheSpec[5]
+        IdataSet <- unique(Data$IndexI[Data$IndexI[,2]==Fleet,1]) + 1
+        if (length(IdataSet)==0) warning("Weights by fleet: no CPUE data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaCpue2[IdataSet] <- Wght
       }
+      # Numbers: match by fleet (0-based, as in NumbersI[,2]); dataset IDs are 0-based -> +1 for R position
       if (TheSpec[1]==2)
       {
-        IdataSet <- TheSpec[2]+1; Wght <- TheSpec[5]
+        Fleet <- TheSpec[2]; Wght <- TheSpec[5]
+        IdataSet <- unique(Data$NumbersI[Data$NumbersI[,2]==Fleet,1]) + 1
+        if (length(IdataSet)==0) warning("Weights by fleet: no catch-numbers data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaNumbers2[IdataSet] <- Wght
       }
+      # Length: fleet/step/sex are 0-based in the file -> +1 for R array positions
       if (TheSpec[1]==3)
       {
         Ifleet <- TheSpec[2]+1;Istep <- TheSpec[3]; Isex <- TheSpec[4]+1; Wght <- TheSpec[5]
@@ -819,9 +826,13 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
         else
           LambdaLength2[Ifleet,Istep+1,Isex] <- Wght
       }
-
     }
   }
+
+  write("CPUE weights by data set",EchoFile,append=T)
+  write(LambdaCpue2,EchoFile,append=T,ncol=length(LambdaCpue2))
+  write("Catch-numbers weights by data set",EchoFile,append=T)
+  write(LambdaNumbers2,EchoFile,append=T,ncol=max(1,length(LambdaNumbers2)))
 
   Index <- MatchTable(ControlFile,Char1="#",Char2="Number",Char4="variance");
   NvarTypes <- as.numeric(ControlFile[Index+1,1])

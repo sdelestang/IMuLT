@@ -809,8 +809,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   # WeightInitialN <- as.numeric(ControlFile[Index+7,1])
   # WeightInit3 <- as.numeric(ControlFile[Index+8,1])
 
-  LambdaCpue2 <- rep(1.0,Data$NcpueDataSeries)
-  LambdaNumbers2 <- rep(1.0,Data$NcatchDataSeries)
+  LambdaCpue2 <- rep(1.0,DataSpecs$NcpueDataSeries)
+  LambdaNumbers2 <- rep(1.0,DataSpecs$NcatchDataSeries)
   LambdaLength2 <- array(1.0,dim=c(GeneralSpecs$Nfleet,GeneralSpecs$Nstep,GeneralSpecs$Nsex))
   Index <- MatchTable(ControlFile,Char1="#",Char2="Weights",Char3="by");
   UseLambdaDetailed <- as.numeric(ControlFile[Index+2,1])
@@ -823,7 +823,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
       if (TheSpec[1]==1)
       {
         Fleet <- TheSpec[2]; Wght <- TheSpec[5]
-        IdataSet <- unique(Data$IndexI[Data$IndexI[,2]==Fleet,1]) + 1
+        IdataSet <- unique(DataSpecs$IndexI[DataSpecs$IndexI[,2]==Fleet,1]) + 1
         if (length(IdataSet)==0) warning("Weights by fleet: no CPUE data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaCpue2[IdataSet] <- Wght
       }
@@ -831,7 +831,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
       if (TheSpec[1]==2)
       {
         Fleet <- TheSpec[2]; Wght <- TheSpec[5]
-        IdataSet <- unique(Data$NumbersI[Data$NumbersI[,2]==Fleet,1]) + 1
+        IdataSet <- unique(DataSpecs$NumbersI[DataSpecs$NumbersI[,2]==Fleet,1]) + 1
         if (length(IdataSet)==0) warning("Weights by fleet: no catch-numbers data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaNumbers2[IdataSet] <- Wght
       }
@@ -846,7 +846,6 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
       }
     }
   }
-
   write("CPUE weights by data set",EchoFile,append=T)
   write(LambdaCpue2,EchoFile,append=T,ncol=length(LambdaCpue2))
   write("Catch-numbers weights by data set",EchoFile,append=T)

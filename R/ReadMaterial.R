@@ -723,6 +723,16 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   write("Number of fleets by area",EchoFile,append=T)
   write(Narea_fleet,EchoFile,append=T)
 
+  # Optional: morph (red) catchability applied to each fleet's data predictions (1=yes, 0=no). Default all 1.
+  MorphQFleet <- rep(1, GeneralSpecs$Nfleet)
+  Index <- which(ControlFile[,1]=="#" & ControlFile[,2]=="Morph" & ControlFile[,3]=="catchability")
+  if (length(Index)==1)
+  {
+    MorphQFleet <- as.numeric(ControlFile[Index+1,1:GeneralSpecs$Nfleet])
+    if (any(is.na(MorphQFleet)) | any(!MorphQFleet %in% c(0,1))) { print("Error reading Morph catchability by fleet; need Nfleet values of 0 or 1: Stopping"); AAA }
+    if (asnum(ControlFile[Index+1,GeneralSpecs$Nfleet+1])) { print("Error reading Morph catchability by fleet; too many inputs: Stopping"); AAA }
+  }
+
   Index <- MatchTable(ControlFile,Char1="#",Char2="Number",Char4="Zones");
   Nzone <- as.numeric(ControlFile[Index+1,1])
   Index <- MatchTable(ControlFile,Char1="#",Char2="Areas",Char4="each",Char5="Zone");
@@ -875,14 +885,13 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$Fleet_area <- Fleet_area
   ReturnObj$Narea_fleet <- Narea_fleet
   ReturnObj$Area_fleet <- Area_fleet
+  ReturnObj$MorphQFleet <- MorphQFleet
   ReturnObj$Nzone <- Nzone
   ReturnObj$NareasPerZone <- NareasPerZone
   ReturnObj$AreasPerZone <- AreasPerZone
   ReturnObj$NefficPar <- NefficPar
   ReturnObj$Phi1 <- Phi
   ReturnObj$WeightLen <- WeightLen
-  #ReturnObj$MatFem <- MatFem
-  #ReturnObj$MatAge <- MatAge
   ReturnObj$MatTimeStep <- MatTimeStep
   ReturnObj$BioTimeStep <- BioTimeStep
   ReturnObj$RecYr1 <- RecYr1

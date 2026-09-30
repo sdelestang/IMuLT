@@ -131,6 +131,7 @@ struct TheData{
   vector<int> EffCrIndCpue;
   vector<int> EffCrLag;
   vector<Type> FixedSigmaCpue;
+  vector<int> MorphQFleet;
 
   Type SigmaCpueOffset;
   Type SigmaCpueCeiling;

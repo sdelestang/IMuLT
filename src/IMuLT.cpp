@@ -977,7 +977,7 @@ Type CpueLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N, 
     if (Jsex==-1) { Isex1 = 0; Isex2=1; } else { Isex1 = Jsex; Isex2 = Jsex; }
     for (int Iage=0;Iage<dat.Nage;Iage++){
       for (int Isex=Isex1;Isex<=Isex2;Isex++){
-        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1 && thedata.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
           SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
           selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
@@ -1069,7 +1069,7 @@ Type NumbersLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &
     Istep = thedata.NumbersI(Ipnt,3);
     for (int Iage=0;Iage<dat.Nage;Iage++){
       for (int Isex=0;Isex<dat.Nsex;Isex++){
-        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1 && thedata.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++)  {
           SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
           selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
@@ -1122,7 +1122,7 @@ Type LengthLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N
     Istep = thedata.LenCompI(Ipnt,3);
     for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++) {
       for (int Iage=0;Iage<dat.Nage;Iage++)  {
-        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        if(dat.IsRed(Isex,Iage,Iarea,Istep)==1 && thedata.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
         selexFU = ActSelex(SelPointer,Ilen) * ScaleRedQ;
         RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
@@ -2129,6 +2129,7 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(NotReportedObs); thedata.NotReportedObs = NotReportedObs;
   DATA_ARRAY(PropRepSplit); thedata.PropRepSplit = PropRepSplit;
   DATA_VECTOR(FixedSigmaCpue); thedata.FixedSigmaCpue = FixedSigmaCpue;
+  DATA_IVECTOR(MorphQFleet); thedata.MorphQFleet = MorphQFleet;
 
   DATA_INTEGER(NcatchDataSeries); thedata.NcatchDataSeries = NcatchDataSeries;
   DATA_IVECTOR(FixSigmaCatchN); thedata.FixSigmaCatchN = FixSigmaCatchN;

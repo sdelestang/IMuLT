@@ -292,7 +292,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   fleetcode2 <- fleets %>% group_by(fleet) %>% summarise(area=unique(newarea), group=description) %>% mutate(fleet=fleet-min(fleet), area=area-min(area))
   for(i in 1:nrow(fleetcode2)){ tmp <- c(tmp, paste(fleetcode2[i,c('fleet','area','group')], collapse = "\t"),"\n\t")}
   #as.data.frame(fleetcode2)
-  morphq <- if ("morphQ" %in% names(fleets)) {
+  morphQ <- if ("morphQ" %in% names(fleets)) {
     fleets %>% group_by(fleet) %>% summarise(m = first(morphQ), .groups = "drop") %>% arrange(fleet) %>% pull(m)
   } else rep(1, max(fleets$fleet))
   tmp <- c(tmp, "\n# Morph catchability applied to data predictions by fleet (1=yes, 0=no)\n", paste(morphQ, collapse = " "), "\n")

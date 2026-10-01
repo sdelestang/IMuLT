@@ -1228,11 +1228,25 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
 
     # Gradient wrapper: return zero gradient for non-finite regions instead
-    # of crashing optimisers that require finite gradients
+    # of crashing optimisers that require finite gradients.
+    # NOTE: a zero gradient looks like convergence to nlminb/BFGS, so every
+    # accepted point is checked with .max_grad() below; non-finite calls are counted.
+    nonfinite_gr <- 0L
     model$gr <- function(x) {
       g <- tryCatch(model$gr_Orig(x), error = function(e) NULL)
-      if (is.null(g) || any(!is.finite(g))) return(rep(0, length(x)))
+      if (is.null(g) || any(!is.finite(g))) {
+        nonfinite_gr <<- nonfinite_gr + 1L
+        return(rep(0, length(x)))
+      }
       return(g)
+    }
+
+    # Max |gradient| at x; Inf if the gradient is non-finite or errors.
+    # Use this (not max(abs(model$gr_Orig(x)))) wherever a point is accepted or tested.
+    .max_grad <- function(x) {
+      g <- tryCatch(model$gr_Orig(x), error = function(e) NA_real_)
+      if (length(g) == 0 || any(!is.finite(g))) return(Inf)
+      max(abs(g))
     }
     # ─────────────────────────────────────────────────────────────────────
 
@@ -1252,6 +1266,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                    lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
                    control = ctrl)
 
+    if (!is.finite(.max_grad(mout$par)))
+      cat("  WARNING: initial nlminb ended at a point with a non-finite gradient (",
+          nonfinite_gr, " non-finite gradient calls so far)\n", sep = "")
+
     ## Post-hoc plateau diagnostic (non-final phases only) ##
     if (!is_final && plateau_cv > 0 && !is.na(plateau_eval)) {
       recent <- tail(delta_history, plateau_k)
@@ -1268,11 +1286,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     ## Sandwich restarts (final phase only) - crunches down the nLL and gradient way faster ##
     if (is_final && isTRUE(nRestarts)) {
 
-      suppress_print <<- TRUE        # silence per-eval prints during sandwich
+      suppress_print <- TRUE         # silence per-eval prints during sandwich (local, read by model$fn)
       sandwich_done <- FALSE
       no_improve    <- 0L                    # consecutive cycles with no grad improvement
       max_sandwich  <- 20L                   # safety ceiling
-      prev_grad     <- max(abs(model$gr_Orig(mout$par)))  # gradient at sandwich entry
+      prev_grad     <- .max_grad(mout$par)   # gradient at sandwich entry
 
       for (restart in seq_len(max_sandwich)) {
 
@@ -1289,13 +1307,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         cat("  Step A: BFGS (logit-transformed)\n")
         FnCallNo <<- 0
 
+        # last.par.best is the lowest objective TMB has seen, which can be a point
+        # with a non-finite gradient - only use it if both fn and gradient are finite.
         bfgs_start     <- model$env$last.par.best
         fn_check       <- model$fn(bfgs_start)
-        pre_bfgs_grad  <- max(abs(model$gr_Orig(bfgs_start)))
-        if (!is.finite(fn_check)) {
-          cat("  WARNING: last.par.best non-finite, falling back to mout$par\n")
+        pre_bfgs_grad  <- .max_grad(bfgs_start)
+        if (!is.finite(fn_check) || !is.finite(pre_bfgs_grad)) {
+          cat("  WARNING: last.par.best has non-finite objective or gradient, falling back to mout$par\n")
           bfgs_start    <- mout$par
-          pre_bfgs_grad <- max(abs(model$gr_Orig(bfgs_start)))
+          fn_check      <- model$fn(bfgs_start)
+          pre_bfgs_grad <- .max_grad(bfgs_start)
         }
 
         if (has_bounds) {
@@ -1324,47 +1345,60 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                                            reltol = bfgs_reltol))
         }
 
-        bfgs_grad <- max(abs(model$gr_Orig(fit_bfgs$par)))
+        bfgs_grad <- .max_grad(fit_bfgs$par)
         cat("  BFGS complete: obj =", round(fit_bfgs$value, 6),
             "| max|grad| =", round(bfgs_grad, 6),
             "| convergence:", fit_bfgs$convergence, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        ## BFGS gradient revert guard ##
-        # Keep BFGS solution if NLL improved, even if gradient worsened —
-        # nlminb will polish from the better location. Only revert if BFGS
-        # degraded BOTH NLL and gradient.
-        bfgs_nll_improved  <- fit_bfgs$value < fn_check
-        bfgs_grad_improved <- bfgs_grad <= pre_bfgs_grad
-
-        if (!bfgs_nll_improved && !bfgs_grad_improved) {
-          cat("  BFGS degraded both NLL (", round(fn_check, 4), "->",
-              round(fit_bfgs$value, 4), ") and gradient (",
-              round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-              ") — reverting to pre-BFGS parameters\n", sep = "")
+        ## BFGS non-finite gradient guard ##
+        # A point with a NaN/Inf gradient can't be polished (the gr wrapper returns
+        # zeros there, which nlminb reads as convergence) - always reject it.
+        if (!is.finite(bfgs_grad)) {
+          cat("  BFGS ended at a point with a non-finite gradient — reverting to pre-BFGS parameters\n")
           fit_bfgs$par   <- bfgs_start
           fit_bfgs$value <- fn_check
+          bfgs_grad      <- pre_bfgs_grad
         } else {
-          if (bfgs_nll_improved && !bfgs_grad_improved) {
-            cat("  BFGS improved NLL (", round(fn_check, 4), "->",
-                round(fit_bfgs$value, 4), ") but degraded gradient (",
-                round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-                ") — keeping, nlminb will polish\n", sep = "")
-          } else if (!bfgs_nll_improved && bfgs_grad_improved) {
-            cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
-                round(bfgs_grad, 4), ") but degraded NLL (",
-                round(fn_check, 4), "->", round(fit_bfgs$value, 4),
-                ") — keeping\n", sep = "")
-          } else {
-            cat("  BFGS improved both NLL (", round(fn_check, 4), "->",
+
+          ## BFGS gradient revert guard ##
+          # Keep BFGS solution if NLL improved, even if gradient worsened —
+          # nlminb will polish from the better location. Only revert if BFGS
+          # degraded BOTH NLL and gradient.
+          bfgs_nll_improved  <- fit_bfgs$value < fn_check
+          bfgs_grad_improved <- bfgs_grad <= pre_bfgs_grad
+
+          if (!bfgs_nll_improved && !bfgs_grad_improved) {
+            cat("  BFGS degraded both NLL (", round(fn_check, 4), "->",
                 round(fit_bfgs$value, 4), ") and gradient (",
                 round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-                ")\n", sep = "")
+                ") — reverting to pre-BFGS parameters\n", sep = "")
+            fit_bfgs$par   <- bfgs_start
+            fit_bfgs$value <- fn_check
+            bfgs_grad      <- pre_bfgs_grad
+          } else {
+            if (bfgs_nll_improved && !bfgs_grad_improved) {
+              cat("  BFGS improved NLL (", round(fn_check, 4), "->",
+                  round(fit_bfgs$value, 4), ") but degraded gradient (",
+                  round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                  ") — keeping, nlminb will polish\n", sep = "")
+            } else if (!bfgs_nll_improved && bfgs_grad_improved) {
+              cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
+                  round(bfgs_grad, 4), ") but degraded NLL (",
+                  round(fn_check, 4), "->", round(fit_bfgs$value, 4),
+                  ") — keeping\n", sep = "")
+            } else {
+              cat("  BFGS improved both NLL (", round(fn_check, 4), "->",
+                  round(fit_bfgs$value, 4), ") and gradient (",
+                  round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                  ")\n", sep = "")
+            }
+            # Update prev_grad tracking to reflect the actual BFGS gradient
+            # so the stall detector sees the true current state
+            pre_bfgs_grad <- bfgs_grad
           }
-          # Update prev_grad tracking to reflect the actual BFGS gradient
-          # so the stall detector sees the true current state
-          pre_bfgs_grad <- bfgs_grad
         }
+
         ## Step B: nlminb from BFGS solution ##
         CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
@@ -1386,7 +1420,20 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                     label = paste("  nlminb restart", restart))
         TotalEval <<- TotalEval + FnCallNo
 
-        cur_grad <- max(abs(model$gr_Orig(mout$par)))
+        cur_grad <- .max_grad(mout$par)
+
+        ## nlminb non-finite gradient guard ##
+        # nlminb stops as soon as the gr wrapper returns zeros, so ending on a
+        # non-finite gradient is a false convergence: revert to the BFGS point and stop.
+        if (!is.finite(cur_grad)) {
+          cat("  WARNING: nlminb ended at a point with a non-finite gradient (",
+              nonfinite_gr, " non-finite gradient calls this phase) — reverting to BFGS point and ending sandwich\n", sep = "")
+          mout$par       <- fit_bfgs$par
+          mout$objective <- fit_bfgs$value
+          cur_grad       <- .max_grad(mout$par)
+          break
+        }
+
         cat("  Restart", restart, "complete: max|grad| =",
             round(cur_grad, 6), "\n")
 
@@ -1403,7 +1450,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         #    gradient reduction. NLL may be flat (basin floor) while the
         #    gradient is still improving, so we track gradient not NLL.
         grad_improvement <- prev_grad - cur_grad
-        if (grad_improvement < newton_grad_thresh * 0.01) {
+        if (!is.finite(grad_improvement) || grad_improvement < newton_grad_thresh * 0.01) {
           no_improve <- no_improve + 1L
           cat("  Gradient not improving (delta =",
               round(grad_improvement, 6), ") — strike", no_improve, "of 2\n")
@@ -1419,12 +1466,12 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       }
 
       ## Newton polishing - re-fincescale steps - helps get a hessian that works
-      suppress_print <<- FALSE       # restore printing for Newton and beyond
+      suppress_print <- FALSE        # restore printing for Newton and beyond
       if (newtonSteps > 0) {
 
-        cur_grad <- max(abs(model$gr_Orig(mout$par)))
+        cur_grad <- .max_grad(mout$par)
 
-        if (cur_grad >= newton_grad_thresh) {
+        if (!is.finite(cur_grad) || cur_grad >= newton_grad_thresh) {
           cat("\n  WARNING: gradient =", round(cur_grad, 4),
               ">= newton_grad_thresh (", newton_grad_thresh, ")",
               "— skipping Newton (Hessian likely ill-conditioned).\n")
@@ -1432,6 +1479,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           cat("\n--- Newton polishing steps ---\n")
           CurrentStage <<- "Newton polish"
           newton_par   <- model$env$last.par.best
+          if (!is.finite(.max_grad(newton_par))) newton_par <- mout$par   # need a finite gradient to start
 
           for (ns in seq_len(newtonSteps)) {
             improved <- FALSE
@@ -1449,7 +1497,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                   candidate <- pmax(candidate, RunSpecs$lowBnd)
                   candidate <- pmin(candidate, RunSpecs$uppBnd)
                 }
-                if (model$fn(candidate) < base_obj) {
+                if (model$fn(candidate) < base_obj && is.finite(.max_grad(candidate))) {
                   newton_par <- candidate
                   improved   <- TRUE
                   break
@@ -1465,7 +1513,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                       "\u2014 line search failed, stopping Newton.\n")
                 }
               } else {
-                ng <- max(abs(model$gr_Orig(newton_par)))
+                ng <- .max_grad(newton_par)
                 cat("  Newton step", ns,
                     "- obj:", round(model$fn(newton_par), 6),
                     "| max|grad|:", round(ng, 8),
@@ -1498,9 +1546,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
           ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                        rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-          mout <- nlminb(newton_par, model$fn, model$gr,
-                         lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                         control = ctrl)
+          mout_newton <- nlminb(newton_par, model$fn, model$gr,
+                                lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+                                control = ctrl)
+          if (is.finite(.max_grad(mout_newton$par))) {
+            mout <- mout_newton
+          } else {
+            cat("  WARNING: post-Newton nlminb ended on a non-finite gradient — keeping Newton point\n")
+            mout$par       <- newton_par
+            mout$objective <- model$fn(newton_par)
+          }
           .report_fit(mout, model, pnames, initBestFn,
                       label = "  Final nlminb (post-Newton)")
           TotalEval <<- TotalEval + FnCallNo
@@ -1510,6 +1565,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       ## Bound diagnostics ##
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
     }
+
+    if (nonfinite_gr > 0)
+      cat("  NOTE: Phase", CurrPhase, "had", nonfinite_gr,
+          "gradient evaluation(s) with non-finite values (returned as zeros to the optimiser).\n")
 
     ## Store and save parameters ##
     pars        <- mout$par
@@ -1578,12 +1637,26 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 #'
 #' @keywords internal
 .report_fit <- function(mout, model, pnames, initBestFn, label = "") {
-  Grad   <- abs(model$gr(mout$par))
-  badpar <- paste0("[", pnames[Grad == max(Grad)], "]")
-  cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
-      "| Max grad [par]:", round(max(Grad), 6), badpar,
-      "| Iter:", mout$iterations,
-      "| Eval:", mout$evaluations, "\n")
+  g   <- tryCatch(model$gr_Orig(mout$par),
+                  error = function(e) rep(NA_real_, length(mout$par)))
+  bad <- !is.finite(g)
+  if (any(bad)) {
+    nb <- sum(bad)
+    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
+        "| NON-FINITE gradient for", nb, "par(s):",
+        paste0("[", head(pnames[bad], 20), "]", collapse = " "),
+        if (nb > 20) paste0("... (+", nb - 20, " more)") else "",
+        "| Iter:", mout$iterations,
+        "| Eval:", mout$evaluations, "\n")
+  } else {
+    Grad   <- abs(g)
+    top    <- head(pnames[Grad == max(Grad)], 5)
+    badpar <- paste0("[", top, "]", collapse = " ")
+    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
+        "| Max grad [par]:", round(max(Grad), 6), badpar,
+        "| Iter:", mout$iterations,
+        "| Eval:", mout$evaluations, "\n")
+  }
 }
 
 

@@ -13,9 +13,13 @@ FitModel(
   nRestarts = TRUE,
   newtonSteps = 5,
   newton_grad_thresh = 0.1,
+  sandwich_entry_grad = 10,
+  max_pre_nlminb = 5,
+  bfgs_maxit = 200,
+  checkpoint = TRUE,
   PrintNll = TRUE,
   plateau_k = 4,
-  plateau_cv = 0.05
+  plateau_cv = 0
 )
 }
 \arguments{
@@ -23,43 +27,51 @@ FitModel(
 all phases except the last. Default 500.}
 
 \item{lphit}{Integer. Maximum number of function evaluations for the last
-phase (per optimiser call). Default 1000.}
+phase (per nlminb call). Default 1000.}
 
 \item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
 the global \code{MaxPhase}.}
 
 \item{PrintLag}{Integer. Print and plot progress every \code{PrintLag}
-function evaluations. Default 50.}
+function evaluations, including during BFGS. Default 50.}
 
 \item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
 after the final phase. Default \code{FALSE}.}
 
-\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts (alternating
-BFGS and nlminb) run adaptively in the final phase until either the
-gradient falls below \code{newton_grad_thresh} (ready for Newton) or two
-successive cycles fail to improve the NLL (stuck). If \code{FALSE}, no
-sandwich is performed. Default \code{TRUE}.}
+\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts run in the final
+phase. Default \code{TRUE}.}
 
 \item{newtonSteps}{Integer. Maximum number of damped Newton polishing steps
-after the sandwich. Only attempted if the gradient is below
-\code{newton_grad_thresh} at sandwich exit; otherwise a warning is
-printed. Default 5.}
+after the sandwich. Default 5.}
 
 \item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
-polishing is considered safe. Also used as the sandwich convergence
-criterion. Default 0.1.}
+polishing is considered safe; also the sandwich convergence criterion.
+Default 0.1.}
 
-\item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
-plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
+\item{sandwich_entry_grad}{Numeric. Before the sandwich starts, nlminb is
+re-run from its last point until the maximum absolute gradient is at or
+below this value, it stalls, or \code{max_pre_nlminb} calls are used.
+Also the floor for the BFGS gradient-inflation rejection. Default 10.}
 
-\item{plateau_k}{Integer. Number of consecutive reporting intervals (each
-\code{PrintLag} evaluations) used in the rolling window for plateau
-detection. Default 4.}
+\item{max_pre_nlminb}{Integer. Maximum number of extra nlminb calls before
+the sandwich. Default 5.}
 
-\item{plateau_cv}{Numeric. Coefficient of variation threshold below which
-the delta window is declared a plateau. A diagnostic message is printed
-after the phase suggesting a more efficient \code{phit}. Set to 0 to
-disable. Default 0.05 (5\\%).}
+\item{bfgs_maxit}{Integer. Maximum BFGS iterations per sandwich cycle.
+Default 200.}
+
+\item{checkpoint}{Logical. If \code{TRUE}, save the current final-phase
+parameters to \code{Output/checkpoint_par.rds} after every nlminb call.
+Default \code{TRUE}.}
+
+\item{PrintNll}{Logical. If \code{TRUE}, display a live trace plot of the
+negative log-likelihood. Default \code{TRUE}.}
+
+\item{plateau_k}{Integer. Window size (in reporting intervals) for the
+plateau diagnostic. Default 4.}
+
+\item{plateau_cv}{Numeric. CV threshold for the plateau diagnostic in
+non-final phases. Set to 0 to disable. Default 0 (off), because a steady
+rate of slow improvement also has a low CV and the diagnostic can mislead.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -68,79 +80,35 @@ parameter files to \code{Output/}, and if \code{report = TRUE}, saving
 }
 \description{
 Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-progressively introduced across phases, with the final phase employing
-sandwich restarts (alternating BFGS on logit-transformed parameters and
-nlminb) to escape local minima. Optional Newton polishing steps can further
-refine the solution.
+progressively introduced across phases. In the final phase, nlminb is re-run
+until the gradient is small enough (pre-sandwich), then sandwich restarts
+(alternating BFGS on logit-transformed parameters and nlminb) polish the
+solution. Optional Newton polishing steps can further refine it.
 }
 \details{
-Non-final phases include a plateau diagnostic: after each phase completes,
-the rolling delta history is inspected and a message is printed if a plateau
-was detected, suggesting a more efficient \code{phit} value for future runs.
-nlminb is never interrupted — the diagnostic is informational only.
+\strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
+parameters near a bound have tiny chain-rule gradients and can be pushed onto
+the bound. A BFGS result is therefore rejected if its gradient is non-finite,
+or if it inflates the maximum gradient more than 5-fold (and above
+\code{sandwich_entry_grad}); nlminb then continues from the pre-BFGS point.
 
-\strong{Phased estimation:} Parameters are activated across phases via
-\code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
-the final phase uses \code{lphit}.
+\strong{Gradient wrapper:} returns zeros for non-finite gradients to keep
+optimisers alive; every accepted point is checked for a finite gradient.
 
-\strong{Plateau diagnostic:} In non-final phases, after the full nlminb call
-completes, the rolling window of \code{plateau_k} delta values is inspected.
-If the coefficient of variation falls below \code{plateau_cv}, a message is
-printed reporting the eval at which the plateau was first detected and
-suggesting that \code{phit} could be reduced to that value for future runs.
-nlminb is never interrupted — this is purely informational. Set
-\code{plateau_cv = 0} to disable. The final phase is never reported on.
-
-\strong{Sandwich restarts:} If \code{nRestarts = TRUE}, the final phase
-runs adaptive sandwich cycles (BFGS then nlminb) until the gradient falls
-below \code{newton_grad_thresh} or two successive cycles produce no NLL
-improvement. BFGS operates in logit-transformed unconstrained space so it
-can never step outside bounds or into non-finite regions. The gradient is
-adjusted via the chain rule. After BFGS, parameters are back-transformed
-and passed to nlminb with full bounds. A safety ceiling of 20 cycles
-prevents runaway loops.
-
-\strong{Finite penalty wrapper:} The objective function wrapper returns a
-large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
-TMB evaluation, preventing optimiser crashes.
-
-\strong{Gradient wrapper:} The gradient wrapper returns a zero vector for
-any non-finite or error-producing gradient evaluation, preventing crashes
-in optimisers that require finite gradients.
-
-\strong{Newton polishing:} If \code{newtonSteps > 0} and the gradient at
-sandwich exit is below \code{newton_grad_thresh}, damped Newton steps are
-attempted using the full Hessian. Each step performs a backtracking line
-search (halving the step size up to 10 times) to ensure the objective
-actually improves before accepting the step. A final nlminb call follows
-to clean up any remaining gradient. If the gradient is above
-\code{newton_grad_thresh} at sandwich exit, Newton is skipped with a
-warning — the Hessian is unlikely to be well-conditioned and steps would
-be unreliable.
-
-\strong{Global side effects:} Writes to the global environment via
-\code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
-in \code{TotalEval}, and the current stage label in \code{CurrentStage}.
+\strong{Global side effects:} writes \code{TraceDF}, \code{TotalEval},
+\code{CurrentStage}, \code{ProfileReport}, \code{ProfileGrad} and
+\code{InitialVars} to the global environment.
 }
 \examples{
 \dontrun{
 # Quick fit, no sandwich
 FitModel(500, 1000, nRestarts = FALSE)
 
-# Full fit — adaptive sandwich + Newton polishing
-FitModel(500, 3000, report = TRUE)
+# Full fit with pre-sandwich polishing, sandwich and Newton
+FitModel(500, 1500, report = TRUE)
 
-# Tighter Newton threshold (only polish if gradient < 0.01)
-FitModel(500, 3000, report = TRUE, newton_grad_thresh = 0.01)
-
-# Fit without live plotting
-FitModel(500, 1000, PrintNll = FALSE)
-
-# Tighter plateau diagnostic
-FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
-
-# Disable plateau diagnostic
-FitModel(500, 1000, plateau_cv = 0)
+# Stricter entry to the sandwich and shorter BFGS cycles
+FitModel(500, 1500, report = TRUE, sandwich_entry_grad = 1, bfgs_maxit = 100)
 }
 
 }

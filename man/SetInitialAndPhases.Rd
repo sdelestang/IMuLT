@@ -9,7 +9,9 @@ SetInitialAndPhases(ParOld, parameters, InitialVars, CurrPhase)
 \arguments{
 \item{ParOld}{Numeric vector of parameter values from previous phase(s). Used
 to initialize parameters that were estimated in earlier phases at their
-converged values}
+converged values. If \code{NULL} (e.g. a warm start via
+\code{FitModel(start_phase = )}), parameters from earlier phases keep their
+initial values from the input files.}
 
 \item{parameters}{Named list of parameter arrays/vectors matching the RTMB/TMB
 model structure. Must include all parameter types defined in InitialVars}

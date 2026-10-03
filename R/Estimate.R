@@ -984,6 +984,15 @@ UpdateLFWeights <- function(todo='No'){
 #'   its best point returned. Set to 0 to disable. Default 5.
 #' @param stall_final_only Logical. If \code{TRUE}, stall detection is only used
 #'   in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.
+#' @param use_scale Logical. If \code{TRUE}, final-phase nlminb calls use
+#'   \code{scale = sqrt(|diag(H)|)} (normalised to median 1, clamped to
+#'   between 1e-3 and 1e3) so badly scaled parameters such as ln(R0) get sensible step
+#'   sizes. The Hessian diagonal is read from \code{scale_file} (matched by
+#'   parameter name) where available; any parameters not found there are
+#'   computed by forward-differencing the AD gradient. Default \code{TRUE}.
+#' @param scale_file Character. File the Hessian diagonal is read from and
+#'   saved to at the end of the final phase. Default
+#'   \code{"Output/hess_diag.rds"}.
 #'
 #' @details
 #' \strong{Stall detection:} nlminb calls in the final phase (initial,
@@ -1038,7 +1047,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      plateau_k = 4, plateau_cv = 0,
                      start_phase = 1,
                      stall_window = 200, stall_tol = 5,
-                     stall_final_only = TRUE) {
+                     stall_final_only = TRUE,
+                     use_scale = TRUE,
+                     scale_file = "Output/hess_diag.rds") {
 
   ##  globals populated by LoadData() / LoadPars() --------
   need <- c("Data", "InitialVars")
@@ -1125,6 +1136,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     stall_active <- FALSE        # only TRUE inside .run_nlminb()
     stall_hist   <- numeric(0)   # best NLL at each fn call of the current stage
     BestPar      <- NULL         # parameters at BestFn for the current stage
+    nl_scale     <- 1            # nlminb scale; set from Hessian diagonal in final phase
+    hdiag_used   <- NULL         # Hessian diagonal used this phase (for saving)
 
     parameters <- list(
       MainPars    = InitialVars$MainPars$Initial,
@@ -1255,6 +1268,31 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       max(abs(g))
     }
 
+    # Diagonal of the Hessian by forward-differencing the AD gradient
+    # (one gradient call per parameter in idx, plus one).
+    .hess_diag <- function(x, idx = seq_along(x), h = 1e-5) {
+      g0 <- as.vector(model$gr_Orig(x))
+      d  <- rep(NA_real_, length(x))
+      for (i in idx) {
+        hi <- h * max(1, abs(x[i]))
+        xi <- x; xi[i] <- x[i] + hi
+        if (has_bounds && xi[i] > RunSpecs$uppBnd[i]) { hi <- -hi; xi[i] <- x[i] + hi }
+        gi <- tryCatch(as.vector(model$gr_Orig(xi)), error = function(e) NULL)
+        if (!is.null(gi) && is.finite(gi[i])) d[i] <- (gi[i] - g0[i]) / hi
+      }
+      d
+    }
+
+    # nlminb scale from a Hessian diagonal: sqrt(|Hii|), median-normalised and clamped
+    .make_scale <- function(hd) {
+      s <- sqrt(abs(hd))
+      s[!is.finite(s) | s == 0] <- NA
+      if (all(is.na(s))) return(rep(1, length(hd)))
+      s <- s / median(s, na.rm = TRUE)
+      s[is.na(s)] <- 1
+      pmin(pmax(s, 1e-3), 1e3)
+    }
+
     # Save current final-phase parameters so an interrupted run isn't wasted
     .checkpoint <- function(m, label) {
       if (is_final && isTRUE(checkpoint))
@@ -1291,7 +1329,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       res <- tryCatch(
         nlminb(start, model$fn, model$gr,
                lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-               control = ctrl),
+               scale = nl_scale, control = ctrl),
         fit_stall = function(e) NULL
       )
       if (is.null(res)) {
@@ -1309,6 +1347,31 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     # ─────────────────────────────────────────────────────────────────────
 
     has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
+
+    # ── Parameter scaling for final-phase nlminb ──────────────────────────
+    if (is_final && isTRUE(use_scale)) {
+      hd <- rep(NA_real_, length(model$par))
+      if (file.exists(scale_file)) {
+        saved <- tryCatch(readRDS(scale_file), error = function(e) NULL)
+        if (!is.null(saved) && !is.null(names(saved))) {
+          hd <- as.numeric(saved[match(pnames, names(saved))])
+          cat("  Scaling: Hessian diagonal for", sum(is.finite(hd)), "of", length(hd),
+              "parameters read from", scale_file, "\n")
+        }
+      }
+      need_hd <- which(!is.finite(hd))
+      if (length(need_hd) > 0) {
+        cat("  Scaling: computing Hessian diagonal for", length(need_hd),
+            "parameters (", length(need_hd) + 1, "gradient calls)\n")
+        hd[need_hd] <- .hess_diag(model$par, need_hd)[need_hd]
+      }
+      names(hd)  <- pnames
+      hdiag_used <- hd
+      nl_scale   <- .make_scale(hd)
+      top <- order(nl_scale, decreasing = TRUE)[1:min(5, length(nl_scale))]
+      cat("  Scaling: largest scale factors:",
+          paste0(pnames[top], "=", signif(nl_scale[top], 3), collapse = ", "), "\n")
+    }
 
     # ── Initial nlminb ────────────────────────────────────────────────────
     CurrentStage <<- paste0("Phase ", CurrPhase, " \u2013 nlminb")
@@ -1648,6 +1711,28 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
       ## Bound diagnostics ##
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
+    }
+
+    ## Save Hessian diagonal at the solution for scaling the next run ##
+    if (is_final && isTRUE(use_scale)) {
+      hd_out <- NULL
+      if (exists("H", inherits = FALSE) && is.matrix(H) && nrow(H) == length(pnames)) {
+        hd_out <- diag(H)                                  # from Newton polishing
+      } else {
+        cat("  Scaling: computing Hessian diagonal at solution for next run\n")
+        hd_out <- tryCatch(.hess_diag(mout$par), error = function(e) NULL)
+      }
+      if (is.null(hd_out)) hd_out <- hdiag_used
+      if (!is.null(hd_out)) {
+        names(hd_out) <- pnames
+        if (file.exists(scale_file)) {                     # keep entries for pars not in this run
+          old <- tryCatch(readRDS(scale_file), error = function(e) NULL)
+          if (!is.null(old) && !is.null(names(old)))
+            hd_out <- c(hd_out, old[!names(old) %in% names(hd_out)])
+        }
+        saveRDS(hd_out, scale_file)
+        cat("  Scaling: Hessian diagonal saved to", scale_file, "\n")
+      }
     }
 
     if (nonfinite_gr > 0)

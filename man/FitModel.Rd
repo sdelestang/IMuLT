@@ -19,7 +19,13 @@ FitModel(
   checkpoint = TRUE,
   PrintNll = TRUE,
   plateau_k = 4,
-  plateau_cv = 0
+  plateau_cv = 0,
+  start_phase = 1,
+  stall_window = 200,
+  stall_tol = 5,
+  stall_final_only = TRUE,
+  use_scale = TRUE,
+  scale_file = "Output/hess_diag.rds"
 )
 }
 \arguments{
@@ -27,7 +33,8 @@ FitModel(
 all phases except the last. Default 500.}
 
 \item{lphit}{Integer. Maximum number of function evaluations for the last
-phase (per nlminb call). Default 1000.}
+phase (per nlminb call). With stall detection on, this is a safety ceiling
+and can be set high (e.g. 5000). Default 1000.}
 
 \item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
 the global \code{MaxPhase}.}
@@ -48,10 +55,11 @@ after the sandwich. Default 5.}
 polishing is considered safe; also the sandwich convergence criterion.
 Default 0.1.}
 
-\item{sandwich_entry_grad}{Numeric. Before the sandwich starts, nlminb is
-re-run from its last point until the maximum absolute gradient is at or
-below this value, it stalls, or \code{max_pre_nlminb} calls are used.
-Also the floor for the BFGS gradient-inflation rejection. Default 10.}
+\item{sandwich_entry_grad}{Numeric. If the initial final-phase nlminb ends by
+hitting \code{lphit} while still improving (not stalled), nlminb is re-run
+from its last point until the maximum absolute gradient is at or below this
+value, it stalls, or \code{max_pre_nlminb} calls are used. Also the floor
+for the BFGS gradient-inflation rejection. Default 10.}
 
 \item{max_pre_nlminb}{Integer. Maximum number of extra nlminb calls before
 the sandwich. Default 5.}
@@ -72,6 +80,31 @@ plateau diagnostic. Default 4.}
 \item{plateau_cv}{Numeric. CV threshold for the plateau diagnostic in
 non-final phases. Set to 0 to disable. Default 0 (off), because a steady
 rate of slow improvement also has a low CV and the diagnostic can mislead.}
+
+\item{start_phase}{Integer. First phase to run. Use \code{MaxPhase} for a
+warm start after \code{UpdatePars("Yes")}: earlier-phase parameters start
+from the values in the input files instead of being re-polished. Default 1.}
+
+\item{stall_window}{Integer. Number of function evaluations over which
+progress is judged for stall detection. Default 200.}
+
+\item{stall_tol}{Numeric. Minimum absolute NLL reduction required over
+\code{stall_window} evaluations; less than this and nlminb is stopped and
+its best point returned. Set to 0 to disable. Default 5.}
+
+\item{stall_final_only}{Logical. If \code{TRUE}, stall detection is only used
+in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.}
+
+\item{use_scale}{Logical. If \code{TRUE}, final-phase nlminb calls use
+\code{scale = sqrt(|diag(H)|)} (normalised to median 1, clamped to
+between 1e-3 and 1e3) so badly scaled parameters such as ln(R0) get sensible step
+sizes. The Hessian diagonal is read from \code{scale_file} (matched by
+parameter name) where available; any parameters not found there are
+computed by forward-differencing the AD gradient. Default \code{TRUE}.}
+
+\item{scale_file}{Character. File the Hessian diagonal is read from and
+saved to at the end of the final phase. Default
+\code{"Output/hess_diag.rds"}.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -80,12 +113,21 @@ parameter files to \code{Output/}, and if \code{report = TRUE}, saving
 }
 \description{
 Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-progressively introduced across phases. In the final phase, nlminb is re-run
-until the gradient is small enough (pre-sandwich), then sandwich restarts
+progressively introduced across phases. In the final phase, nlminb runs until
+it stalls (less than \code{stall_tol} NLL reduction over the last
+\code{stall_window} evaluations) or hits \code{lphit}, then sandwich restarts
 (alternating BFGS on logit-transformed parameters and nlminb) polish the
 solution. Optional Newton polishing steps can further refine it.
 }
 \details{
+\strong{Stall detection:} nlminb calls in the final phase (initial,
+pre-sandwich, sandwich step B, post-Newton) are stopped once the best NLL
+has improved by less than \code{stall_tol} over the last
+\code{stall_window} function evaluations. The best point found is returned.
+If the initial final-phase nlminb stalls, the pre-sandwich loop is skipped
+and the fit goes straight to BFGS. Stall detection is never applied to BFGS
+or to the Newton Hessian evaluations.
+
 \strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
 parameters near a bound have tiny chain-rule gradients and can be pushed onto
 the bound. A BFGS result is therefore rejected if its gradient is non-finite,
@@ -104,11 +146,15 @@ optimisers alive; every accepted point is checked for a finite gradient.
 # Quick fit, no sandwich
 FitModel(500, 1000, nRestarts = FALSE)
 
-# Full fit with pre-sandwich polishing, sandwich and Newton
-FitModel(500, 1500, report = TRUE)
+# Full fit; final phase runs until stalled (ceiling 5000 evals)
+FitModel(500, 5000, report = TRUE)
 
-# Stricter entry to the sandwich and shorter BFGS cycles
-FitModel(500, 1500, report = TRUE, sandwich_entry_grad = 1, bfgs_maxit = 100)
+# Warm start from a previous run: skip straight to the final phase
+UpdatePars("Yes"); LoadPars()
+FitModel(500, 5000, report = TRUE, start_phase = MaxPhase)
+
+# Stricter stall rule
+FitModel(500, 5000, report = TRUE, stall_window = 300, stall_tol = 2)
 }
 
 }

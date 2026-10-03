@@ -6,7 +6,9 @@
 #'
 #' @param ParOld Numeric vector of parameter values from previous phase(s). Used
 #'   to initialize parameters that were estimated in earlier phases at their
-#'   converged values
+#'   converged values. If \code{NULL} (e.g. a warm start via
+#'   \code{FitModel(start_phase = )}), parameters from earlier phases keep their
+#'   initial values from the input files.
 #' @param parameters Named list of parameter arrays/vectors matching the RTMB/TMB
 #'   model structure. Must include all parameter types defined in InitialVars
 #' @param InitialVars Nested list from ReadInitialValues() containing Initial,
@@ -82,7 +84,8 @@ SetInitialAndPhases <- function(ParOld, parameters, InitialVars, CurrPhase)
     Npar <- length(Est)
     for (Ipar in 1:Npar)
     {
-      if (Phase[Ipar] > 0 & Phase[Ipar] <= (CurrPhase-1))
+      # ParOld is NULL on a warm start (start_phase > 1): keep initial values
+      if (!is.null(ParOld) && Phase[Ipar] > 0 && Phase[Ipar] <= (CurrPhase-1))
       {
         Ipnt <<- Ipnt + 1
         Est[Ipar] <- ParOld[Ipnt]
@@ -928,15 +931,17 @@ UpdateLFWeights <- function(todo='No'){
 #' Fit the IMuLT Stock Assessment Model
 #'
 #' Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-#' progressively introduced across phases. In the final phase, nlminb is re-run
-#' until the gradient is small enough (pre-sandwich), then sandwich restarts
+#' progressively introduced across phases. In the final phase, nlminb runs until
+#' it stalls (less than \code{stall_tol} NLL reduction over the last
+#' \code{stall_window} evaluations) or hits \code{lphit}, then sandwich restarts
 #' (alternating BFGS on logit-transformed parameters and nlminb) polish the
 #' solution. Optional Newton polishing steps can further refine it.
 #'
 #' @param phit Integer. Maximum number of function evaluations per phase for
 #'   all phases except the last. Default 500.
 #' @param lphit Integer. Maximum number of function evaluations for the last
-#'   phase (per nlminb call). Default 1000.
+#'   phase (per nlminb call). With stall detection on, this is a safety ceiling
+#'   and can be set high (e.g. 5000). Default 1000.
 #' @param mxph Integer. Maximum phase number. If 0, treated as 1. Defaults to
 #'   the global \code{MaxPhase}.
 #' @param PrintLag Integer. Print and plot progress every \code{PrintLag}
@@ -950,10 +955,11 @@ UpdateLFWeights <- function(todo='No'){
 #' @param newton_grad_thresh Numeric. Gradient threshold below which Newton
 #'   polishing is considered safe; also the sandwich convergence criterion.
 #'   Default 0.1.
-#' @param sandwich_entry_grad Numeric. Before the sandwich starts, nlminb is
-#'   re-run from its last point until the maximum absolute gradient is at or
-#'   below this value, it stalls, or \code{max_pre_nlminb} calls are used.
-#'   Also the floor for the BFGS gradient-inflation rejection. Default 10.
+#' @param sandwich_entry_grad Numeric. If the initial final-phase nlminb ends by
+#'   hitting \code{lphit} while still improving (not stalled), nlminb is re-run
+#'   from its last point until the maximum absolute gradient is at or below this
+#'   value, it stalls, or \code{max_pre_nlminb} calls are used. Also the floor
+#'   for the BFGS gradient-inflation rejection. Default 10.
 #' @param max_pre_nlminb Integer. Maximum number of extra nlminb calls before
 #'   the sandwich. Default 5.
 #' @param bfgs_maxit Integer. Maximum BFGS iterations per sandwich cycle.
@@ -968,8 +974,26 @@ UpdateLFWeights <- function(todo='No'){
 #' @param plateau_cv Numeric. CV threshold for the plateau diagnostic in
 #'   non-final phases. Set to 0 to disable. Default 0 (off), because a steady
 #'   rate of slow improvement also has a low CV and the diagnostic can mislead.
+#' @param start_phase Integer. First phase to run. Use \code{MaxPhase} for a
+#'   warm start after \code{UpdatePars("Yes")}: earlier-phase parameters start
+#'   from the values in the input files instead of being re-polished. Default 1.
+#' @param stall_window Integer. Number of function evaluations over which
+#'   progress is judged for stall detection. Default 200.
+#' @param stall_tol Numeric. Minimum absolute NLL reduction required over
+#'   \code{stall_window} evaluations; less than this and nlminb is stopped and
+#'   its best point returned. Set to 0 to disable. Default 5.
+#' @param stall_final_only Logical. If \code{TRUE}, stall detection is only used
+#'   in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.
 #'
 #' @details
+#' \strong{Stall detection:} nlminb calls in the final phase (initial,
+#' pre-sandwich, sandwich step B, post-Newton) are stopped once the best NLL
+#' has improved by less than \code{stall_tol} over the last
+#' \code{stall_window} function evaluations. The best point found is returned.
+#' If the initial final-phase nlminb stalls, the pre-sandwich loop is skipped
+#' and the fit goes straight to BFGS. Stall detection is never applied to BFGS
+#' or to the Newton Hessian evaluations.
+#'
 #' \strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
 #' parameters near a bound have tiny chain-rule gradients and can be pushed onto
 #' the bound. A BFGS result is therefore rejected if its gradient is non-finite,
@@ -992,11 +1016,15 @@ UpdateLFWeights <- function(todo='No'){
 #' # Quick fit, no sandwich
 #' FitModel(500, 1000, nRestarts = FALSE)
 #'
-#' # Full fit with pre-sandwich polishing, sandwich and Newton
-#' FitModel(500, 1500, report = TRUE)
+#' # Full fit; final phase runs until stalled (ceiling 5000 evals)
+#' FitModel(500, 5000, report = TRUE)
 #'
-#' # Stricter entry to the sandwich and shorter BFGS cycles
-#' FitModel(500, 1500, report = TRUE, sandwich_entry_grad = 1, bfgs_maxit = 100)
+#' # Warm start from a previous run: skip straight to the final phase
+#' UpdatePars("Yes"); LoadPars()
+#' FitModel(500, 5000, report = TRUE, start_phase = MaxPhase)
+#'
+#' # Stricter stall rule
+#' FitModel(500, 5000, report = TRUE, stall_window = 300, stall_tol = 2)
 #' }
 #'
 #' @export
@@ -1007,7 +1035,10 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      sandwich_entry_grad = 10, max_pre_nlminb = 5,
                      bfgs_maxit = 200, checkpoint = TRUE,
                      PrintNll = TRUE,
-                     plateau_k = 4, plateau_cv = 0) {
+                     plateau_k = 4, plateau_cv = 0,
+                     start_phase = 1,
+                     stall_window = 200, stall_tol = 5,
+                     stall_final_only = TRUE) {
 
   ##  globals populated by LoadData() / LoadPars() --------
   need <- c("Data", "InitialVars")
@@ -1022,6 +1053,13 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
+
+  ## Start phase (warm start) ##
+  start_phase <- max(1L, min(as.integer(start_phase), MaxPhase))
+  if (start_phase > 1)
+    cat("Warm start: skipping phases 1 to", start_phase - 1,
+        "- earlier-phase parameters start from input-file values\n")
+  ParOld <- NULL   # earlier phases (if skipped) take their values from the input files
 
   ## Force negative phase for mirrored parameters ##
   link_map <- list(MainPars    = Data$MparsLink,
@@ -1077,10 +1115,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   ## Phase loop ##
-  for (CurrPhase in 1:MaxPhase) {
+  for (CurrPhase in start_phase:MaxPhase) {
 
     MaXeVaL    <- ifelse(CurrPhase < MaxPhase, phit, lphit)
     is_final   <- CurrPhase == MaxPhase
+
+    ## Stall detection state ##
+    stall_on     <- stall_tol > 0 && (is_final || !isTRUE(stall_final_only))
+    stall_active <- FALSE        # only TRUE inside .run_nlminb()
+    stall_hist   <- numeric(0)   # best NLL at each fn call of the current stage
+    BestPar      <- NULL         # parameters at BestFn for the current stage
 
     parameters <- list(
       MainPars    = InitialVars$MainPars$Initial,
@@ -1143,7 +1187,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     model$fn_Orig <- model$fn
     model$gr_Orig <- model$gr
 
-    # Objective wrapper: finite-penalty + progress tracking + delta accumulation
+    # Objective wrapper: finite-penalty + progress tracking + delta accumulation + stall check
     model$fn <- function(x) {
       tyy <- model$fn_Orig(x)
 
@@ -1154,7 +1198,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       FnCallNo  <<- FnCallNo + 1
 
       if (!is.na(BestFn) && BestFn > tyy) {
-        BestFn <<- tyy
+        BestFn  <<- tyy
+        BestPar <<- x
         if ((FnCallNo %% PrintLag) == 0 && !suppress_print) {
           delta <- 100 * (1 - (tyy / LastPrintFn))
           cat(CurrentStage, " ", FnCallNo, " -LogLike: ",
@@ -1176,6 +1221,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
               if (cv < plateau_cv) plateau_eval <<- FnCallNo
             }
           }
+        }
+      }
+
+      ## Stall check (nlminb calls only, via .run_nlminb) ##
+      if (stall_active) {
+        stall_hist[FnCallNo] <<- BestFn
+        if (FnCallNo > stall_window &&
+            (stall_hist[FnCallNo - stall_window] - BestFn) < stall_tol) {
+          stop(structure(class = c("fit_stall", "error", "condition"),
+                         list(message = "nlminb stalled", call = NULL)))
         }
       }
       return(tyy)
@@ -1216,6 +1271,41 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       LastPrintFn  <<- start_value
       .trace_append(TotalEval, start_value)
     }
+
+    # Write parameters to Output/model<suffix>.par (same format as the end-of-phase save)
+    .save_par <- function(par, suffix) {
+      names(par) <- pnames
+      pout_tmp <- unlist(parameters)
+      pout_tmp[names(pout_tmp) %in% names(par)] <- par
+      write.table(pout_tmp, paste0("Output/model", suffix, ".par"),
+                  sep = "\t", col.names = c("name\test"), quote = FALSE)
+    }
+
+    # nlminb with stall detection. Returns an nlminb-like list plus $stalled.
+    # Call .start_stage() (or reset FnCallNo/BestFn) before this.
+    .run_nlminb <- function(start, ctrl, label) {
+      stall_hist   <<- numeric(0)
+      BestPar      <<- start
+      stall_active <<- stall_on
+      on.exit(stall_active <<- FALSE)
+      res <- tryCatch(
+        nlminb(start, model$fn, model$gr,
+               lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+               control = ctrl),
+        fit_stall = function(e) NULL
+      )
+      if (is.null(res)) {
+        cat("  ", label, " stalled at eval ", FnCallNo, ": < ", stall_tol,
+            " NLL reduction over last ", stall_window, " evals\n", sep = "")
+        res <- list(par = BestPar, objective = BestFn, convergence = 99L,
+                    iterations = NA,
+                    evaluations = c("function" = FnCallNo, "gradient" = NA),
+                    message = "stalled", stalled = TRUE)
+      } else {
+        res$stalled <- FALSE
+      }
+      res
+    }
     # ─────────────────────────────────────────────────────────────────────
 
     has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
@@ -1230,9 +1320,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                  rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-    mout <- nlminb(model$par, model$fn, model$gr,
-                   lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                   control = ctrl)
+    mout <- .run_nlminb(model$par, ctrl, paste0("Phase ", CurrPhase, " nlminb"))
 
     if (!is.finite(.max_grad(mout$par)))
       cat("  WARNING: initial nlminb ended at a point with a non-finite gradient (",
@@ -1252,34 +1340,45 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     TotalEval <<- TotalEval + FnCallNo
     .checkpoint(mout, "initial nlminb")
 
-    ## Pre-sandwich nlminb: keep going until the gradient is small enough for the sandwich ##
+    ## Pre-sandwich nlminb: only if the initial nlminb hit lphit while still improving ##
     if (is_final && isTRUE(nRestarts)) {
-      entry_grad <- .max_grad(mout$par)
-      for (k in seq_len(max_pre_nlminb)) {
-        if (!is.finite(entry_grad) || entry_grad <= sandwich_entry_grad) break
-        cat("\n  Pre-sandwich nlminb", k, "- starting max|grad| =", round(entry_grad, 3), "\n")
-        prev_obj <- mout$objective
-        .start_stage(paste0("Pre-sandwich nlminb ", k), prev_obj)
-        mout_k <- nlminb(mout$par, model$fn, model$gr,
-                         lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                         control = list(iter.max = MaXeVaL, eval.max = MaXeVaL,
-                                        rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0))
-        TotalEval <<- TotalEval + FnCallNo
-        new_grad <- .max_grad(mout_k$par)
-        if (!is.finite(new_grad)) {
-          cat("  Pre-sandwich nlminb ended on a non-finite gradient — keeping previous point\n")
-          break
-        }
-        mout <- mout_k
-        .report_fit(mout, model, pnames, prev_obj, label = paste("  Pre-sandwich nlminb", k))
-        .checkpoint(mout, paste("pre-sandwich nlminb", k))
-        if (prev_obj - mout$objective < 1e-6 && new_grad >= entry_grad) {
-          cat("  Pre-sandwich nlminb stalled — moving to sandwich\n")
+      if (isTRUE(mout$stalled)) {
+        cat("  Initial nlminb stalled \u2014 skipping pre-sandwich, going straight to BFGS\n")
+      } else {
+        entry_grad <- .max_grad(mout$par)
+        for (k in seq_len(max_pre_nlminb)) {
+          if (!is.finite(entry_grad) || entry_grad <= sandwich_entry_grad) break
+          cat("\n  Pre-sandwich nlminb", k, "- starting max|grad| =", round(entry_grad, 3), "\n")
+          prev_obj <- mout$objective
+          .start_stage(paste0("Pre-sandwich nlminb ", k), prev_obj)
+          mout_k <- .run_nlminb(mout$par,
+                                list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0),
+                                paste0("Pre-sandwich nlminb ", k))
+          TotalEval <<- TotalEval + FnCallNo
+          new_grad <- .max_grad(mout_k$par)
+          if (!is.finite(new_grad)) {
+            cat("  Pre-sandwich nlminb ended on a non-finite gradient — keeping previous point\n")
+            break
+          }
+          mout <- mout_k
+          .report_fit(mout, model, pnames, prev_obj, label = paste("  Pre-sandwich nlminb", k))
+          .checkpoint(mout, paste("pre-sandwich nlminb", k))
+          if (isTRUE(mout$stalled) ||
+              (prev_obj - mout$objective < 1e-6 && new_grad >= entry_grad)) {
+            cat("  Pre-sandwich nlminb stalled — moving to sandwich\n")
+            entry_grad <- new_grad
+            break
+          }
           entry_grad <- new_grad
-          break
         }
-        entry_grad <- new_grad
       }
+    }
+
+    ## Save final-phase nlminb result before BFGS/sandwich (as for earlier phases) ##
+    if (is_final) {
+      .save_par(mout$par, CurrPhase)
+      cat("  Saved Output/model", CurrPhase, ".par (pre-sandwich)\n", sep = "")
     }
 
     ## Sandwich restarts (final phase only) ##
@@ -1404,9 +1503,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      rel.tol  = nlminb_rtol,
                      x.tol    = nlminb_xtol,
                      abs.tol  = 0)
-        mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
-                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                       control = ctrl)
+        mout <- .run_nlminb(fit_bfgs$par, ctrl, paste("nlminb restart", restart))
 
         .report_fit(mout, model, pnames, initBestFn,
                     label = paste("  nlminb restart", restart))
@@ -1534,9 +1631,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
           ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                        rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-          mout_newton <- nlminb(newton_par, model$fn, model$gr,
-                                lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                                control = ctrl)
+          mout_newton <- .run_nlminb(newton_par, ctrl, "Post-Newton nlminb")
           if (is.finite(.max_grad(mout_newton$par))) {
             mout <- mout_newton
           } else {

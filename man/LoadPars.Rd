@@ -5,6 +5,8 @@
 \title{Load Initial Parameter Values for Model Estimation}
 \usage{
 LoadPars(aask = "")
+
+LoadPars(aask = "")
 }
 \arguments{
 \item{aask}{Character string for testing mode. Use 'test' to display a
@@ -15,8 +17,19 @@ dialog box prompting the user to check the console. Default is ''
 NULL (invisible). Creates global objects \code{InitialVars} and
 \code{parameters} in the parent environment. Sets global variables
 \code{MaxPhase}, \code{ParOld}, and \code{CurrPhase}.
+
+NULL (invisible). Creates global objects \code{InitialVars} and
+\code{parameters} in the parent environment. Sets global variables
+\code{MaxPhase}, \code{ParOld}, and \code{CurrPhase}.
 }
 \description{
+Reads initial parameter values, bounds, and estimation phases from all
+model input files and prepares them for the optimisation routine. This
+function must be called before running the model estimation. Prints a
+parameter summary table to the console showing counts of estimated,
+mirrored, and linked parameters per group, followed by a detailed listing
+of any linked parameters to aid in diagnosing miss-specified links.
+
 Reads initial parameter values, bounds, and estimation phases from all
 model input files and prepares them for the optimisation routine. This
 function must be called before running the model estimation. Prints a
@@ -42,13 +55,44 @@ target within the group, to help catch miss-specified link indices
 Parameter groups loaded include:
 MainPars, RecruitPars, PuerPowPars, SelPars, RetPars, RecDevs, Qpars,
 efpars, InitPars, RecSpatDevs, MovePars, and GrowthPars.
+
+The function:
+\itemize{
+\item Reads parameter specifications from all .DAT input files
+\item Checks data integrity with \code{isnafunc2()}
+\item Initialises parameter list with proper structure for TMB
+\item Handles special cases (e.g., single area models)
+\item Records which parameters are active for output tracking
+\item Prints a summary table of parameter groups with columns for
+Total, Estimated, Phases, Mirrored (positive links = copy), and
+Offset (negative links = additive offset)
+\item Lists each mirrored parameter individually, showing source and
+target within the group, to help catch miss-specified link indices
+}
+
+Parameter groups loaded include:
+MainPars, RecruitPars, PuerPowPars, SelPars, RetPars, RecDevs, Qpars,
+efpars, InitPars, RecSpatDevs, MovePars, and GrowthPars.
 }
 \note{
 This function modifies global variables and must be run before
 model estimation. Requires all input .DAT files to be present in the
 working directory.
+
+This function modifies global variables and must be run before
+model estimation. Requires all input .DAT files to be present in the
+working directory.
 }
 \examples{
+\dontrun{
+# Standard workflow
+choose_model()
+LoadPars()
+
+# Test mode with dialog prompt
+LoadPars(aask = 'test')
+}
+
 \dontrun{
 # Standard workflow
 choose_model()

@@ -5,6 +5,8 @@
 \title{Interactively Adjust Parameter Estimation Phases}
 \usage{
 AdjustPhase(dum = " ")
+
+AdjustPhase(dum = " ")
 }
 \arguments{
 \item{dum}{Character string. Use \code{'dummy'} to set all parameters to
@@ -14,8 +16,15 @@ interactive menu.}
 \value{
 Invisibly returns \code{NULL}. Modifies global objects
 \code{InitialVars} and \code{MaxPhase}.
+
+Invisibly returns \code{NULL}. Modifies global objects
+\code{InitialVars} and \code{MaxPhase}.
 }
 \description{
+Provides an interactive interface to modify which parameters are estimated
+in which phases of the optimisation. Phases control the sequential estimation
+of parameter groups, with lower phases estimated before higher phases.
+
 Provides an interactive interface to modify which parameters are estimated
 in which phases of the optimisation. Phases control the sequential estimation
 of parameter groups, with lower phases estimated before higher phases.
@@ -38,12 +47,43 @@ For each parameter group the function offers:
 
 Using \code{'dummy'} mode is useful for testing model structure without full
 estimation (e.g., checking growth specifications only).
+
+Estimation phases allow sequential parameter estimation:
+\itemize{
+\item Phase -1: Parameter is fixed at initial value (not estimated)
+\item Phase 1: Estimated in first optimisation phase
+\item Phase 2+: Estimated after lower phases converge
+}
+
+For each parameter group the function offers:
+\itemize{
+\item \code{All}: Set all parameters in the group to the same phase
+\item \code{Individual}: Set each parameter's phase separately
+\item \code{Skip}: Leave current phases unchanged
+\item \code{End all resets}: Stop adjusting and keep current state
+}
+
+Using \code{'dummy'} mode is useful for testing model structure without full
+estimation (e.g., checking growth specifications only).
 }
 \note{
 This function modifies global variables. Run after \code{LoadPars()}
 and before model estimation to customise the estimation sequence.
+
+This function modifies global variables. Run after \code{LoadPars()}
+and before model estimation to customise the estimation sequence.
 }
 \examples{
+\dontrun{
+# Interactive phase adjustment
+choose_model()
+LoadPars()
+AdjustPhase()
+
+# Dummy mode — test growth only
+AdjustPhase(dum = 'dummy')
+}
+
 \dontrun{
 # Interactive phase adjustment
 choose_model()

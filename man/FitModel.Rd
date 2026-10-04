@@ -23,6 +23,8 @@ FitModel(
   start_phase = 1,
   stall_window = 200,
   stall_tol = 5,
+  stall_tol_restart = 0.5,
+  bfgs_skip_grad = 50,
   stall_final_only = TRUE,
   use_scale = TRUE,
   scale_file = "Output/hess_diag.rds"
@@ -91,6 +93,14 @@ progress is judged for stall detection. Default 200.}
 \item{stall_tol}{Numeric. Minimum absolute NLL reduction required over
 \code{stall_window} evaluations; less than this and nlminb is stopped and
 its best point returned. Set to 0 to disable. Default 5.}
+
+\item{stall_tol_restart}{Numeric. Stall tolerance (NLL reduction over
+\code{stall_window} evals) for the sandwich and post-Newton nlminb calls,
+where gains are small but the gradient still needs polishing. Default 0.5.}
+
+\item{bfgs_skip_grad}{Numeric. Once max|grad| at the start of a sandwich
+cycle is below this, BFGS is skipped and only nlminb runs, since near the
+optimum BFGS mostly inflates the gradient and is rejected. Default 50.}
 
 \item{stall_final_only}{Logical. If \code{TRUE}, stall detection is only used
 in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.}

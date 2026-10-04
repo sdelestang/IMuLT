@@ -78,6 +78,10 @@ function automatically handles missing standard errors (when sdreport not run).
 \itemize{
 \item Complete parameter table with names, indices, estimates, SEs, gradients, bounds
 \item Distinction between estimated (positive phase) and fixed parameters
+\item Prior type/mean/SD for every parameter group that supports priors
+(MainPars, RecruitPars, SelPars, efpars, MovePars, GrowthPars)
+\item Every row has the same 13 columns; fields that do not apply to a
+fixed parameter (Estpar_cnt, SD, Gradient) are written as NA
 \item Total count of estimated parameters
 }
 
@@ -151,7 +155,7 @@ burn-in and settlement delay (Larval_Offset).
 \strong{Output Directory Management}: If an 'Output' subdirectory exists, the function
 changes to it before writing files, then returns to the parent directory afterward.
 
-\strong{Data Tuning Statistics}: Calculates Francis (1011) weighting multipliers for
+\strong{Data Tuning Statistics}: Calculates Francis (2011) weighting multipliers for
 length composition data by comparing variance of residuals in mean length. Also
 computes effective sample sizes using McAllister-Ianelli method for comparison
 with input sample sizes.

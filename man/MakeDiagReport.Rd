@@ -5,6 +5,8 @@
 \title{Generate Model Diagnostics Report}
 \usage{
 MakeDiagReport(is95 = T, folder_name = "", openfile = TRUE)
+
+MakeDiagReport(is95 = T, folder_name = "", openfile = TRUE)
 }
 \arguments{
 \item{is95}{Logical. If TRUE (default), uses 95\% confidence intervals
@@ -18,8 +20,13 @@ in 'summary/result/'.}
 }
 \value{
 NULL. Creates output files in the Output/ directory as a side effect.
+
+NULL. Creates output files in the Output/ directory as a side effect.
 }
 \description{
+Creates a comprehensive diagnostics report from a completed model run,
+including plots, tables, and summary statistics for model assessment.
+
 Creates a comprehensive diagnostics report from a completed model run,
 including plots, tables, and summary statistics for model assessment.
 }
@@ -33,12 +40,37 @@ and generates diagnostic materials including:
 \item Length frequency fit diagnostics
 \item CPUE index fits
 }
+
+The function automatically navigates to the Output directory (or creates it)
+and generates diagnostic materials including:
+\itemize{
+\item Model fit statistics and residual plots
+\item Parameter estimates with confidence intervals
+\item Time series of estimated quantities (biomass, recruitment, etc.)
+\item Length frequency fit diagnostics
+\item CPUE index fits
+}
 }
 \note{
 Must be run from a model directory containing completed model output.
 The function calls MakeOutPut() which generates the actual report files.
+
+Must be run from a model directory containing completed model output.
+The function calls MakeOutPut() which generates the actual report files.
 }
 \examples{
+\dontrun{
+# After running model estimation
+choose_model()
+# ... run model ...
+
+# Generate diagnostics with 95\% CI
+MakeDiagReport()
+
+# Generate diagnostics with alternative CI
+MakeDiagReport(is95 = FALSE)
+}
+
 \dontrun{
 # After running model estimation
 choose_model()

@@ -5,6 +5,8 @@
 \title{Check for Parameters at Bounds}
 \usage{
 .check_bounds(par, lower, upper, pnames, model, tol = 1e-04)
+
+.check_bounds(par, lower, upper, pnames, model, tol = 1e-04)
 }
 \arguments{
 \item{par}{Numeric vector. Estimated parameter values.}
@@ -22,8 +24,15 @@
 \value{
 Called for its side effect (printing to the console). Returns
 \code{invisible(NULL)}.
+
+Called for its side effect (printing to the console). Returns
+\code{invisible(NULL)}.
 }
 \description{
+Prints a warning if any estimated parameters are sitting at or near their
+lower or upper bounds, along with the associated gradient. Parameters at
+bounds with large gradients indicate the bound is constraining the solution.
+
 Prints a warning if any estimated parameters are sitting at or near their
 lower or upper bounds, along with the associated gradient. Parameters at
 bounds with large gradients indicate the bound is constraining the solution.

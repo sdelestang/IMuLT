@@ -595,9 +595,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   #### Growth ####
   print("Making Growth Curves")
-  #  grow <- findNclean(c('#Growth','Curves'), dat, 2)
-  #  head(grow)
-  #  num <- length(unique(grow$sex))*length(unique(grow$area))
 
   find_unique_growth_years <- function(GrowthPnt) {
     dims  <- dim(GrowthPnt)
@@ -614,11 +611,18 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     results
   }
 
-  compound_growth_trajectory <- function(Data, GrowthPnt, length_midpoints = Data$MidLenBin[1,1:Data$Nlen[1]], Nyear_traj = 30) {
+  # STM: array [pattern/pointer, to, from] -- Data$TransInp (inputted, prespecified
+  # matrices) or Report$ActGrowth (the matrices the model actually used, i.e. built
+  # from the estimated growth parameters). GrowthPnt stores the pattern number,
+  # which indexes ActGrowth directly; it indexes TransInp only because pattern i
+  # points to prespecified matrix i in this model.
+  compound_growth_trajectory <- function(Data, GrowthPnt, STM = Data$TransInp,
+                                         length_midpoints = Data$MidLenBin[1,1:Data$Nlen[1]],
+                                         Nyear_traj = 30) {
 
     dims  <- dim(GrowthPnt)
     Narea <- dims[1]; Nsex <- dims[2]; Nstep <- dims[5]
-    nlbin <- dim(Data$TransInp)[2]
+    nlbin <- dim(STM)[2]
 
     unique_years <- find_unique_growth_years(GrowthPnt)
 
@@ -644,7 +648,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             for (t in 1:Nstep) {
               ptr <- GrowthPnt[a, s, 1, py, t]
               if (ptr >= 0) {
-                stm  <- Data$TransInp[ptr + 1, , ]
+                stm  <- STM[ptr + 1, , ]
                 dist <- as.numeric(stm %*% dist)
               }
             }
@@ -675,30 +679,55 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     do.call(rbind, all_results)
   }
 
-  # Run
-  growth_traj <- compound_growth_trajectory(Data, Data$GrowthPnt, Nyear_traj = 30)
-
-  growth_traj %<>% mutate(year=factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]))
+  # Run: inputted STMs, plus the model's own STMs if BigSave.lda is available
+  growth_traj <- compound_growth_trajectory(Data, Data$GrowthPnt, STM = Data$TransInp,
+                                            Nyear_traj = 30) %>% mutate(source = "Input STM")
+  if (file.exists("BigSave.lda")) {
+    BigSave <- NULL
+    load("BigSave.lda")
+    if (!is.null(BigSave$Report$ActGrowth)) {
+      growth_traj <- bind_rows(
+        growth_traj,
+        compound_growth_trajectory(Data, Data$GrowthPnt, STM = BigSave$Report$ActGrowth,
+                                   Nyear_traj = 30) %>% mutate(source = "Model")
+      )
+    }
+  } else {
+    print("BigSave.lda not found - plotting inputted growth only")
+  }
+  growth_traj %<>% mutate(year   = factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]),
+                          source = factor(source, levels = c("Input STM", "Model")))
+  has_model <- "Model" %in% growth_traj$source
 
   for(s in unique(growth_traj$sex)){
     filename <- filenametopath(rundir,paste(s,"Growth_Curves1.png"))
     plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=Fdims(1))
-    # Plot with ribbon for +/- 1 SD
-    print(ggplot(growth_traj[growth_traj$sex==s,], aes(x = age, colour = year, fill = year)) +
-            geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
+    # Ribbon (+/- 1 SD) on the model curves only (or input if no model), to keep it readable
+    rib_src <- if (has_model) "Model" else "Input STM"
+    print(ggplot(growth_traj[growth_traj$sex==s,],
+                 aes(x = age, colour = year, fill = year, linetype = source)) +
+            geom_ribbon(data = growth_traj[growth_traj$sex==s & growth_traj$source==rib_src,],
+                        aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
             geom_line(aes(y = mean_len), linewidth = 0.8) +
+            scale_linetype_manual(values = c("Input STM" = "dashed", "Model" = "solid")) +
             facet_wrap( ~ area) +
             labs(
-              x      = "Age (years since recruitment)",
-              y      = "Mean length (mm)",
-              colour = "Year first seen",
-              fill   = "Year first seen",
-              title  = "Growth by area"
+              x        = "Age (years since recruitment)",
+              y        = "Mean length (mm)",
+              colour   = "Year first seen",
+              fill     = "Year first seen",
+              linetype = NULL,
+              title    = paste("Growth by area -", s)
             ) +
             theme_bw())
 
-    caption <- paste("Inputted growth trajectories by model areas for",s)
+    caption <- if (has_model) {
+      paste("Growth trajectories by model area for", s,
+            "- inputted STMs (dashed) and the STMs used by the model (solid, ribbon = +/- 1 SD).")
+    } else {
+      paste("Inputted growth trajectories by model areas for", s)
+    }
     addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)}
 
   filename <- filenametopath(rundir,"Growth_Curves2.png")
@@ -706,16 +735,19 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   parset(plots=Fdims(1))
   print(ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
           geom_line(linewidth = 0.8) +
-          facet_wrap(~ sex) +
+          facet_grid(source ~ sex) +
           labs(
             x            = "Age (years since 1st Length bin)",
             y            = "Mean length (mm)",
             colour       = "Model area",
             title        = "Growth by sex"
           ) + theme_bw())
-  caption <- "Inputted growth trajectories between model areas."
+  caption <- if (has_model) {
+    "Growth trajectories between model areas: inputted STMs (top) and STMs used by the model (bottom)."
+  } else {
+    "Inputted growth trajectories between model areas."
+  }
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
-
   #### Fit to Data ####
   #### Commercial Catches ####
   print("Making Model fit to Catch")
@@ -1686,6 +1718,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
 
   ## Estimated parameters ####
+  n_est <- suppressWarnings(as.numeric(dat[p2, 4]))   # from "#Total estimated parameters: N"
+  if (!is.na(n_est) && n_est > 0) {
   print("Making Parameter Diagnostics")
   pars <- findNclean(c('#','Parameter','Par'), dat, 1, char = T)
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
@@ -1900,7 +1934,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     caption <- "Parameter correlation matrix. Values shown where |r| > 0.85."
     addplot(filen = filename, rundir = rundir, category = "Parameter Table", caption = caption)
   }
-
+  } else {
+    print("No estimated parameters (dummy run) - skipping parameter diagnostics")
+  }
   txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann. Relies on packages developed by Malcolm Haddon."
 
   runnotes <- matrix(c(txt2,txt2.1,txt3,txt4,txt5), nrow=5)

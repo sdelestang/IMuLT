@@ -5,8 +5,6 @@
 \title{Choose and Set a Model Directory}
 \usage{
 choose_model(pattern = "Run", up = 3L)
-
-choose_model(pattern = "Run", up = 3L)
 }
 \arguments{
 \item{pattern}{Character. Pattern passed to \code{list.files()} to filter
@@ -16,29 +14,13 @@ candidate directories. Default \code{"Run"}.}
 Invisibly returns the name of the selected directory as a character
 string. Called for its side effect of changing the working directory via
 \code{setwd()}.
-
-Invisibly returns the name of the selected directory as a character
-string. Called for its side effect of changing the working directory via
-\code{setwd()}.
 }
 \description{
 Presents a numbered list of directories matching a pattern in the current
 working directory, prompts the user to select one, then sets the working
 directory to the selected model folder.
-
-Presents a numbered list of directories matching a pattern in the current
-working directory, prompts the user to select one, then sets the working
-directory to the selected model folder.
 }
 \examples{
-\dontrun{
-# Select from directories matching "Run" in the current working directory
-choose_model()
-
-# Select from directories matching a different pattern
-choose_model(pattern = "Assessment")
-}
-
 \dontrun{
 # Select from directories matching "Run" in the current working directory
 choose_model()

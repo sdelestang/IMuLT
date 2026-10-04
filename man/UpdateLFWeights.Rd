@@ -5,8 +5,6 @@
 \title{Update Length Frequency Data Weights Based on Tuning Results}
 \usage{
 UpdateLFWeights(todo = "No")
-
-UpdateLFWeights(todo = "No")
 }
 \arguments{
 \item{todo}{Character string indicating whether to update weights.
@@ -14,36 +12,13 @@ Options are 'Yes' or 'No' (default). Use 'Yes' to apply tuning results.}
 }
 \value{
 NULL (invisibly). The function modifies CONTROL.DAT as a side effect.
-
-NULL (invisibly). The function modifies CONTROL.DAT as a side effect.
 }
 \description{
 Updates the weighting of length frequency data in CONTROL.DAT based on
 model tuning results. This adjusts relative weights to improve model fit
 to length composition data after iterative tuning analyses.
-
-Updates the weighting of length frequency data in CONTROL.DAT based on
-model tuning results. This adjusts relative weights to improve model fit
-to length composition data after iterative tuning analyses.
 }
 \details{
-The function reads tuning scale factors from 'Output/Summary/result/Tuning.csv'
-and applies them to length frequency weights in CONTROL.DAT. Each existing
-weight is multiplied by its corresponding tuning scale factor from the
-iterative weighting analysis.
-
-The tuning process typically involves:
-\enumerate{
-\item Running the model with initial weights
-\item Analyzing length frequency fit diagnostics
-\item Calculating appropriate scaling factors
-\item Applying these factors using this function
-\item Re-running the model with updated weights
-}
-
-The function will stop with an error message if the number of predetermined
-weights doesn't match the number of length composition datasets.
-
 The function reads tuning scale factors from 'Output/Summary/result/Tuning.csv'
 and applies them to length frequency weights in CONTROL.DAT. Each existing
 weight is multiplied by its corresponding tuning scale factor from the
@@ -67,26 +42,8 @@ weights doesn't match the number of length composition datasets.
 \item Requires 'Output/Summary/result/Tuning.csv' from a completed tuning run
 \item The Tuning.csv file must contain columns: Fleet, Sex, and Multiscale
 }
-
-\itemize{
-\item Must be run from within a model run directory containing CONTROL.DAT
-\item Requires 'Output/Summary/result/Tuning.csv' from a completed tuning run
-\item The Tuning.csv file must contain columns: Fleet, Sex, and Multiscale
-}
 }
 \examples{
-\dontrun{
-# Navigate to model run directory
-choose_model()
-
-# After running tuning analysis, update weights
-UpdateLFWeights("Yes")
-
-# Skip updating (default behavior)
-UpdateLFWeights()
-UpdateLFWeights("No")
-}
-
 \dontrun{
 # Navigate to model run directory
 choose_model()

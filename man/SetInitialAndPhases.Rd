@@ -5,8 +5,6 @@
 \title{Configure Parameter Initialization and Estimation Maps for Current Phase}
 \usage{
 SetInitialAndPhases(ParOld, parameters, InitialVars, CurrPhase)
-
-SetInitialAndPhases(ParOld, parameters, InitialVars, CurrPhase)
 }
 \arguments{
 \item{ParOld}{Numeric vector of parameter values from previous phase(s). Used
@@ -22,102 +20,8 @@ model structure. Must include all parameter types defined in InitialVars}
 Bnd, and Phase components for each parameter type}
 
 \item{CurrPhase}{Integer indicating the current estimation phase (1, 2, 3, etc.)}
-
-\item{phit}{Integer. Maximum number of function evaluations per phase for
-all phases except the last. Default 500.}
-
-\item{lphit}{Integer. Maximum number of function evaluations for the last
-phase (per nlminb call). With stall detection on, this is a safety ceiling
-and can be set high (e.g. 5000). Default 1000.}
-
-\item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
-the global \code{MaxPhase}.}
-
-\item{PrintLag}{Integer. Print and plot progress every \code{PrintLag}
-function evaluations, including during BFGS. Default 50.}
-
-\item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
-after the final phase. Default \code{FALSE}.}
-
-\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts run in the final
-phase. Default \code{TRUE}.}
-
-\item{newtonSteps}{Integer. Maximum number of damped Newton polishing steps
-after the sandwich. Default 5.}
-
-\item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
-polishing is considered safe; also the sandwich convergence criterion.
-Default 0.1.}
-
-\item{sandwich_entry_grad}{Numeric. If the initial final-phase nlminb ends by
-hitting \code{lphit} while still improving (not stalled), nlminb is re-run
-from its last point until the maximum absolute gradient is at or below this
-value, it stalls, or \code{max_pre_nlminb} calls are used. Also the floor
-for the BFGS gradient-inflation rejection. Default 10.}
-
-\item{max_pre_nlminb}{Integer. Maximum number of extra nlminb calls before
-the sandwich. Default 5.}
-
-\item{bfgs_maxit}{Integer. Maximum BFGS iterations per sandwich cycle.
-Default 200.}
-
-\item{checkpoint}{Logical. If \code{TRUE}, save the current final-phase
-parameters to \code{Output/checkpoint_par.rds} after every nlminb call.
-Default \code{TRUE}.}
-
-\item{PrintNll}{Logical. If \code{TRUE}, display a live trace plot of the
-negative log-likelihood. Default \code{TRUE}.}
-
-\item{plateau_k}{Integer. Window size (in reporting intervals) for the
-plateau diagnostic. Default 4.}
-
-\item{plateau_cv}{Numeric. CV threshold for the plateau diagnostic in
-non-final phases. Set to 0 to disable. Default 0 (off), because a steady
-rate of slow improvement also has a low CV and the diagnostic can mislead.}
-
-\item{start_phase}{Integer. First phase to run. Use \code{MaxPhase} for a
-warm start after \code{UpdatePars("Yes")}: earlier-phase parameters start
-from the values in the input files instead of being re-polished. Default 1.}
-
-\item{stall_window}{Integer. Number of function evaluations over which
-progress is judged for stall detection. Default 200.}
-
-\item{stall_tol}{Numeric. Minimum absolute NLL reduction required over
-\code{stall_window} evaluations; less than this and nlminb is stopped and
-its best point returned. Set to 0 to disable. Default 5.}
-
-\item{stall_final_only}{Logical. If \code{TRUE}, stall detection is only used
-in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.}
-
-\item{use_scale}{Logical. If \code{TRUE}, final-phase nlminb calls use
-\code{scale = sqrt(|diag(H)|)} (normalised to median 1, clamped to
-between 1e-3 and 1e3) so badly scaled parameters such as ln(R0) get sensible step
-sizes. The Hessian diagonal is read from \code{scale_file} (matched by
-parameter name) where available; any parameters not found there are
-computed by forward-differencing the AD gradient. Default \code{TRUE}.}
-
-\item{scale_file}{Character. File the Hessian diagonal is read from and
-saved to at the end of the final phase. Default
-\code{"Output/hess_diag.rds"}.}
 }
 \value{
-List containing components needed for RTMB/TMB optimization:
-\itemize{
-\item map - Named list of factor vectors controlling parameter estimation.
-NA values indicate fixed parameters; integer values group parameters
-(same integer = estimated as single shared parameter)
-\item parameters - Parameter list with values initialized appropriately
-for the current phase
-\item EstVec - Numeric vector of parameter values to be estimated in
-current phase (initial values for optimization)
-\item lowBnd - Lower bounds for parameters being estimated
-\item uppBnd - Upper bounds for parameters being estimated
-}
-
-Invisibly returns \code{NULL}. Side effects include writing
-parameter files to \code{Output/}, and if \code{report = TRUE}, saving
-\code{BigSave.lda} and calling \code{WriteOutput()}.
-
 List containing components needed for RTMB/TMB optimization:
 \itemize{
 \item map - Named list of factor vectors controlling parameter estimation.
@@ -135,13 +39,6 @@ current phase (initial values for optimization)
 Internal function that prepares parameter structures for RTMB/TMB optimization
 by setting initial values, bounds, and creating a "map" that controls which
 parameters are estimated versus fixed for the current estimation phase.
-
-Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-progressively introduced across phases. In the final phase, nlminb runs until
-it stalls (less than \code{stall_tol} NLL reduction over the last
-\code{stall_window} evaluations) or hits \code{lphit}, then sandwich restarts
-(alternating BFGS on logit-transformed parameters and nlminb) polish the
-solution. Optional Newton polishing steps can further refine it.
 }
 \details{
 This function implements phased parameter estimation for RTMB/TMB models.
@@ -172,87 +69,8 @@ This ensures the model can run even when all biological parameters are fixed.
 
 The function uses a nested SinglePhase() helper that processes each parameter
 type individually, building up the complete map, estimation vector, and bounds.
-
-\strong{Stall detection:} nlminb calls in the final phase (initial,
-pre-sandwich, sandwich step B, post-Newton) are stopped once the best NLL
-has improved by less than \code{stall_tol} over the last
-\code{stall_window} function evaluations. The best point found is returned.
-If the initial final-phase nlminb stalls, the pre-sandwich loop is skipped
-and the fit goes straight to BFGS. Stall detection is never applied to BFGS
-or to the Newton Hessian evaluations.
-
-\strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
-parameters near a bound have tiny chain-rule gradients and can be pushed onto
-the bound. A BFGS result is therefore rejected if its gradient is non-finite,
-or if it inflates the maximum gradient more than 5-fold (and above
-\code{sandwich_entry_grad}); nlminb then continues from the pre-BFGS point.
-
-\strong{Gradient wrapper:} returns zeros for non-finite gradients to keep
-optimisers alive; every accepted point is checked for a finite gradient.
-
-\strong{Global side effects:} writes \code{TraceDF}, \code{TotalEval},
-\code{CurrentStage}, \code{ProfileReport}, \code{ProfileGrad} and
-\code{InitialVars} to the global environment.
-
-This function implements phased parameter estimation for RTMB/TMB models.
-Parameters are estimated in sequential phases, with earlier phases converging
-before later parameters are activated. This approach:
-\itemize{
-\item Improves optimization stability for complex models
-\item Reduces parameter correlations
-\item Allows core parameters to stabilize first
-\item Makes troubleshooting easier
-}
-
-\strong{Phase logic for each parameter}:
-\itemize{
-\item Phase < 0 or 0: Always fixed at initial value
-\item Phase < CurrPhase: Previously estimated, fixed at converged value (from ParOld)
-\item Phase = CurrPhase: Currently being estimated, included in map and EstVec
-\item Phase > CurrPhase: Not yet estimated, fixed at initial value
-}
-
-The "map" is RTMB/TMB's mechanism for controlling which parameters are estimated.
-It's a named list parallel to the parameter structure, containing factor vectors
-where NA indicates a fixed parameter and integers identify parameters to estimate.
-
-\strong{Special handling of dummy parameter}: If no parameters are estimated in the
-current phase, a dummy parameter is activated to prevent optimization failures.
-This ensures the model can run even when all biological parameters are fixed.
-
-The function uses a nested SinglePhase() helper that processes each parameter
-type individually, building up the complete map, estimation vector, and bounds.
 }
 \examples{
-\dontrun{
-# Phase 1: Estimate only core parameters
-phase1 <- SetInitialAndPhases(ParOld = NULL, parameters, InitialVars, CurrPhase = 1)
-obj <- RTMB::MakeADFun(data, phase1$parameters, map = phase1$map)
-opt1 <- nlminb(phase1$EstVec, obj$fn, obj$gr,
-               lower = phase1$lowBnd, upper = phase1$uppBnd)
-
-# Phase 2: Add selectivity parameters, holding phase 1 at converged values
-phase2 <- SetInitialAndPhases(opt1$par, parameters, InitialVars, CurrPhase = 2)
-obj <- RTMB::MakeADFun(data, phase2$parameters, map = phase2$map)
-opt2 <- nlminb(phase2$EstVec, obj$fn, obj$gr,
-               lower = phase2$lowBnd, upper = phase2$uppBnd)
-}
-
-\dontrun{
-# Quick fit, no sandwich
-FitModel(500, 1000, nRestarts = FALSE)
-
-# Full fit; final phase runs until stalled (ceiling 5000 evals)
-FitModel(500, 5000, report = TRUE)
-
-# Warm start from a previous run: skip straight to the final phase
-UpdatePars("Yes"); LoadPars()
-FitModel(500, 5000, report = TRUE, start_phase = MaxPhase)
-
-# Stricter stall rule
-FitModel(500, 5000, report = TRUE, stall_window = 300, stall_tol = 2)
-}
-
 \dontrun{
 # Phase 1: Estimate only core parameters
 phase1 <- SetInitialAndPhases(ParOld = NULL, parameters, InitialVars, CurrPhase = 1)

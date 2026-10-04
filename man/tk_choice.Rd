@@ -5,8 +5,6 @@
 \title{Display a styled Tk list selection dialog}
 \usage{
 tk_choice(choices, title = "Select")
-
-tk_choice(choices, title = "Select")
 }
 \arguments{
 \item{choices}{Character vector of options to display in the listbox.}
@@ -15,13 +13,8 @@ tk_choice(choices, title = "Select")
 }
 \value{
 A single character string corresponding to the selected item.
-
-A single character string corresponding to the selected item.
 }
 \description{
-A styled replacement for \code{svDialogs::dlg_list} using a light blue
-Tk window with a listbox and OK button.
-
 A styled replacement for \code{svDialogs::dlg_list} using a light blue
 Tk window with a listbox and OK button.
 }

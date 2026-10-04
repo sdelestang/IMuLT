@@ -5,8 +5,6 @@
 \title{Get Maximum Estimation Phase Number}
 \usage{
 getPhase(InitialVars)
-
-getPhase(InitialVars)
 }
 \arguments{
 \item{InitialVars}{Nested list from ReadInitialValues() containing parameter
@@ -14,13 +12,8 @@ specifications with Phase components}
 }
 \value{
 Integer indicating the maximum phase number found across all parameters
-
-Integer indicating the maximum phase number found across all parameters
 }
 \description{
-Helper function to determine the highest estimation phase across all parameter
-types in the model specification.
-
 Helper function to determine the highest estimation phase across all parameter
 types in the model specification.
 }
@@ -35,28 +28,8 @@ number specified. This is useful for:
 
 The function returns a minimum value of 1 even if all parameters have negative
 phases (all fixed), ensuring at least one phase exists for model evaluation.
-
-This function scans through all parameter types and finds the highest phase
-number specified. This is useful for:
-\itemize{
-\item Determining how many optimization phases are needed
-\item Loop control in sequential phase estimation
-\item Validation that all phases are sequential
-}
-
-The function returns a minimum value of 1 even if all parameters have negative
-phases (all fixed), ensuring at least one phase exists for model evaluation.
 }
 \examples{
-\dontrun{
-InitVals <- ReadInitialValues(...)
-max_phase <- getPhase(InitVals)
-# Run optimization through all phases
-for (phase in 1:max_phase) {
-  # ... estimation code ...
-}
-}
-
 \dontrun{
 InitVals <- ReadInitialValues(...)
 max_phase <- getPhase(InitVals)

@@ -5,8 +5,6 @@
 \title{Build Live NLL Trace Plot}
 \usage{
 .plot_trace(df, current_nll)
-
-.plot_trace(df, current_nll)
 }
 \arguments{
 \item{df}{Data frame with columns \code{eval} (cumulative function
@@ -19,18 +17,8 @@ the global panel title.}
 \value{
 Called for its side effect (drawing to the active graphics device).
 Returns \code{invisible(NULL)}.
-
-Called for its side effect (drawing to the active graphics device).
-Returns \code{invisible(NULL)}.
 }
 \description{
-Constructs a multi-panel base-graphics figure showing optimisation progress.
-The top panel shows the full history of the negative log-likelihood across
-all phases and restarts. Below it, any optimisation stage that recorded two
-or more print points gets its own sub-panel, arranged side by side in
-chronological order. Uses \code{\link[graphics]{layout}} for the panel
-structure.
-
 Constructs a multi-panel base-graphics figure showing optimisation progress.
 The top panel shows the full history of the negative log-likelihood across
 all phases and restarts. Below it, any optimisation stage that recorded two

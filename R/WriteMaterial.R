@@ -1,4 +1,3 @@
-
 #' Write Comprehensive Model Output Files
 #'
 #' Master output function to write all IMuLT model results to standardized output
@@ -48,6 +47,10 @@
 #' \itemize{
 #'   \item Complete parameter table with names, indices, estimates, SEs, gradients, bounds
 #'   \item Distinction between estimated (positive phase) and fixed parameters
+#'   \item Prior type/mean/SD for every parameter group that supports priors
+#'     (MainPars, RecruitPars, SelPars, efpars, MovePars, GrowthPars)
+#'   \item Every row has the same 13 columns; fields that do not apply to a
+#'     fixed parameter (Estpar_cnt, SD, Gradient) are written as NA
 #'   \item Total count of estimated parameters
 #' }
 #'
@@ -121,7 +124,7 @@
 #' **Output Directory Management**: If an 'Output' subdirectory exists, the function
 #' changes to it before writing files, then returns to the parent directory afterward.
 #'
-#' **Data Tuning Statistics**: Calculates Francis (1011) weighting multipliers for
+#' **Data Tuning Statistics**: Calculates Francis (2011) weighting multipliers for
 #' length composition data by comparing variance of residuals in mean length. Also
 #' computes effective sample sizes using McAllister-Ianelli method for comparison
 #' with input sample sizes.
@@ -211,8 +214,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Movement bounds penalty", Report$MovePen), OutputFile, append = T)
 
   write("\n# Likelihood by fleet",OutputFile,append=T)
-  write(paste("Cpue likelihood",paste(Report$CpueLikeComp[])),OutputFile,append=T)
-  write(paste("Numbers likelihood",Report$NumbersLikeComp),OutputFile,append=T)
+  write(paste("Cpue likelihood",paste(Report$CpueLikeComps[])),OutputFile,append=T)
+  write(paste("Numbers likelihood",Report$NumbersLikeComps),OutputFile,append=T)
   write(paste("Length likeliood",Report$LengthLikeComps),OutputFile,append=T)
   write(paste("Larval likeliood",Report$LarvalLikeComps),OutputFile,append=T)
 
@@ -249,7 +252,19 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
                          "RecruitPars" = Data$RecparsLink,
                          "SelPars"     = Data$SelparsLink,
                          "efpars"      = Data$EffparsLink,
+                         "MovePars"    = Data$MoveparsLink,
+                         "GrowthPars"  = Data$GrowparsLink,
                          NULL)
+      # Prior matrices are indexed over the full parameter vector (fixed and
+      # estimated), exactly as the C++ applies them, so row Ipar = parameter Ipar
+      prior_mat <- switch(ParName,
+                          "MainPars"    = Data$MparsPrior,
+                          "RecruitPars" = Data$RecparsPrior,
+                          "SelPars"     = Data$SelparsPrior,
+                          "efpars"      = Data$EffparsPrior,
+                          "MovePars"    = Data$MoveparsPrior,
+                          "GrowthPars"  = Data$GrowparsPrior,
+                          NULL)
       Ipnt_block_start <- Ipnt
       for (Ipar in 1:length(ThePar$Initial))
       {
@@ -257,14 +272,8 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         write(paste("#",ParName,"_",Ipar," ",Iqnt," ",sep=""),ParFileName,append=T)
         # Look up prior info
         prior_str <- "0 NA NA"
-        if (ParName == "MainPars" && Ipar <= nrow(Data$MparsPrior))
-          prior_str <- paste(Data$MparsPrior[Ipar, 1], Data$MparsPrior[Ipar, 2], Data$MparsPrior[Ipar, 3])
-        if (ParName == "SelPars" && Ipar <= nrow(Data$SelparsPrior))
-          prior_str <- paste(Data$SelparsPrior[Ipar, 1], Data$SelparsPrior[Ipar, 2], Data$SelparsPrior[Ipar, 3])
-        if (ParName == "RecruitPars" && Ipar <= nrow(Data$RecparsPrior))
-          prior_str <- paste(Data$RecparsPrior[Ipar, 1], Data$RecparsPrior[Ipar, 2], Data$RecparsPrior[Ipar, 3])
-        if (ParName == "efpars" && Ipar <= nrow(Data$EffparsPrior))
-          prior_str <- paste(Data$EffparsPrior[Ipar, 1], Data$EffparsPrior[Ipar, 2], Data$EffparsPrior[Ipar, 3])
+        if (!is.null(prior_mat) && Ipar <= nrow(prior_mat))
+          prior_str <- paste(prior_mat[Ipar, 1], prior_mat[Ipar, 2], prior_mat[Ipar, 3])
 
         # Get link value for this parameter
         link_val <- 0
@@ -295,9 +304,14 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         }
         else
         {
+          # Fixed parameter: same 13 columns as estimated rows (SD and
+          # Gradient NA), so the table reads cleanly by column position
+          lwr <- if (!is.null(ThePar$Bnd) && is.matrix(ThePar$Bnd)) ThePar$Bnd[Ipar,1] else NA
+          upr <- if (!is.null(ThePar$Bnd) && is.matrix(ThePar$Bnd)) ThePar$Bnd[Ipar,2] else NA
           xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ",
-                      ThePar$Initial[Ipar]," ",prior_str," ",
-                      ThePar$Initial[Ipar]," ",link_val,sep="")
+                      ThePar$Initial[Ipar]," NA NA ",
+                      lwr," ",upr," ",
+                      prior_str," ",ThePar$Initial[Ipar]," ",link_val,sep="")
           write(ThePar$Initial[Ipar],ParFileName,append=T)
         }
         ## Now add to the Output file
@@ -318,12 +332,12 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     tmp %<>% dplyr::select(year, est=Estimate,se='Std. Error')
     write("#Year est se",OutputFile,append=T)
     write(t(tmp),ncol=3,OutputFile,append=T)
-    } else {
-      tmp <- data.frame(year=(GeneralSpecs$Year1-GeneralSpecs$BurnIn), est=Report$MatBio, se=NA) %>% filter(est>0)
-      tmp$year <- tmp$year+(0:(nrow(tmp)-1))
-      write("#Year est nose",OutputFile,append=T)
-      write(t(tmp),ncol=3,OutputFile,append=T)
-    }
+  } else {
+    tmp <- data.frame(year=(GeneralSpecs$Year1-GeneralSpecs$BurnIn), est=Report$MatBio, se=NA) %>% filter(est>0)
+    tmp$year <- tmp$year+(0:(nrow(tmp)-1))
+    write("#Year est nose",OutputFile,append=T)
+    write(t(tmp),ncol=3,OutputFile,append=T)
+  }
 
   write("\n#Egg Production by Area",OutputFile,append=T)
   Nyears <- GeneralSpecs$Nyear+max(GeneralSpecs$BurnIn)+GeneralSpecs$MaxProjYr
@@ -473,12 +487,12 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Natural Mortality by Area, Age and Year",OutputFile,append=T)
   for (Iage in 1:GeneralSpecs$Nage){
     for (Iarea in 1:GeneralSpecs$Narea){
-    Years <- (GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr)
-    ## BurnIn+Nyear+MaxProjYr+1
-    Ncol <- 4
-    LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,rep(Report$M[Iarea,Iage], length(Years)))
-    write(t(LBOut),ncol=Ncol,OutputFile,append=T)
-  } }
+      Years <- (GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr)
+      ## BurnIn+Nyear+MaxProjYr+1
+      Ncol <- 4
+      LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,rep(Report$M[Iarea,Iage], length(Years)))
+      write(t(LBOut),ncol=Ncol,OutputFile,append=T)
+    } }
 
   write("\n#Virgin Biomass by area",OutputFile,append=T)
   write(Report$VirginBio,ncol=1,OutputFile,append=T)
@@ -500,7 +514,9 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   for(Iarea in 1:Data$Narea){
     for(Isex in 1:Data$Nsex){
       for(Iage in 1:Data$Nage){
-        tmp <- Report$VirginN[Iarea,Isex,Iage,]
+        # The C++ REPORTs this as VirginNvec ($ partial-matching of "VirginN" only
+        # worked by luck and would break if another Report name started the same way)
+        tmp <- Report[["VirginNvec"]][Iarea,Isex,Iage,]
         write(paste(Iarea, Isex, Iage, seq_along(tmp), round(tmp,4)),OutputFile,append=T)
       }
     }
@@ -508,24 +524,24 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
 
   write("\n#Harvest rate by zone (1+SD?)",OutputFile,append=T)
   for (Iarea in 1:ControlSpecs$Nzone)
-   {
+  {
     Years <- 1:(GeneralSpecs$Nyear)+GeneralSpecs$Year1-1
     Ncol <- 3
     HROut <- cbind(rep(Iarea,GeneralSpecs$Nyear),Years,Report$HarvestRate[,Iarea])
     for (Ivar in 1:ControlSpecs$NvarTypes)
-     if (ControlSpecs$VarTypes[Ivar]==3)
+      if (ControlSpecs$VarTypes[Ivar]==3)
       {
-       HRVar <- rep(0,GeneralSpecs$Nyear)
-       Ncol <- Ncol + 1
-       for (IvarYr in 1:GeneralSpecs$Nyear)
+        HRVar <- rep(0,GeneralSpecs$Nyear)
+        Ncol <- Ncol + 1
+        for (IvarYr in 1:GeneralSpecs$Nyear)
         {
-         IvarPnt <- IvarPnt + 1
-         HRVar[IvarYr] <- fullrep[IvarPnt,2]
+          IvarPnt <- IvarPnt + 1
+          HRVar[IvarYr] <- fullrep[IvarPnt,2]
         }
-       HROut <- cbind(HROut,HRVar)
+        HROut <- cbind(HROut,HRVar)
       }
     write(t(HROut),ncol=Ncol,OutputFile,append=T)
-   }
+  }
 
   write("\n#Harvest 76 rate by zone (1+SD?)",OutputFile,append=T)
   for (Iarea in 1:ControlSpecs$Nzone)
@@ -564,7 +580,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     tmp <- cbind(rep(Iid, nrow(fcreep)), Data$Year1:(Data$Year1+nrow(fcreep)-1), fcreep[,Iid])
     write(t(tmp),ncol=3,OutputFile,append=T)
     #for(wte in 1:nrow(fcreep)) write(tmp[wte,],ncol=3,OutputFile,append=T)
-      }
+  }
 
   #### =====================================================================================
   write("\n#Index data",OutputFile,append=T)
@@ -587,7 +603,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
       # the gap between the two shows how hard either is biting for this
       # series (e.g. Sigma_used sitting right at SigmaCpueCeiling flags a
       # series the model was inflating away from a defensible CV).
-      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaCpue[IdataSet+1],Report$SigmaCpueUse[IdataSet+1],Report$CpueLikeComp[IdataSet+1],Report$LambdaCpue2[IdataSet+1])
+      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaCpue[IdataSet+1],Report$SigmaCpueUse[IdataSet+1],Report$CpueLikeComps[IdataSet+1],Report$LambdaCpue2[IdataSet+1])
       write(Summ,OutputFile,append=T)
     }
   }
@@ -608,19 +624,19 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Index Fleet Year Time_step Observed Relative_CV Predicted Residual",OutputFile,append=T)
   ResNumbers <- matrix(0,nrow=TheData$Nnumbers,ncol=8)
   if (TheData$Nnumbers > 0)
-   {
+  {
     for (Ipnt in 1:TheData$Nnumbers)
-     {
+    {
       ResNumbers[Ipnt,] <- c(TheData$NumbersI[Ipnt,]+c(1,1,GeneralSpecs$Year1-1,1),TheData$NumbersR[Ipnt,],Report$PredNumbers[Ipnt,])
-     }
+    }
     write(t(ResNumbers),OutputFile,ncol=8,append=T)
     write("\n#Data_set N Sigma Likelihood",OutputFile,append=T)
     for (IdataSet in (0:(Data$NcatchDataSeries-1)))
-     {
+    {
       Use <- TheData$NumbersI[,1] == IdataSet
-      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaNumbers[IdataSet+1],Report$NumbersLikeComp[IdataSet+1],Report$LambdaNumbers2[IdataSet+1])
+      Summ <- paste(IdataSet+1,sum(Use),Report$SigmaNumbers[IdataSet+1],Report$NumbersLikeComps[IdataSet+1],Report$LambdaNumbers2[IdataSet+1])
       write(Summ,OutputFile,append=T)
-     }
+    }
   }
 
   write("\n#Growth Curves",OutputFile,append=T)   ## (Nyear,Narea,Nsex,Nage,MaxLen)
@@ -636,48 +652,48 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Tagging data - Tag numbers by ",OutputFile,append=T)
   write("#sex RelArea RecArea year tstep repSplit Obs Est",OutputFile,append=T)
   for (Isex in 1:GeneralSpecs$Nsex)
-   for (Igrp in 1:TagSpecs$NtagGroups)
-    for (Iarea in 1:GeneralSpecs$Narea)
-     for (Iyear in 1:TagSpecs$NyearTags)
-      for (Istep in 1:GeneralSpecs$Nstep)
-       for (IrepSplit in 1:TagSpecs$NrepSplit)
-        if (TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep] > 0)
-         {
-          VAL1<- TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
-          VAL2 <- Report$RecapNum[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
-          Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$Year1Tag[1]-1,Istep,IrepSplit,VAL1,VAL2)
-          write(Summ,OutputFile,append=T)
-         }
+    for (Igrp in 1:TagSpecs$NtagGroups)
+      for (Iarea in 1:GeneralSpecs$Narea)
+        for (Iyear in 1:TagSpecs$NyearTags)
+          for (Istep in 1:GeneralSpecs$Nstep)
+            for (IrepSplit in 1:TagSpecs$NrepSplit)
+              if (TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep] > 0)
+              {
+                VAL1<- TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
+                VAL2 <- Report$RecapNum[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
+                Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$Year1Tag[1]-1,Istep,IrepSplit,VAL1,VAL2)
+                write(Summ,OutputFile,append=T)
+              }
 
   write("\n#Tagging length data - Tag numbers by ",OutputFile,append=T)
   write("#Sex RelArea RecArea RepSplit Size ObsTot ObsProp EstProp",OutputFile,append=T)
   for (Isex in 1:GeneralSpecs$Nsex)
-   for (Igrp in 1:TagSpecs$NtagGroups)
-    for (Iarea in 1:GeneralSpecs$Narea)
-     for (IrepSplit in 1:TagSpecs$NrepSplit)
-      if (TagSpecs$FitTagSizes[IrepSplit] == 1)
-       {
-        ObsSS = 0
-        for (Iyear in 1:TagSpecs$NyearTags)
-         for (Istep in 1:GeneralSpecs$Nstep)
-          ObsSS = ObsSS + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1]
-        if (ObsSS > 0)
-         {
-          Vec <- rep(0,GeneralSpecs$Nlen[Isex])
-          for (Isize in 1:GeneralSpecs$Nlen[Isex])
-           {
-            ObsEE <- 0
+    for (Igrp in 1:TagSpecs$NtagGroups)
+      for (Iarea in 1:GeneralSpecs$Narea)
+        for (IrepSplit in 1:TagSpecs$NrepSplit)
+          if (TagSpecs$FitTagSizes[IrepSplit] == 1)
+          {
+            ObsSS = 0
             for (Iyear in 1:TagSpecs$NyearTags)
-	     for (Istep in 1:GeneralSpecs$Nstep)
-	      ObsEE = ObsEE + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1+Isize]
-	     Vec[Isize] <- ObsEE
-	     PredEE <- Report$PredTagSize[Isex,Igrp,Iarea,Isize]
-             Summ <- paste(Isex,Igrp,Iarea,IrepSplit,Isize,ObsSS,Vec[Isize],PredEE)
-             write(Summ,OutputFile,append=T)
-            }
+              for (Istep in 1:GeneralSpecs$Nstep)
+                ObsSS = ObsSS + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1]
+            if (ObsSS > 0)
+            {
+              Vec <- rep(0,GeneralSpecs$Nlen[Isex])
+              for (Isize in 1:GeneralSpecs$Nlen[Isex])
+              {
+                ObsEE <- 0
+                for (Iyear in 1:TagSpecs$NyearTags)
+                  for (Istep in 1:GeneralSpecs$Nstep)
+                    ObsEE = ObsEE + TagSpecs$TagRec[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep,1+Isize]
+                Vec[Isize] <- ObsEE
+                PredEE <- Report$PredTagSize[Isex,Igrp,Iarea,Isize]
+                Summ <- paste(Isex,Igrp,Iarea,IrepSplit,Isize,ObsSS,Vec[Isize],PredEE)
+                write(Summ,OutputFile,append=T)
+              }
 
-         }
-       }
+            }
+          }
 
 
 
@@ -689,13 +705,13 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Fleet Sex Npnts Francis_Multiplier",OutputFile,append=T)
   EffN <- rep(0,TheData$NlenComp)
   for (Ifleet in 1:GeneralSpecs$Nfleet)
-   for (Isex in 1:GeneralSpecs$Nsex)
-     {
+    for (Isex in 1:GeneralSpecs$Nsex)
+    {
       Use <-  TheData$LenCompI[,1]+1 == Ifleet & TheData$LenCompI[,2]+1 == Isex
       Indexes <- c(1:TheData$NlenComp)[Use]
       Residuals <- NULL
       for (Index2 in 1:length(Indexes))
-       {
+      {
         Index <- Indexes[Index2]
         Top <- 0; Bot <- 0
         Nlens <- GeneralSpecs$Nlen[Isex]
@@ -703,28 +719,28 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         ObsProp <- TheData$LenCompR[Index,1:Nlens]/sum(TheData$LenCompR[Index,1:Nlens])
         PredProp <- Report$PredLengthComp[Index,1:Nlens]
         for (Ilen in 1:Nlens)
-         {
+        {
           Bot <- Bot + (ObsProp[Ilen] - PredProp[Ilen])^2
           Top <- Top + PredProp[Ilen]*(1.0-PredProp[Ilen])
-         }
+        }
         MeanOL <- sum(ObsProp*Length)
         MeanPL <- sum(PredProp*Length)
         SD <- sqrt((sum(PredProp*Length^2)-MeanPL^2)/TheData$Stage1W[Index])
         Residual <- (MeanOL-MeanPL)/SD
         Residuals <- c(Residuals,Residual)
         EffN[Index] <- Top/Bot
-       }
+      }
       if (!is.na(Residuals[1]))
-       {
+      {
         LenWghtMultipliers <- 1.0/var(Residuals)
         if(is.na(LenWghtMultipliers)) LenWghtMultipliers <- 1
         Summ <- c(Ifleet,Isex,length(Residuals),LenWghtMultipliers)
         write(Summ,OutputFile,append=T,ncol=5)
-       }
-     }
+      }
+    }
   write("\n#Obs/Pred Fleet Sex Year Step Nsamp EffN proportions",OutputFile,append=T)
   for (Ipnt in 1:TheData$NlenComp)
-   {
+  {
     Ifleet <-  TheData$LenCompI[Ipnt,1]+1
     Isex <- TheData$LenCompI[Ipnt,2]+1
     Iyear <-  TheData$LenCompI[Ipnt,3]+GeneralSpecs$Year1
@@ -735,28 +751,28 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     Pred <- c(round(as.vector(Report$PredLengthComp[Ipnt,1:GeneralSpecs$Nlen[Isex]]),5))
     Summ <- paste(c("P",Ifleet,Isex,Iyear,Istep,TheData$Stage1W[Ipnt],round(EffN[Ipnt],3),paste(Pred)))
     write(Summ,OutputFile,append=T,ncol=7+GeneralSpecs$Nlen[Isex])
-   }
+  }
 
   #### --------------------------------------------------------------------------------------
   write("\n#Larval data",OutputFile,append=T)
   write("#Area Year Observed SD Predicted Residual",OutputFile,append=T)
   ResLarval <- matrix(0,nrow=TheData$NLarvalData,ncol=6)
   if (TheData$NLarvalData > 0)
-   {
+  {
     for (Ipnt in 1:TheData$NLarvalData)
-     {
+    {
       ResLarval[Ipnt,] <- c(TheData$Lar_dataI[Ipnt,]+c(1,GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)),TheData$Lar_dataR[Ipnt,],Report$PredLarval[Ipnt,])
-     }
-   # print(ResLarval)
+    }
+    # print(ResLarval)
     write(t(ResLarval),OutputFile,ncol=6,append=T)
-   }
+  }
 
 
   #### =====================================================================================
   write("\n#Full Selectivity",OutputFile,append=T)
   NselexPatterns <-length(Report$ActSelex[,1])
   for (Ipattern in 1:NselexPatterns)
-   {
+  {
     Summ <- c(Ipattern,c(as.vector(round(Report$ActSelex[Ipattern,],5))))
     write(Summ,OutputFile,append=T,ncol=7+GeneralSpecs$MaxLen)
   }
@@ -775,10 +791,10 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("\n#Retention",OutputFile,append=T)
   NretenPatterns <-length(Report$ActReten[,1])
   for (Ipattern in 1:NretenPatterns)
-   {
+  {
     Summ <- c(Ipattern,c(as.vector(round(Report$ActReten[Ipattern,],5))))
     write(Summ,OutputFile,append=T,ncol=7+GeneralSpecs$MaxLen)
-   }
+  }
 
   #### =====================================================================================
 
@@ -802,15 +818,17 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#year, tstep, sex area1, area2, area3, area4, area5, area6, area7, area8",OutputFile,append=T)
   for (Iyear in 1:dim(Report$ActRecruitAreaSexDist)[1]){
     for (Istep in 1:dim(Report$ActRecruitAreaSexDist)[2]){
-        for (Isex in 1:dim(Report$ActRecruitAreaSexDist)[4]){
-     write(paste(Iyear,Istep,Isex,Report$ActRecruitAreaSexDist[Iyear,Istep, ,Isex]),OutputFile,append=T)
-    }}}
+      for (Isex in 1:dim(Report$ActRecruitAreaSexDist)[4]){
+        write(paste(Iyear,Istep,Isex,Report$ActRecruitAreaSexDist[Iyear,Istep, ,Isex]),OutputFile,append=T)
+      }}}
 
   write("#Recruitment patterns by sex and size ",OutputFile,append=T)
   write("#Pattern, sex, size ",OutputFile,append=T)
   for (Ipattern in 1:dim(Report$ActRecruitLenDist)[1]){
-   for (Isex in 1:dim(Report$ActRecruitLenDist)[2]){
-     write(paste(Ipattern,Iarea,Isex,Report$ActRecruitLenDist[Ipattern,Isex,]),OutputFile,append=T)
+    for (Isex in 1:dim(Report$ActRecruitLenDist)[2]){
+      # NOTE: the 2nd column is a leftover Iarea from an earlier loop (constant),
+      # kept so existing readers of this block keep their column positions
+      write(paste(Ipattern,Iarea,Isex,Report$ActRecruitLenDist[Ipattern,Isex,]),OutputFile,append=T)
     }}
 
   #### =====================================================================================
@@ -820,40 +838,40 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Pattern, size",OutputFile,append=T)
   NmovePatterns <- length(Report$ActMove[,1])
   for (Ipattern in 1:NmovePatterns)
-   write(paste(Ipattern,Report$ActMove[Ipattern,]),OutputFile,append=T)
+    write(paste(Ipattern,Report$ActMove[Ipattern,]),OutputFile,append=T)
 
   #### =====================================================================================
   write("\n#Initial N-matrix\n#Area\tSex\tAge",OutputFile,append=T)
   Nout <-rep(0,3+GeneralSpecs$MaxLen)
 
   for (Iarea in 1:GeneralSpecs$Narea)
-   for (Isex in 1:GeneralSpecs$Nsex)
-    for (Iage in 1:(GeneralSpecs$Nage))
-     {
-      Nout[1:3]  <- c(Iarea,Isex,Iage)
-      Nout[4:(3+GeneralSpecs$MaxLen)] <- round(Report$Ninit[Iarea,Isex,Iage,],2)
-      write(t(Nout),OutputFile,append=T,ncol=3+GeneralSpecs$MaxLen)
-     }
+    for (Isex in 1:GeneralSpecs$Nsex)
+      for (Iage in 1:(GeneralSpecs$Nage))
+      {
+        Nout[1:3]  <- c(Iarea,Isex,Iage)
+        Nout[4:(3+GeneralSpecs$MaxLen)] <- round(Report$Ninit[Iarea,Isex,Iage,],2)
+        write(t(Nout),OutputFile,append=T,ncol=3+GeneralSpecs$MaxLen)
+      }
 
   #### =====================================================================================
   write("\n#Simplified N-matrix",OutputFile,append=T)
   ncol <- GeneralSpecs$MaxLen+4
   for (Iarea in 1:GeneralSpecs$Narea)
-   for (Isex in 1:GeneralSpecs$Nsex)
+    for (Isex in 1:GeneralSpecs$Nsex)
     {
-     write("#Area Sex Year(raw) Year(act) Lengths",OutputFile,append=T,ncol=100)
-     Nrow = (Nyears)
-     Nout <- matrix(0,Nrow,4+GeneralSpecs$MaxLen)
-     Ipnt <- 0
-     for (Iyear in 1:Nyears)
+      write("#Area Sex Year(raw) Year(act) Lengths",OutputFile,append=T,ncol=100)
+      Nrow = (Nyears)
+      Nout <- matrix(0,Nrow,4+GeneralSpecs$MaxLen)
+      Ipnt <- 0
+      for (Iyear in 1:Nyears)
       {
-       Ipnt <- Ipnt + 1
-       Nout[Ipnt,1:4]  <- c(Iarea,Isex,Iyear-max(GeneralSpecs$BurnIn)+1,Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1)
-       for (Iage in 1:(GeneralSpecs$Nage))
-        Nout[Ipnt,(5:(4+GeneralSpecs$MaxLen))] <- Nout[Ipnt,(5:(4+GeneralSpecs$MaxLen))]+ round(Report$N[Iarea,Iyear,1,Isex,Iage,],2)
+        Ipnt <- Ipnt + 1
+        Nout[Ipnt,1:4]  <- c(Iarea,Isex,Iyear-max(GeneralSpecs$BurnIn)+1,Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1)
+        for (Iage in 1:(GeneralSpecs$Nage))
+          Nout[Ipnt,(5:(4+GeneralSpecs$MaxLen))] <- Nout[Ipnt,(5:(4+GeneralSpecs$MaxLen))]+ round(Report$N[Iarea,Iyear,1,Isex,Iage,],2)
       }
-     write(t(Nout),OutputFile,append=T,ncol=ncol)
-   }
+      write(t(Nout),OutputFile,append=T,ncol=ncol)
+    }
 
 
   #### =====================================================================================
@@ -866,9 +884,9 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   for (Iyear in 1:Nyears)
     for (Istep in 1:GeneralSpecs$Nstep)
     {
-     Ipnt <- Ipnt + 1
-     Fout[Ipnt,1:2]  <- c(Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1,Istep-1)
-     Fout[Ipnt,(3:(2+GeneralSpecs$Nfleet))] <- round(Report$Hrate[Iyear,Istep,],5)
+      Ipnt <- Ipnt + 1
+      Fout[Ipnt,1:2]  <- c(Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1,Istep-1)
+      Fout[Ipnt,(3:(2+GeneralSpecs$Nfleet))] <- round(Report$Hrate[Iyear,Istep,],5)
     }
   write(t(Fout),OutputFile,append=T,ncol=GeneralSpecs$Nfleet+2)
 
@@ -882,14 +900,14 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   for (Iarea in 1:GeneralSpecs$Narea)
     for (Isex in 1:GeneralSpecs$Nsex)
       for (Iage in 1:GeneralSpecs$Nage)
-       for (Iyear in 1:Nyears)
-        for (Istep in 1:GeneralSpecs$Nstep)
-         {
-          Ipnt <- Ipnt + 1
-          Nout[Ipnt,1:5]  <- c(Iarea,Isex,Iage,Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1,Istep)
-          Nout[Ipnt,(6:(5+GeneralSpecs$MaxLen))] <- 0
-          Nout[Ipnt,(6:(5+GeneralSpecs$MaxLen))] <- Report$N[Iarea,Iyear,Istep,Isex,Iage,]
-         }
+        for (Iyear in 1:Nyears)
+          for (Istep in 1:GeneralSpecs$Nstep)
+          {
+            Ipnt <- Ipnt + 1
+            Nout[Ipnt,1:5]  <- c(Iarea,Isex,Iage,Iyear+GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)-1,Istep)
+            Nout[Ipnt,(6:(5+GeneralSpecs$MaxLen))] <- 0
+            Nout[Ipnt,(6:(5+GeneralSpecs$MaxLen))] <- Report$N[Iarea,Iyear,Istep,Isex,Iage,]
+          }
   write(t(round(Nout,1)),OutputFile,append=T,ncol=ncol)
 
   ## Correlation matrix
@@ -917,4 +935,3 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
     }
   }
 }
-

@@ -314,10 +314,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ctl2 <- findNclean(c('#','Basic','parameters'), ctl1, 1, char=T)
   mpnames <- ctl2$X10
   mainP$name <- mpnames[as.numeric(do.call('rbind', strsplit(mainP$name, '_'))[,2])]
-  mainP$est <- round(mainP$est,2)
-  #mainP <- mainP[c(1,nrow(mainP)),]
-  #rownames(mainP) <- 1:2
-  #pander(mainP)
+  mainP$est <- round(as.numeric(mainP$value), 2)
 
   pout <- read.delim(paste("Parameters_solved.txt",sep=''),sep='\t',stringsAsFactors =F)
   pout$Parameter <- ifelse(pout$Parameter=='MainPars', mpnames[pout$Number],pout$Parameter)

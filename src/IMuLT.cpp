@@ -2885,7 +2885,13 @@ if(thedata.IsTagData==1){
   for (int Iyear=1;Iyear<RecDevs.size();Iyear++){ // start at 1 not 0 to allow for offset
     Rec_Penal_Smooth += 1.0*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
 
-  neglogL = dummy*dummy + Rec_Penal + Initial_pen + Rec_Penal_Smooth + Rec_Penal_SumZero;
+  // Spatial recruitment deviations: N(0, SigmaSpat)
+  Type RecSpat_Penal = 0;
+  Type SigmaSpat = Type(0.5);              // or DATA_SCALAR(SigmaSpat) to set it from R
+  for (int i=0; i<RecSpatDevs.size(); i++)
+    RecSpat_Penal += square(RecSpatDevs(i)) / (2.0*SigmaSpat*SigmaSpat);
+
+  neglogL = dummy*dummy + Rec_Penal + Initial_pen + Rec_Penal_Smooth + Rec_Penal_SumZero + RecSpat_Penal;
   vector<Type> Select(Nlen(0));
 
   CatchLike = CatchLikelihood(dataset,thedata, N,Z,Hrate,ActSelex,ActReten,ActLegal, WeightLen, CatchCheck,QRedsPar);

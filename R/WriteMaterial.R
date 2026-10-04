@@ -306,8 +306,12 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
         {
           # Fixed parameter: same 13 columns as estimated rows (SD and
           # Gradient NA), so the table reads cleanly by column position
-          lwr <- if (!is.null(ThePar$Bnd) && is.matrix(ThePar$Bnd)) ThePar$Bnd[Ipar,1] else NA
-          upr <- if (!is.null(ThePar$Bnd) && is.matrix(ThePar$Bnd)) ThePar$Bnd[Ipar,2] else NA
+          # Some fixed blocks (e.g. RetPars) carry a Bnd matrix with fewer rows than
+          # parameters, or none at all -- write NA rather than index past its end
+          bnd_ok <- !is.null(ThePar$Bnd) && is.matrix(ThePar$Bnd) &&
+            nrow(ThePar$Bnd) >= Ipar && ncol(ThePar$Bnd) >= 2
+          lwr <- if (bnd_ok) ThePar$Bnd[Ipar,1] else NA
+          upr <- if (bnd_ok) ThePar$Bnd[Ipar,2] else NA
           xx <- paste(ParName,"_",Ipar," ",Iqnt," NA ",
                       ThePar$Initial[Ipar]," NA NA ",
                       lwr," ",upr," ",

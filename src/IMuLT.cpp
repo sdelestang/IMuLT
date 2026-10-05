@@ -1673,6 +1673,9 @@ Type CatchLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N,
   return(NeglogLikelihood);
 }
 
+// ============================================================================================
+// TagDym //
+
 template <class Type>
 Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
             matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
@@ -1685,7 +1688,8 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
   int SelPointer, RetPointer, LegalPointer, GrowthPointer, MovePointer, IsMoves, IdestArea;
   Type NtagRel, CumReleases;
   Type RetainTemp, NtotalT, ScaleRedQ, ScaleWhiteM;
-  Type PartialF, TotalPartialF, FullF2, Deaths;
+  Type Enc, RepTot, RepOne;
+  Type Deaths;
   Type ObsL, PredL, ObsSS, LikeSize1, LikeTag2, LikeCompT;
   Type TotalReported;
   vector<Type> Ntemp2(dat.MaxLen);
@@ -1721,6 +1725,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
     {
       Jyear = Iyear+dat.First_yr-thedata.TagYr1;
       Kyear = dat.BurnIn+Iyear;
+      bool JyearOK = (Jyear >= 0 && Jyear < thedata.NyearTags);
 
       // D1: Add the tags that have been out long enough
       if (NtagLag > 0) {
@@ -1735,8 +1740,8 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             }
       }
 
-      // D2: Add new tags
-      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+      // D2: Add new tags (+= so tags already at large in this slot are kept)
+      if (JyearOK) {
         for (int Iarea=0; Iarea<Narea; Iarea++)
         {
           NtagRel = thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
@@ -1749,16 +1754,16 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
                 for (int Iage=0; Iage<Nage; Iage++)
                   NtotalT += N(Iarea,Kyear,Istep,SexPass,Iage,Isize);
                 for (int Iage=0; Iage<Nage; Iage++)
-                  Ntag_local(Iarea,NtagLag,Iage,Isize) = N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
+                  Ntag_local(Iarea,NtagLag,Iage,Isize) += N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
               }
-            }  // <-- for loop closes here
+            }
             NotReported(SexPass,GrpPass) += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0)*(1.0-thedata.InitialLoss);
             CumReleases += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0);
           }
         }
       }
 
-      // D3: Set selectivity and compute Z/recaptures
+      // D3: Selectivity (encounter) and retention
       for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
         for (int Iage=0; Iage<Nage; Iage++)
         {
@@ -1773,9 +1778,16 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           }
         }
 
+      // D3b: Tag-pool mortality, recaptures (from encounters) and unreported removals
       RecapTmp.setZero();
       for (int Iarea=0; Iarea<Narea; Iarea++)
       {
+        // Fraction of encounters reported in this area/step (all splits combined)
+        RepTot = 0;
+        if (JyearOK)
+          for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+            RepTot += thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit);
+
         for (int Iage=0; Iage<Nage; Iage++)
         {
           if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
@@ -1786,36 +1798,39 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
               if (dat.Area_fleet(Iarea,Ifleet)==1)
               {
+                Enc        = Hrate(Kyear,Istep,Ifleet)*selexF(Ifleet,SexPass,Iage,Isize);
                 RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
-                Z_rate_Tag(Iarea,Iage,Isize) += Hrate(Kyear,Istep,Ifleet)*RetainTemp;
+                Z_rate_Tag(Iarea,Iage,Isize) += RepTot*Enc + (1.0-RepTot)*Hrate(Kyear,Istep,Ifleet)*RetainTemp;
               }
 
+            // Tags still in the lag (not yet "mixed"): natural mortality only
             for (int ItagLag=1; ItagLag<=NtagLag; ItagLag++)
               NotReported(SexPass,GrpPass) += Ntag_local(Iarea,ItagLag,Iage,Isize)*(1.0-exp(-M_rate_Tag(Iarea,Iage,Isize)));
 
+            // Mean number at large over the step (Baranov)
             Deaths = Ntag_local(Iarea,0,Iage,Isize)*(1.0-exp(-Z_rate_Tag(Iarea,Iage,Isize)))/Z_rate_Tag(Iarea,Iage,Isize);
             NotReported(SexPass,GrpPass) += M_rate_Tag(Iarea,Iage,Isize) * Deaths;
 
             for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
               if (dat.Area_fleet(Iarea,Ifleet)==1)
               {
+                Enc        = Hrate(Kyear,Istep,Ifleet)*selexF(Ifleet,SexPass,Iage,Isize);
                 RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
-                FullF2 = Hrate(Kyear,Istep,Ifleet)*RetainTemp;
-                TotalPartialF = 0;
-                for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
-                {
-                  PartialF = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit)*FullF2;
-                  TotalPartialF += PartialF;
-                  RecapTmp(Iarea,IrepSplit,Isize) += PartialF*Deaths;
-                }
-                NotReported(SexPass,GrpPass) += (FullF2-TotalPartialF)*Deaths;
+                if (JyearOK)
+                  for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
+                  {
+                    RepOne = thedata.RepRate(IrepSplit)*thedata.PropRepSplit(Jyear,Istep,Iarea,IrepSplit);
+                    RecapTmp(Iarea,IrepSplit,Isize) += RepOne*Enc*Deaths;
+                  }
+                // Removed (retained or dead discard) without being reported
+                NotReported(SexPass,GrpPass) += (1.0-RepTot)*Hrate(Kyear,Istep,Ifleet)*RetainTemp*Deaths;
               }
           }
         }
       }
 
       // Total the tags
-      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+      if (JyearOK) {
         for (int Iarea=0; Iarea<Narea; Iarea++)
           for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
             for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
@@ -1823,7 +1838,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
       }
 
       // Likelihood for length-comp of recaptured
-      if (Jyear >= 0 && Jyear < thedata.NyearTags) {
+      if (JyearOK) {
         LikeSize1 = 0;
         for (int Iarea=0; Iarea<Narea; Iarea++)
           for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
@@ -1852,7 +1867,9 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             }
         TagLike1(SexPass,GrpPass) += LikeSize1;
       }
-      // D4a: Remove mortality
+
+      // D4a: Remove mortality (survivors of the tag-pool Z; non-retained, unreported
+      //      encounters are returned alive and remain at large)
       Ntemp_Tag.setZero();
       for (int Iarea=0; Iarea<Narea; Iarea++)
         for (int Iage=0; Iage<Nage; Iage++)
@@ -1963,11 +1980,6 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) /= thedata.NrelTotal(SexPass,GrpPass);
         }
   NotReported(SexPass,GrpPass) /= thedata.NrelTotal(SexPass,GrpPass);
-
-  // DIAGNOSTIC: Check if model predicted ANY recaptures
-  //FILE* fp2 = fopen("tagdym_recapture_summary.txt", "w");
-  // fprintf(fp2, "=== Recapture Summary for SexPass=%d, GrpPass=%d ===\n\n", SexPass, GrpPass);
-  // fclose(fp2);
 
   // Likelihood
   LikeTag2 = -thedata.NrelTotal(SexPass,GrpPass)*thedata.NotReportedObs(SexPass,GrpPass)*

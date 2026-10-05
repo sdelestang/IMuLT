@@ -5,8 +5,6 @@
 \title{Report Optimiser Result}
 \usage{
 .report_fit(mout, model, pnames, initBestFn, label = "")
-
-.report_fit(mout, model, pnames, initBestFn, label = "")
 }
 \arguments{
 \item{mout}{Output list from \code{\link[stats]{nlminb}}.}
@@ -23,15 +21,8 @@ call.}
 \value{
 Called for its side effect (printing to the console). Returns
 \code{invisible(NULL)}.
-
-Called for its side effect (printing to the console). Returns
-\code{invisible(NULL)}.
 }
 \description{
-Prints a summary line for an optimiser run including starting and ending
-likelihood, convergence status, maximum gradient and the associated
-parameter name, iteration and evaluation counts.
-
 Prints a summary line for an optimiser run including starting and ending
 likelihood, convergence status, maximum gradient and the associated
 parameter name, iteration and evaluation counts.

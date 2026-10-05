@@ -1,4 +1,3 @@
-
 #' Configure Parameter Initialization and Estimation Maps for Current Phase
 #'
 #' Internal function that prepares parameter structures for RTMB/TMB optimization
@@ -1047,13 +1046,13 @@ UpdateLFWeights <- function(todo='No'){
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
                      nRestarts = TRUE, newtonSteps = 5,
-                     newton_grad_thresh = 20,
+                     newton_grad_thresh = 0.1,
                      sandwich_entry_grad = 10, max_pre_nlminb = 5,
                      bfgs_maxit = 200, checkpoint = TRUE,
                      PrintNll = TRUE,
                      plateau_k = 4, plateau_cv = 0,
                      start_phase = 1,
-                     stall_window = 200, stall_tol = 0.5,
+                     stall_window = 200, stall_tol = 5,
                      stall_tol_restart = 0.5, bfgs_skip_grad = 50,
                      stall_final_only = TRUE,
                      use_scale = TRUE,
@@ -1269,7 +1268,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     # Gradient wrapper: zeros for non-finite gradients (keeps optimisers alive).
     # A zero gradient looks like convergence, so accepted points are checked with .max_grad().
     nonfinite_gr <- 0L
+    GrCallNo     <- 0L      # gradient calls in the current nlminb call (for reporting when stalled)
     model$gr <- function(x) {
+      GrCallNo <<- GrCallNo + 1L
       g <- tryCatch(model$gr_Orig(x), error = function(e) NULL)
       if (is.null(g) || any(!is.finite(g))) {
         nonfinite_gr <<- nonfinite_gr + 1L
@@ -1341,6 +1342,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     .run_nlminb <- function(start, ctrl, label, tol = stall_tol) {
       cur_stall_tol <<- tol
       stall_hist   <<- numeric(0)
+      GrCallNo     <<- 0L
       BestPar      <<- start
       stall_active <<- stall_on
       on.exit(stall_active <<- FALSE)
@@ -1354,8 +1356,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         cat("  ", label, " stalled at eval ", FnCallNo, ": < ", tol,
             " NLL reduction over last ", stall_window, " evals\n", sep = "")
         res <- list(par = BestPar, objective = BestFn, convergence = 99L,
-                    iterations = NA,
-                    evaluations = c("function" = FnCallNo, "gradient" = NA),
+                    iterations = GrCallNo,   # nlminb uses about one gradient per iteration
+                    evaluations = c("function" = FnCallNo, "gradient" = GrCallNo),
                     message = "stalled", stalled = TRUE)
       } else {
         res$stalled <- FALSE
@@ -1819,123 +1821,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
   }
 }
-
-#' Report Optimiser Result
-#'
-#' Prints a summary line for an optimiser run including starting and ending
-#' likelihood, convergence status, maximum gradient and the associated
-#' parameter name, iteration and evaluation counts.
-#'
-#' @param mout Output list from \code{\link[stats]{nlminb}}.
-#' @param model TMB model object created by \code{\link[TMB]{MakeADFun}}.
-#' @param pnames Character vector of active parameter names.
-#' @param initBestFn Numeric. Objective value at the start of this optimiser
-#'   call.
-#' @param label Character. Label prefix for the printed line.
-#'
-#' @return Called for its side effect (printing to the console). Returns
-#'   \code{invisible(NULL)}.
-#'
-#' @keywords internal
-.report_fit <- function(mout, model, pnames, initBestFn, label = "") {
-  g   <- tryCatch(model$gr_Orig(mout$par),
-                  error = function(e) rep(NA_real_, length(mout$par)))
-  bad <- !is.finite(g)
-  if (any(bad)) {
-    nb <- sum(bad)
-    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
-        "| NON-FINITE gradient for", nb, "par(s):",
-        paste0("[", head(pnames[bad], 20), "]", collapse = " "),
-        if (nb > 20) paste0("... (+", nb - 20, " more)") else "",
-        "| Iter:", mout$iterations,
-        "| Eval:", mout$evaluations, "\n")
-  } else {
-    Grad   <- abs(g)
-    top    <- head(pnames[Grad == max(Grad)], 5)
-    badpar <- paste0("[", top, "]", collapse = " ")
-    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
-        "| Max grad [par]:", round(max(Grad), 6), badpar,
-        "| Iter:", mout$iterations,
-        "| Eval:", mout$evaluations, "\n")
-  }
-}
-
-
-#' Check for Parameters at Bounds
-#'
-#' Prints a warning if any estimated parameters are sitting at or near their
-#' lower or upper bounds, along with the associated gradient. Parameters at
-#' bounds with large gradients indicate the bound is constraining the solution.
-#'
-#' @param par Numeric vector. Estimated parameter values.
-#' @param lower Numeric vector or \code{NULL}. Lower bounds.
-#' @param upper Numeric vector or \code{NULL}. Upper bounds.
-#' @param pnames Character vector. Parameter names.
-#' @param model TMB model object created by \code{\link[TMB]{MakeADFun}}.
-#' @param tol Numeric. Tolerance for detecting bound proximity. Default 1e-4.
-#'
-#' @return Called for its side effect (printing to the console). Returns
-#'   \code{invisible(NULL)}.
-#'
-#' @keywords internal
-.check_bounds <- function(par, lower, upper, pnames, model, tol = 1e-4) {
-  if (is.null(lower) || is.null(upper)) return(invisible(NULL))
-
-  at_lower <- which(abs(par - lower) < tol)
-  at_upper <- which(abs(par - upper) < tol)
-  at_bound <- c(at_lower, at_upper)
-
-  if (length(at_bound) > 0) {
-    Grad <- abs(model$gr(par))
-    cat("\n*** WARNING: Parameters at or near bounds ***\n")
-    for (idx in at_bound) {
-      side <- ifelse(idx %in% at_lower, "LOWER", "UPPER")
-      cat("  ", pnames[idx], "=", round(par[idx], 6),
-          " [", side, " bound:", ifelse(side == "LOWER", lower[idx], upper[idx]), "]",
-          " |grad| =", round(Grad[idx], 6), "\n")
-    }
-    cat("  If these have large gradients, use a prior, widen the bound or fix via map.\n\n")
-    writeLines(fish)
-    cat("\n\n")
-
-  } else {
-    cat("\n  No parameters at bounds\n\n")
-    writeLines(crab)
-    cat("\n\n")
-  }
-}
-
-
-## Crab ascii code
-crab <- c(
-  "    __       __",
-  "   / <`     '> \\",
-  "  (  / @   @ \\  )",
-  "   \\(___\\_/___)/",
-  " (\\ `-/     \\-' /)",
-  "  \"===\\     /===\"",
-  "   .==')___(`==.",
-  "  ' .='     `=. '"
-)
-
-crabdead <- c(
-  "    __       __",
-  "   / <`     '> \\",
-  "  (  / X   X \\  )",
-  "   \\(___\\_/___)/",
-  " (\\ `-/     \\-' /)",
-  "  \"===\\     /===\"",
-  "   .==')___(`==.",
-  "  ' .='     `=. '"
-)
-
-fish <- c(
-  ".    )\\",
-  "\\`.-'`  `-xx",
-  " )  _   __,~)",
-  "/.'  )/",
-  "     `"
-)
 
 #' Report Optimiser Result
 #'

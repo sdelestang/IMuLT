@@ -1378,6 +1378,107 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                            pearson = (Obs - Est) / sqrt(Est + 1e-5),
                            yt = year + tstep / (max(tstep) + 1))
 
+    ## Where tags ended up: observed vs estimated recaptures by recapture area,
+    ## one panel per release area (summed over years, steps and sexes; sqrt scale
+    ## because most tags are recaptured where they were released)
+    all_areas <- sort(unique(c(tag$RelArea, tag$RecArea)))
+    tagdest <- tag %>%
+      group_by(RelArea, RecArea, repSplit) %>%
+      summarise(Observed = sum(Obs), Estimated = sum(Est), .groups = "drop") %>%
+      group_by(RelArea, repSplit) %>%
+      mutate(ObsProp = Observed / sum(Observed), EstProp = Estimated / sum(Estimated)) %>%
+      ungroup() %>%
+      mutate(RecArea = factor(RecArea, levels = all_areas),
+             RelLab  = factor(paste('Release area', RelArea),
+                              levels = paste('Release area', sort(unique(RelArea)))),
+             Split   = paste('Report split', repSplit))
+    nsplit <- length(unique(tagdest$repSplit))
+
+    dest_plot <- function(d, ylab) {
+      p <- ggplot(d, aes(x = RecArea, y = value, fill = Type)) +
+        geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+        scale_y_sqrt() +
+        scale_x_discrete(drop = FALSE) +
+        scale_fill_manual(values = c(Observed = "grey30", Estimated = "red")) +
+        xlab("Recapture area") + ylab(ylab) +
+        theme_bw() + theme(legend.position = "bottom", legend.title = element_blank())
+      if (nsplit > 1) p + facet_grid(Split ~ RelLab, scales = "free_y")
+      else            p + facet_wrap(~ RelLab, scales = "free_y")
+    }
+
+    # Numbers recaptured
+    d_num <- tagdest %>% dplyr::select(RelLab, RecArea, Split, Observed, Estimated) %>%
+      pivot_longer(c(Observed, Estimated), names_to = "Type", values_to = "value")
+    filename <- filenametopath(rundir, "Tag_destination_numbers.png")
+    plotprep(width = 12, height = if (nsplit > 1) 8 else 10, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(dest_plot(d_num, "Recaptures (sqrt scale)")))
+    caption <- paste("Where tags ended up: observed (grey) and estimated (red) recaptures by recapture area,",
+                     "one panel per release area, summed over years, time steps and sexes (sqrt scale).",
+                     "Differences in bar heights within the release area show reporting/exploitation scale;",
+                     "see the proportions plot for movement alone.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    # Proportion of each release area's recaptures by recapture area (movement only, scale removed)
+    d_prop <- tagdest %>% dplyr::select(RelLab, RecArea, Split, Observed = ObsProp, Estimated = EstProp) %>%
+      pivot_longer(c(Observed, Estimated), names_to = "Type", values_to = "value")
+    filename <- filenametopath(rundir, "Tag_destination_proportions.png")
+    plotprep(width = 12, height = if (nsplit > 1) 8 else 10, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(dest_plot(d_prop, "Proportion of recaptures (sqrt scale)")))
+    caption <- paste("Destination of recaptured tags as a proportion of each release area's recaptures:",
+                     "observed (grey) vs estimated (red), sqrt scale. Removes the overall reporting/exploitation",
+                     "scale so the plot shows movement only.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    ## Observed vs estimated recaptures, one panel per release area, recapture area
+    ## as colour, 1:1 line, sqrt axes
+    tagoe <- tag %>%
+      group_by(RelArea, RecArea, year, repSplit) %>%                 # sum over time steps and sexes
+      summarise(Observed = sum(Obs), Estimated = sum(Est), .groups = "drop") %>%
+      mutate(RecArea = factor(RecArea, levels = all_areas),
+             RelLab  = factor(paste('Release area', RelArea),
+                              levels = paste('Release area', sort(unique(RelArea)))),
+             Split   = paste('Report split', repSplit))
+
+    oe_plot <- function(d, title, ptsize = 1.8) {
+      # square panels: each panel's x and y run from 0 to the same maximum
+      lim <- d %>% group_by(RelLab, Split) %>%
+        summarise(mx = max(c(Observed, Estimated), na.rm = TRUE), .groups = "drop")
+      p <- ggplot(d, aes(x = Observed, y = Estimated, colour = RecArea)) +
+        geom_blank(data = lim, aes(x = mx, y = mx), inherit.aes = FALSE) +
+        geom_blank(data = lim, aes(x = 0,  y = 0),  inherit.aes = FALSE) +
+        geom_abline(intercept = 0, slope = 1, linetype = "dashed", colour = "grey40") +
+        geom_point(alpha = 0.7, size = ptsize) +
+        scale_x_sqrt() + scale_y_sqrt() +
+        scale_colour_brewer(palette = "Dark2", drop = FALSE, name = "Recapture area") +
+        xlab("Observed recaptures (sqrt scale)") + ylab("Estimated recaptures (sqrt scale)") +
+        ggtitle(title) + theme_bw() + theme(legend.position = "bottom")
+      if (nsplit > 1) p + facet_wrap(Split ~ RelLab, scales = "free")
+      else            p + facet_wrap(~ RelLab, scales = "free")
+    }
+
+    # By year (one point per release area x recapture area x year)
+    filename <- filenametopath(rundir, "Tag_obs_vs_est_by_year.png")
+    plotprep(width = 11, height = 11, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(oe_plot(tagoe, "Tag recaptures by year")))
+    caption <- paste("Observed vs estimated tag recaptures by year (summed over time steps and sexes),",
+                     "one panel per release area, coloured by recapture area; dashed line is 1:1 (sqrt axes).",
+                     "Points below the line are under-predicted.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    # Totals (one point per release area x recapture area)
+    tagtot <- tagoe %>% group_by(RelLab, RecArea, Split) %>%
+      summarise(Observed = sum(Observed), Estimated = sum(Estimated), .groups = "drop")
+    filename <- filenametopath(rundir, "Tag_obs_vs_est_totals.png")
+    plotprep(width = 11, height = 11, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(oe_plot(tagtot, "Tag recaptures, all years", ptsize = 3)))
+    caption <- paste("Total observed vs estimated tag recaptures over all years by release area (panel)",
+                     "and recapture area (colour); dashed line is 1:1 (sqrt axes).")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
     # Pearson residuals by release area, faceted by recapture area
     for (a in as.numeric(sort(unique(tag$RelArea)))) {
       tmp <- tag[tag$RelArea == a, ]
@@ -1422,7 +1523,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       }
     }
   }
-
 #### Model Outputs ####
   ### Relative Legal Biomass by area ###
   print("Making Legal Biomass")

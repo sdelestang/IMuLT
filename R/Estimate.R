@@ -964,8 +964,11 @@ UpdateLFWeights <- function(todo='No'){
 #'   the sandwich. Default 5.
 #' @param bfgs_maxit Integer. Maximum BFGS iterations per sandwich cycle.
 #'   Default 200.
-#' @param checkpoint Logical. If \code{TRUE}, save the current final-phase
-#'   parameters to \code{Output/checkpoint_par.rds} after every nlminb call.
+#' @param checkpoint Logical. If \code{TRUE}, overwrite \code{Output/model final.par}
+#'   (the file \code{UpdatePars()} reads) after every optimiser call in every phase,
+#'   with \code{Output/model final.status.txt} recording the stage, objective and
+#'   max gradient; in the final phase also save \code{Output/checkpoint_par.rds}.
+#'   \code{model final.par} is always rewritten at the end of each phase regardless.
 #'   Default \code{TRUE}.
 #' @param PrintNll Logical. If \code{TRUE}, display a live trace plot of the
 #'   negative log-likelihood. Default \code{TRUE}.
@@ -1312,11 +1315,18 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
 
     # Save current final-phase parameters so an interrupted run isn't wasted
+    # Keep Output/model final.par current after every optimiser call (any phase), so
+    # UpdatePars() always picks up the latest parameters, even from an interrupted run.
+    # Output/model final.status.txt records which stage those parameters came from.
     .checkpoint <- function(m, label) {
-      if (is_final && isTRUE(checkpoint))
-        saveRDS(list(par = m$par, pnames = pnames, objective = m$objective,
-                     label = label, time = Sys.time()),
-                "Output/checkpoint_par.rds")
+      if (isTRUE(checkpoint)) {
+        .save_par(m$par, " final")
+        .write_status(label, m$objective, .max_grad(m$par), complete = FALSE)
+        if (is_final)
+          saveRDS(list(par = m$par, pnames = pnames, objective = m$objective,
+                       label = label, time = Sys.time()),
+                  "Output/checkpoint_par.rds")
+      }
     }
 
     # Reset the progress-print state at the start of an optimiser call
@@ -1329,6 +1339,16 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
 
     # Write parameters to Output/model<suffix>.par (same format as the end-of-phase save)
+    .write_status <- function(label, objective, maxgrad, complete = FALSE) {
+      writeLines(c(paste("Stage:", label),
+                   paste("Phase:", CurrPhase, "of", MaxPhase),
+                   paste("Objective:", signif(objective, 10)),
+                   paste("Max|grad|:", signif(maxgrad, 6)),
+                   paste("Fit complete:", complete),
+                   paste("Time:", format(Sys.time()))),
+                 "Output/model final.status.txt")
+    }
+
     .save_par <- function(par, suffix) {
       names(par) <- pnames
       pout_tmp <- unlist(parameters)
@@ -1780,9 +1800,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     pout <- unlist(parameters)
     pout[names(pout) %in% names(pars)] <- pars
-    suffix <- ifelse(is_final, " final", CurrPhase)
-    write.table(pout, paste0("Output/model", suffix, ".par"),
+    # Per-phase record (the final phase's pre-sandwich point is already in model<MaxPhase>.par)
+    if (!is_final)
+      write.table(pout, paste0("Output/model", CurrPhase, ".par"),
+                  sep = "\t", col.names = c("name\test"), quote = FALSE)
+    # Always keep model final.par as the latest parameters, for UpdatePars()
+    write.table(pout, "Output/model final.par",
                 sep = "\t", col.names = c("name\test"), quote = FALSE)
+    .write_status(if (is_final) "end of final phase" else paste("end of phase", CurrPhase),
+                  mout$objective, .max_grad(mout$par), complete = is_final)
 
     if (is_final) {
       assign("ProfileReport", model$report(),               envir = .GlobalEnv)

@@ -69,8 +69,11 @@ the sandwich. Default 5.}
 \item{bfgs_maxit}{Integer. Maximum BFGS iterations per sandwich cycle.
 Default 200.}
 
-\item{checkpoint}{Logical. If \code{TRUE}, save the current final-phase
-parameters to \code{Output/checkpoint_par.rds} after every nlminb call.
+\item{checkpoint}{Logical. If \code{TRUE}, overwrite \code{Output/model final.par}
+(the file \code{UpdatePars()} reads) after every optimiser call in every phase,
+with \code{Output/model final.status.txt} recording the stage, objective and
+max gradient; in the final phase also save \code{Output/checkpoint_par.rds}.
+\code{model final.par} is always rewritten at the end of each phase regardless.
 Default \code{TRUE}.}
 
 \item{PrintNll}{Logical. If \code{TRUE}, display a live trace plot of the

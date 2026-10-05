@@ -668,7 +668,9 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
   return(ActGrowth);
 
 }
-//==================================================================================================================================
+
+// ============================================================================================
+// OneTimeStep
 
 template <class Type>
 vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
@@ -685,20 +687,16 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
   array<Type> selexF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                  // Selectivity
   array<Type> retainF(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);                 // Retention
   array<Type> selretwght(dat.Nfleet,dat.Nsex,dat.Nage,dat.MaxLen);              // Product of selectivity,retention and weight
-  array<Type> Ntemp(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after mortality)
-  array<Type> Nmove(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after movement)
+  array<Type> Ntemp(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);                    // N matrix (after mortality, growth and movement)
   vector<Type> Ntemp2(dat.MaxLen);                                              // Matrix multiplication
-  vector<Type> MoveVec(dat.MaxLen);                                             // Matrix multiplication
   vector<Type> HratePass(dat.Nfleet);                                           // Pass of harvest rare
-  Type RetainTemp,TotalRec, ScaleWhiteM, ScaleRedQ;
+  Type RetainTemp,TotalRec, ScaleWhiteM, ScaleRedQ, Moved;
 
   int SelPointer,RetPointer,LegalPointer,MovePointer,RecruitPointer,GrowthPointer;           // Pointers
-  int YearAdjust1,YearAdjust2,IsMoves,IdestArea,RecruitLenPointer;
+  int YearAdjust1,YearAdjust2,IdestArea,RecruitLenPointer;
 
   vector<Type> XX(2);
   XX(0) = 1; XX(1) = 1;
-
-  int Ipnt;                                                                     // Pointer
 
   // Adjusted year (YearAdjust1 is for quantities that go beyond Nyear-1 and YearAdjust2 is not.
   if (Iyear <= 0)
@@ -843,15 +841,14 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
           {
             for (int Jsize=0;Jsize<=Isize;Jsize++) Ntemp2(Isize) += Ntemp(Iarea,Isex,Iage,Jsize)*ActGrowth(GrowthPointer,Isize,Jsize);
           }
-          //Ntemp2 = Growth(ActGrowth,Ntemp,dat.Nlen(Isex),Ipnt,Iarea,Isex,Iage,dat.MaxLen);
           for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) Ntemp(Iarea,Isex,Iage,Isize) = Ntemp2(Isize);
         }
       } // growth
 
   } // area
 
-  Nmove.setZero();
-  IsMoves = 0;
+  // Movement: sequential by source area (ascending), updated in place, so animals moved
+  // into a higher-numbered area can move on again in the same step (e.g. 3->4->6->8)
   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
   {
     for (int Iage=0;Iage<dat.Nage;Iage++)
@@ -859,34 +856,17 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
       MovePointer = dat.MovePnt(Iarea,Iage,YearAdjust2,Istep);
       if (MovePointer > 0)
       {
-        IsMoves = 1;
         IdestArea = dat.MoveSpec(MovePointer,2);
         for (int Isex=0;Isex<dat.Nsex;Isex++)
-        {
-          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
           for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
           {
-            Nmove(IdestArea,Isex,Iage,Isize) += MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
-            Nmove(Iarea,Isex,Iage,Isize) -= MoveVec(Isize)*Ntemp(Iarea,Isex,Iage,Isize);
+            Moved = ActMove(MovePointer,Isize)*Ntemp(Iarea,Isex,Iage,Isize);
+            Ntemp(IdestArea,Isex,Iage,Isize) += Moved;
+            Ntemp(Iarea,Isex,Iage,Isize)     -= Moved;
           }
-          // redistribute lobster so they can potentially move more than one area in a timestep (only in increasing area number)
-          // for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){                   // delete to change back
-          //   Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);} // delete to change back
-        } // Sex
       } // If there was a move
-    } // All areas and ages
-  }
-
-  // Only update if needed
-  //
-  if (IsMoves==1)
-  {
-    for (int Iarea=0;Iarea<dat.Narea;Iarea++){
-      for (int Isex=0;Isex<dat.Nsex;Isex++){
-        for (int Iage=0;Iage<dat.Nage;Iage++){
-          for (int Ilen=0;Ilen<dat.Nlen(Isex);Ilen++){
-            Ntemp(Iarea,Isex,Iage,Ilen) += Nmove(Iarea,Isex,Iage,Ilen);}}}}
-  }
+    } // ages
+  } // source areas
 
   // Update seasons
   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
@@ -1242,7 +1222,7 @@ Type LarvalLikelihood(dataSet<Type> &dat, TheData<Type> &thedata,  matrix<Type> 
 }
 
 
-// -------------------------------------------------------------------------------------------------------------------
+// ============================================================================================
 
 template <class Type>
 array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
@@ -1253,7 +1233,7 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
                     vector<Type> &ActRecDev, Type QRedsPar, Type MWhitesPar, Type Finitial) {
 
   array<Type> N(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
-  Type TotalRec,ScaleRedQ,ScaleWhiteM;
+  Type TotalRec,ScaleRedQ,ScaleWhiteM,v,rj;
   int Ipnt,Jpnt,GrowthPointer,MovePointer,IdestArea,RecruitLenPointer;
   int MatSize,Offset;
   MatSize = dat.Narea*dat.Nage*dat.MaxLen;                                 // Full matrix size
@@ -1265,7 +1245,6 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
   matrix<Type> Mat2(MatSize,MatSize);                                      // Temp matrix
   matrix<Type> Trans(dat.MaxLen,dat.MaxLen);                               // Cumulative transition matrix
   matrix<Type> Trans2(dat.MaxLen,dat.MaxLen);                              // Temporary transition matrix
-  vector<Type> MoveVec(dat.MaxLen);                                        // Movement vector
   matrix<Type> RecVec(MatSize,1);                                          // Recruitment
   matrix<Type> TestVec(MatSize,1);                                         // The equilibrium
 
@@ -1286,6 +1265,7 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
         for (int Isize=0;Isize<dat.MaxLen;Isize++)
         {
           I(Offset+Isize,Offset+Isize) = 1.0;
+          // NB: '+' on the F term -- fine while Finitial = 0 (unfished); would need '-' otherwise
           S(Offset+Isize,Offset+Isize) = exp(-M(Iarea,Iage)*ScaleWhiteM+ActSelex(Isex,Isize)*ScaleRedQ*Finitial);
         }
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
@@ -1321,7 +1301,7 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
             X(Offset+Isize,Offset+Jsize) = Trans(Isize,Jsize);
       }
 
-    // Movement
+    // Movement: ordered product of the individual moves (sequential, matching OneTimeStep)
     for (int Istep=0;Istep<dat.Nstep;Istep++)
     {
       for (int Iarea=0;Iarea<dat.Narea;Iarea++)
@@ -1331,17 +1311,21 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
           if (MovePointer > 0)
           {
             IdestArea = dat.MoveSpec(MovePointer,2);
-            for (int Isize=0;Isize<dat.Nlen(Isex);Isize++) MoveVec(Isize) = ActMove(MovePointer,Isize);
             for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
             {
-              Ipnt = IdestArea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
-              Jpnt = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;
-              MM(Jpnt,Jpnt) -= MoveVec(Isize);
-              MM(Ipnt,Jpnt) = MoveVec(Isize);
+              v    = ActMove(MovePointer,Isize);
+              Ipnt = IdestArea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;   // destination row
+              Jpnt = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen+Isize;       // source row
+              for (int Icol=0;Icol<MatSize;Icol++)
+              {
+                rj = MM(Jpnt,Icol);
+                MM(Ipnt,Icol) += v*rj;
+                MM(Jpnt,Icol)  = rj - v*rj;
+              }
             }
           }
         }
-    } // If there was a move
+    } // Movement
 
     // Ageing
     Ipnt = 0;
@@ -1362,8 +1346,7 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
     // Inverse
     Mat2 = atomic::matinv(Mat2);
 
-    // Recruitment
-    Offset = -1;
+    // Recruitment (age 0, same MaxLen-spaced layout as the matrices above)
     RecVec.setZero();
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
     {
@@ -1371,14 +1354,9 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
       for (int Istep=0;Istep<dat.Nstep;Istep++) TotalRec += ActRecruitAreaSexDist(0,Istep,Iarea,Isex);
       RecruitLenPointer = dat.RecruitLenPnt(Iarea);
 
-      for (int Iage=0;Iage<dat.Nage;Iage++)
-      {
-        for(int Isize=0;Isize<dat.Nlen(Isex);Isize++)
-        {
-          Offset += 1;
-          if (Iage==0) RecVec(Offset,0) = TotalRec*ActRecruitLenDist(RecruitLenPointer,Isex,Isize);
-        }
-      }
+      Offset = Iarea*dat.Nage*dat.MaxLen;                                   // age 0 block of this area
+      for(int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+        RecVec(Offset+Isize,0) = TotalRec*ActRecruitLenDist(RecruitLenPointer,Isex,Isize);
     }
 
     // Solve for an equiilbrium
@@ -1398,7 +1376,6 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
   return(N);
 
 }
-
 // -------------------------------------------------------------------------------------------------------------------
 
 template <class Type>

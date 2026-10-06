@@ -1049,7 +1049,7 @@ UpdateLFWeights <- function(todo='No'){
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
                      nRestarts = TRUE, newtonSteps = 5,
-                     newton_grad_thresh = 0.1,
+                     newton_grad_thresh = 20,
                      sandwich_entry_grad = 10, max_pre_nlminb = 5,
                      bfgs_maxit = 200, checkpoint = TRUE,
                      PrintNll = TRUE,

@@ -1876,36 +1876,25 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             }
           }
 
-      // D4c: Movement
-      Nmove_Tag.setZero();
-      IsMoves = 0;
+      // D4c: Movement -- sequential by source area in ascending order, updated in place,
+      // so tagged animals can chain through several areas in one step (e.g. 3->4->6->8),
+      // exactly as in OneTimeStep()
       for (int Iarea=0; Iarea<Narea; Iarea++)
         for (int Iage=0; Iage<Nage; Iage++)
         {
           MovePointer = int(dat.MovePnt(Iarea,Iage,Iyear,Istep));
           if (MovePointer > 0)
           {
-            IsMoves = 1;
             IdestArea = dat.MoveSpec(MovePointer,2);
-            for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-              MoveVec(Isize) = ActMove(MovePointer,Isize);
             for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
               for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
               {
-                Nmove_Tag(ItagLag,IdestArea,Iage,Isize) += MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
-                Nmove_Tag(ItagLag,Iarea,Iage,Isize) -= MoveVec(Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                Type Moved = ActMove(MovePointer,Isize)*Ntemp_Tag(ItagLag,Iarea,Iage,Isize);
+                Ntemp_Tag(ItagLag,IdestArea,Iage,Isize) += Moved;
+                Ntemp_Tag(ItagLag,Iarea,Iage,Isize)     -= Moved;
               }
           }
         }
-
-      if (IsMoves==1)
-      {
-        for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++)
-          for (int Iarea=0; Iarea<Narea; Iarea++)
-            for (int Iage=0; Iage<Nage; Iage++)
-              for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                Ntemp_Tag(ItagLag,Iarea,Iage,Isize) += Nmove_Tag(ItagLag,Iarea,Iage,Isize);
-      }
 
       // D4d: Copy back and update ages
       for (int ItagLag=0; ItagLag<=NtagLag; ItagLag++) {

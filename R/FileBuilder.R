@@ -863,9 +863,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 3)))){
     puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))
-    tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n#LB\tUP\tEstimate\tPhase\n")
+    tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd\n")
     for(a in 1:nrow(puerpar)){ tmp <- c(tmp, paste(puerpar[a,],collapse = "\t"), "\n") }} else {
-      tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",0,"\n#LB\tUP\tEstimate\tPhase\n")
+      tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",0,"\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd\n")
     }
 
   tmp <- c(tmp, "\n# Final check\n123456")

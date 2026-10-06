@@ -1693,9 +1693,9 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
 
   # Larval / puerulus conditions
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power");
-  npars <- GeneralSpecs$Narea
-  LarparsLink <- as.numeric(RecruitFile[(Index+1):(Index+npars),5])
-  LarparsPrior <- apply(as.matrix(RecruitFile[(Index+1):(Index+npars),6:8]),2,as.numeric)
+  npars <- as.numeric(RecruitFile[Index+1,1])
+  LarparsLink <- as.numeric(RecruitFile[(Index+3):(Index+npars+2),5])
+  LarparsPrior <- apply(as.matrix(RecruitFile[(Index+3):(Index+npars+2),6:8]),2,as.numeric)
 
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Bias",Char3="ramp")+1;
   Bias_Ramp_Yr1 <- as.numeric(RecruitFile[Index,1])-GeneralSpecs$Year1;

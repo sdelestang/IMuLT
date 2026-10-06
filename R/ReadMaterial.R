@@ -1685,11 +1685,17 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   write("Fixed recruitment patterns",EchoFile,append=T)
   write(t(RecruitFrac),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  # REcruitment Parameters linking conditions
+  # Recruitment Parameters linking conditions
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
   npars <- GeneralSpecs$Narea+(NfixedRecruits*2)
   RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
   RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
+
+  # Larval / puerulus conditions
+  Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power");
+  npars <- GeneralSpecs$Narea
+  LarparsLink <- as.numeric(RecruitFile[(Index+1):(Index+npars),5])
+  LarparsPrior <- apply(as.matrix(RecruitFile[(Index+1):(Index+npars),6:8]),2,as.numeric)
 
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Bias",Char3="ramp")+1;
   Bias_Ramp_Yr1 <- as.numeric(RecruitFile[Index,1])-GeneralSpecs$Year1;
@@ -1712,6 +1718,8 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   ReturnObj$CalcRecruitFrac <- CalcRecruitFrac
   ReturnObj$RecparsLink <- RecparsLink
   ReturnObj$RecparsPrior <- RecparsPrior
+  ReturnObj$LarparsLink <- LarparsLink
+  ReturnObj$LarparsPrior <- LarparsPrior
   ReturnObj$Bias_Ramp_Yr1  <- Bias_Ramp_Yr1;
   ReturnObj$Bias_Ramp_Yr2  <- Bias_Ramp_Yr2;
   ReturnObj$Bias_Ramp_Yr3  <- Bias_Ramp_Yr3;

@@ -2045,6 +2045,8 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(MoveparsPrior); dataset.MoveparsPrior = MoveparsPrior;
   DATA_IVECTOR(GrowparsLink); dataset.GrowparsLink = GrowparsLink;
   DATA_MATRIX(GrowparsPrior); dataset.GrowparsPrior = GrowparsPrior;
+  DATA_IVECTOR(LarparsLink); dataset.LarparsLink = LarparsLink;
+  DATA_MATRIX(LarparsPrior); dataset.LarparsPrior = LarparsPrior;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
   DATA_SCALAR(Bias_Ramp_Yr2); dataset.Bias_Ramp_Yr2 = Bias_Ramp_Yr2;
   DATA_SCALAR(Bias_Ramp_Yr3); dataset.Bias_Ramp_Yr3 = Bias_Ramp_Yr3;
@@ -2302,7 +2304,6 @@ Type objective_function<Type>::operator() ()
     }
   }
 
-
   // Adjust parameters to account for linked parameters
   for(int mp=0;mp<MoveparsLink.size();mp++){
     if(MoveparsLink(mp)>0) MovePars(mp)=MovePars(MoveparsLink(mp)-1);
@@ -2341,6 +2342,38 @@ Type objective_function<Type>::operator() ()
     if(GrowparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
       Link = -1 * GrowparsLink(mp);
       GrowthPars(mp) += GrowthPars(Link-1);
+    }
+  }
+
+  //// Deal with Puerulus Pars //////
+  // Apply priors on Puerulus Pars if requested
+  Type LarParPriorPen = 0;
+  nrowMP = LarparsPrior.rows();
+  for (int r=0; r<nrowMP; r++) {
+    // Normal prior
+    if(LarparsPrior(r,0)==1){
+      LarParPriorPen += -dnorm(PuerPowPars(r,0), LarparsPrior(r,1), LarparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(LarparsPrior(r,0)==2){
+      ScaleMP = square(LarparsPrior(r,2))/LarparsPrior(r,1);
+      ShapeMP = LarparsPrior(r,1)/ScaleMP;
+      LarParPriorPen += -dgamma(PuerPowPars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(LarparsPrior(r,0)==3){
+      Type mulog  = log(LarparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(LarparsPrior(r,2)/LarparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(LarparsPrior(r,2)/LarparsPrior(r,1))));
+      LarParPriorPen += -dnorm(log(PuerPowPars(r,0)), mulog, sdlog, true) + log(PuerPowPars(r,0));
+    }
+  }
+
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<LarparsLink.size();mp++){
+    if(LarparsLink(mp)>0) PuerPowPars(mp)=PuerPowPars(LarparsLink(mp)-1);
+    if(LarparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * LarparsLink(mp);
+      PuerPowPars(mp) += PuerPowPars(Link-1);
     }
   }
 

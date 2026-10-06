@@ -484,7 +484,7 @@ LoadPars <- function(aask=''){
   par_info <- list(
     MainPars    = list(phase = InitialVars$MainPars$Phase,      link = Data$MparsLink),
     RecruitPars = list(phase = InitialVars$RecruitPars$Phase,   link = Data$RecparsLink),
-    PuerPowPars = list(phase = InitialVars$PuerPowPars$Phase,   link = NULL),
+    PuerPowPars = list(phase = InitialVars$PuerPowPars$Phase,   link = Data$LarparsLink),
     SelPars     = list(phase = InitialVars$SelPars$Phase,       link = Data$SelparsLink),
     #RetPars     = list(phase = InitialVars$RetPars$Phase,       link = NULL),
     RecDevs     = list(phase = InitialVars$RecDevs$Phase,       link = NULL),

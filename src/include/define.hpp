@@ -94,6 +94,8 @@ struct dataSet{
   matrix <Type> MoveparsPrior;
   vector <int> GrowparsLink;
   matrix <Type> GrowparsPrior;
+  vector <int> LarparsLink;
+  matrix <Type> LarparsPrior;
   // int InitOpt;
   Type Bias_Ramp_Yr1;
   Type Bias_Ramp_Yr2;

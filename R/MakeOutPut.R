@@ -889,15 +889,21 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   #### Index data ####
+  #### Index data ####
   print("Making Model fit to Abundance Indices")
   tdat <- findNclean(c('Index','data'), dat, 2)
   cpuesd <- sdr[grepl('PredCpue', sdr$name),]
 
   if(nrow(cpuesd)>0) suppressWarnings(tdat <- cbind(tdat,cpuesd))
-  if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), esd=NA,estlwr=est,estupr=est)
+  ## Keep Data_set in the grouping so each index series stays separate (needed to break lines)
+  if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>%
+    group_by(Data_set, Sex, Fleet, Year, Time_step) %>%
+    summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV),
+              obsUp=exp(log(mean(Observed))+(Lse*SclErr)), obsLow=exp(log(mean(Observed))-(Lse*SclErr)),
+              est=mean(Predicted), esd=NA, estlwr=est, estupr=est, .groups = "drop")
   if(nrow(cpuesd)>0) tdat1 <- tdat %>%
     mutate(yts = Year + (Time_step-1)/max(Time_step)) %>%
-    group_by(Sex, Fleet, Year, Time_step) %>%
+    group_by(Data_set, Sex, Fleet, Year, Time_step) %>%
     summarise(obs    = mean(Observed),
               Lse    = mean(Relative_CV),
               obsUp  = exp(log(mean(Observed)) + Lse*SclErr),
@@ -908,6 +914,16 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
               .groups = "drop")
 
   tdat2 <- tdat1 %>% pivot_longer(col=c(obs,est), names_to = 'type') %>% mutate(lwr=ifelse(type=='obs',obsLow,estlwr),upr=ifelse(type=='obs',obsUp,estupr))
+
+  ## Line segments: a new segment wherever a year is missing within a series, and every
+  ## series (Data_set) is its own line -- so lines never join across gaps or across the
+  ## switch from one index series to the next (e.g. the pre/post-2013 q split)
+  tdat2 <- tdat2 %>%
+    arrange(Fleet, Sex, Time_step, type, Data_set, Year) %>%
+    group_by(Fleet, Sex, Time_step, type, Data_set) %>%
+    mutate(seg = cumsum(c(TRUE, diff(Year) > 1))) %>%
+    ungroup() %>%
+    mutate(lgrp = interaction(type, Data_set, seg, drop = TRUE))
 
   tdat2$Fleettype <- fleets$group[match(tdat2$Fleet, fleets$fleet)]
   tdat2$Area <- fleets$newarea[match(tdat2$Fleet, fleets$fleet)]
@@ -921,32 +937,23 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     filename <- filenametopath(rundir,paste0("Fleet ",uf,".png"))
     plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=c(1,1))
-    if(length(unique(tdat3$aSex))>1) {
-      print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-              geom_line()+geom_point()+
-              geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-              facet_grid(Time_step~aSex)+
-              scale_color_manual(values=c("red","black")) +
-              scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
-              theme(panel.background = element_rect(fill = "white",colour = NA),
-                    panel.border = element_rect(fill = NA, colour = "grey20"),
-                    axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-              ylab('Catch rate (kg/pot)')) } else {
-                {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-                         geom_line()+geom_point()+
-                         geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-                         facet_wrap(~Time_step)+
-                         scale_color_manual(values=c("red","black")) +
-                         scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
-                         theme(panel.background = element_rect(fill = "white",colour = NA),
-                               panel.border = element_rect(fill = NA, colour = "grey20"),
-                               axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-                         ylab('Catch rate (kg/pot)'))}
-              }
+    p <- ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+      geom_line(aes(group = lgrp))+geom_point()+
+      geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+      scale_color_manual(values=c("red","black")) +
+      scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+      ylab('Catch rate (kg/pot)')
+    if(length(unique(tdat3$aSex))>1) p <- p + facet_grid(Time_step~aSex) else p <- p + facet_wrap(~Time_step)
+    print(p)
     caption <- paste(paste(unique(tdat3$aSex), collapse = " & "), unique(tdat3$Descrip),
-                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.",
+                     "Lines break at missing years and where one index series ends and the next begins.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
+
 
   ### Index/CPUE tuning summary ###
   print("Making Index Tuning Table")

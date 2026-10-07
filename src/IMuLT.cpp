@@ -2927,7 +2927,7 @@ if(thedata.IsTagData==1){
   neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalties derived from parameter priors
-  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen + MovePen;
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen + MovePen + LarParPriorPen;
 
   // Now do projections.
   // ProjType==1 (catch-based): dataset.Catch already holds the projected catch

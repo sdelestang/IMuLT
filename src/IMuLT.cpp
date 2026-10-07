@@ -1653,6 +1653,7 @@ Type CatchLikelihood(dataSet<Type> &dat, TheData<Type> &thedata, array<Type> &N,
 // ============================================================================================
 // TagDym //
 
+
 template <class Type>
 Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass,array<Type> &N,
             matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal,
@@ -1662,7 +1663,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize) {
 
   int Jyear, Kyear;
-  int SelPointer, RetPointer, LegalPointer, GrowthPointer, MovePointer, IsMoves, IdestArea;
+  int SelPointer, RetPointer, LegalPointer, GrowthPointer, MovePointer, IdestArea;
   Type NtagRel, CumReleases;
   Type RetainTemp, NtotalT, ScaleRedQ, ScaleWhiteM;
   Type Enc, RepTot, RepOne;
@@ -1670,7 +1671,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
   Type ObsL, PredL, ObsSS, LikeSize1, LikeTag2, LikeCompT;
   Type TotalReported;
   vector<Type> Ntemp2(dat.MaxLen);
-  vector<Type> MoveVec(dat.MaxLen);
+  const Type TinyN = 1e-20;      // keeps release allocation finite when a size class is empty
 
   array<Type> selexF(dat.Nfleet, dat.Nsex, dat.Nage, dat.MaxLen);
   array<Type> retainF(dat.Nfleet, dat.Nsex, dat.Nage, dat.MaxLen);
@@ -1678,7 +1679,6 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
   array<Type> Z_rate_Tag(dat.Narea, dat.Nage, dat.MaxLen);
   array<Type> RecapTmp(dat.Narea, thedata.NrepSplit, dat.MaxLen);
   array<Type> Ntemp_Tag(thedata.NtagLag+1, dat.Narea, dat.Nage, dat.MaxLen);
-  array<Type> Nmove_Tag(thedata.NtagLag+1, dat.Narea, dat.Nage, dat.MaxLen);
 
   // LOCAL Ntag with reduced dimensions (no sex/group dimension needed)
   array<Type> Ntag_local(dat.Narea, thedata.NtagLag+1, dat.Nage, dat.MaxLen);
@@ -1730,8 +1730,10 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
                 NtotalT = 0;
                 for (int Iage=0; Iage<Nage; Iage++)
                   NtotalT += N(Iarea,Kyear,Istep,SexPass,Iage,Isize);
+                // Allocate the tags to ages in proportion to N; branch-free and finite even
+                // if this size class is empty (then split evenly across ages)
                 for (int Iage=0; Iage<Nage; Iage++)
-                  Ntag_local(Iarea,NtagLag,Iage,Isize) += N(Iarea,Kyear,Istep,SexPass,Iage,Isize)/NtotalT*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
+                  Ntag_local(Iarea,NtagLag,Iage,Isize) += (N(Iarea,Kyear,Istep,SexPass,Iage,Isize)+TinyN)/(NtotalT+Type(Nage)*TinyN)*thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,Isize+1)*thedata.InitialLoss;
               }
             }
             NotReported(SexPass,GrpPass) += thedata.TagRel(SexPass,GrpPass,Iarea,Jyear,Istep,0)*(1.0-thedata.InitialLoss);
@@ -1826,18 +1828,16 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
                 for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
                   NtotalT += RecapTmp(Iarea,IrepSplit,Isize);
 
-                // PROTECTION: Only compute likelihood if we have predicted recaptures
-                if (NtotalT > 1e-10) {
-                  for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                // Always computed (no branch on the AD value NtotalT): with no predicted
+                // recaptures PredL is ~0 and the 1e-10 terms keep the log finite
+                for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
+                {
+                  PredL = RecapTmp(Iarea,IrepSplit,Isize)/(NtotalT+1e-10);
+                  PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
+                  if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
                   {
-                    PredL = RecapTmp(Iarea,IrepSplit,Isize)/NtotalT;
-                    PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
-                    if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
-                    {
-                      ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
-                      // Add small constant to avoid log(0)
-                      LikeSize1 -= ObsL*ObsSS*log((PredL+1e-10)/(ObsL+1e-10));
-                    }
+                    ObsL = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)/ObsSS;
+                    LikeSize1 -= ObsL*ObsSS*log((PredL+1e-10)/(ObsL+1e-10));
                   }
                 }
               }

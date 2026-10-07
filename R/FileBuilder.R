@@ -198,7 +198,16 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% dplyr::select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+  min_cpue_obs <- 3
+  catch_cells  <- dat %>% filter(catch > 0) %>% distinct(year, step, fleet)
+  Udat <- readWorkbook(wb, sheet = 'CPUE', startRow = 2) %>%
+    mutate(Year = as.numeric(as.character(Year))) %>%
+    filter(Year %in% startseason:endseason) %>%
+    filter(!(Fleet %in% catch_cells$fleet) |
+             paste(Year, Step, Fleet) %in% paste(catch_cells$year, catch_cells$step, catch_cells$fleet)) %>%
+    group_by(CpueInd) %>% filter(n_distinct(Year) >= min_cpue_obs) %>% ungroup() %>%
+    mutate(CpueInd = dplyr::dense_rank(as.numeric(as.character(CpueInd))) - 1) %>%
+    arrange(CpueInd)
   tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
 
   ## Fixed sigma by index (optional 'Fixsigma' column; blank/NA/missing = 0 = estimate)

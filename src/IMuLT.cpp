@@ -1259,15 +1259,21 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
       for (int Iage=0;Iage<dat.Nage;Iage++)
       {
-        if(dat.IsRed(Isex,Iage,Iarea,0)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
+        Type Mtot = 0;
+        for (int Istep=0;Istep<dat.Nstep;Istep++)
+        {
+          if(dat.IsRed(Isex,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
+          Mtot += dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*ScaleWhiteM;
+        }
         if(dat.IsRed(Isex,Iage,Iarea,0)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;
         for (int Isize=0;Isize<dat.MaxLen;Isize++)
         {
           I(Offset+Isize,Offset+Isize) = 1.0;
           // NB: '+' on the F term -- fine while Finitial = 0 (unfished); would need '-' otherwise
-          S(Offset+Isize,Offset+Isize) = exp(-M(Iarea,Iage)*ScaleWhiteM+ActSelex(Isex,Isize)*ScaleRedQ*Finitial);
+          S(Offset+Isize,Offset+Isize) = exp(-Mtot+ActSelex(Isex,Isize)*ScaleRedQ*Finitial);
         }
+
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {
           MM(Offset+Isize,Offset+Isize) = 1.0;

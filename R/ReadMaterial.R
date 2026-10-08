@@ -2206,7 +2206,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   # Main parameters
   # R0, M-bar, M-at-age-offset, WjotyesScaleM, RedsScaleQ, SigmaR
   OK <- 1
-  NmainPars = 4+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
+  NmainPars = 5+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
   Index <- MatchTable(ControlFile,Char1="#",Char2="Basic",Char3="parameters");
   MainPars <- rep(0,NmainPars)
   MainBnd <- matrix(0,nrow=NmainPars,ncol=2)

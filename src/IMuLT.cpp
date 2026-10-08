@@ -2152,6 +2152,7 @@ Type objective_function<Type>::operator() ()
   Type MWhitesPar;
   Type QRedsPar;
   Type SigmaR;
+  Type SigmaSpat;
   int Link;
 
 
@@ -2391,6 +2392,7 @@ Type objective_function<Type>::operator() ()
   MWhitesPar = MainPars(1+Narea+Nage);
   QRedsPar = MainPars(2+Narea+Nage);
   SigmaR = MainPars(3+Narea+Nage);
+  SigmaSpat = MainPars(4+Narea+Nage);
 
   //for (int Iarea=0;Iarea<Narea;Iarea++) LogRinitial(Iarea) = MainPars(4+Narea+Nage+Iarea);
   //Finitial = exp(MainPars(4+2*Narea+Nage));
@@ -2904,8 +2906,7 @@ if(thedata.IsTagData==1){
 
   // Spatial recruitment deviations: N(0, SigmaSpat)
   Type RecSpat_Penal = 0;
-  Type SigmaSpat = Type(0.5);              // or DATA_SCALAR(SigmaSpat) to set it from R
-  for (int i=0; i<RecSpatDevs.size(); i++)
+    for (int i=0; i<RecSpatDevs.size(); i++)
     RecSpat_Penal += square(RecSpatDevs(i)) / (2.0*SigmaSpat*SigmaSpat);
 
   neglogL = dummy*dummy + Rec_Penal + Initial_pen + Rec_Penal_Smooth + Rec_Penal_SumZero + RecSpat_Penal;

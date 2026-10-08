@@ -383,7 +383,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
 
   mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
-  NumMPars <- 1+nrow(areas)+ages+3
+  NumMPars <- 2+nrow(areas)+ages+3
 
   n_need <- NumMPars
   vals   <- nrow(mainpar)
@@ -400,8 +400,10 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, paste(Mpar4,collapse="\t"), "\n")
   Mpar5 <- mainpar %>% filter(grepl('Morph0Q', name, ignore.case=T)) %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
-  Mpar6 <- mainpar %>% filter(grepl('Sigma', name, ignore.case=T)) %>% dplyr::select(-name)
+  Mpar6 <- mainpar %>% filter(name == 'SigmaR')    %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
+  Mpar7 <- mainpar %>% filter(name == 'SigmaSpat') %>% dplyr::select(-name)
+  tmp <- c(tmp, paste(Mpar7,collapse="\t"), "\n")
 
   tmp <- c(tmp, "\n# Q parameters\n")
   Qpar1 <- 1

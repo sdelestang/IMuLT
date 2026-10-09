@@ -198,7 +198,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  min_cpue_obs <- 3
+  min_cpue_obs <- 5
   catch_cells  <- dat %>% filter(catch > 0) %>% distinct(year, step, fleet)
   Udat <- readWorkbook(wb, sheet = 'CPUE', startRow = 2) %>%
     mutate(Year = as.numeric(as.character(Year))) %>%
@@ -971,6 +971,42 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   }
   egappar_sum %<>% mutate(Pointer=pattern)
   tegappar  <- ExpandSelectPars(wb, startseason, endseason)
+  ## ---- Remap selectivity links after expansion -----------------------------
+  ## Excel 'link' = 1-based row in the Selectivity parameter table (egappar order).
+  ## ExpandSelectPars copies rows for decimal yearlinks and the output is re-ordered,
+  ## so translate each link to the key of the row it names, then to its final position.
+  ## A copied family (e.g. 4.1) links to its own copy of the target if one exists,
+  ## otherwise to the base row.
+  xl_key  <- paste(egappar$uniq, tolower(egappar$id))            # Excel row order
+  out_key <- paste(tegappar$uniq, tolower(tegappar$id))          # final SELEXSPEC order
+  if (anyDuplicated(out_key))
+    stop("Duplicate selectivity parameter keys: ",
+         paste(unique(out_key[duplicated(out_key)]), collapse = ", "), call. = FALSE)
+  fam <- sub("^\\S+\\s+", "", tegappar$uniq)                     # yearlink text, e.g. "4.1"
+
+  for (r in which(tegappar$link != 0)) {
+    L <- abs(tegappar$link[r])
+    if (L > length(xl_key))
+      stop("Selectivity link ", L, " (row ", r, ", ", out_key[r],
+           ") is beyond the Excel parameter table", call. = FALSE)
+    tgt     <- xl_key[L]                                         # e.g. "M 4 p3"
+    tgt_sex <- sub(" .*", "", tgt)
+    tgt_id  <- sub(".* ", "", tgt)
+    tgt_fam <- sub("^\\S+\\s+(\\S+)\\s+\\S+$", "\\1", tgt)
+    cand    <- paste(tgt_sex, fam[r], tgt_id)                    # same-family copy of target
+    pos <- if (floor(as.numeric(fam[r])) == as.numeric(tgt_fam) && cand %in% out_key)
+      match(cand, out_key) else match(tgt, out_key)
+    if (is.na(pos))
+      stop("Selectivity link target '", tgt, "' (row ", r, ") not found after expansion", call. = FALSE)
+    if (pos == r)
+      stop("Selectivity row ", r, " (", out_key[r], ") links to itself", call. = FALSE)
+    if (pos > r)
+      warning("Selectivity row ", r, " (", out_key[r], ") links forward to row ", pos,
+              " (", out_key[pos], "); check the link code handles a parent after its child",
+              call. = FALSE)
+    if (tegappar$link[r] > 0) tegappar$par[r] <- tegappar$par[pos]  # mirror: show parent's value
+    tegappar$link[r] <- sign(tegappar$link[r]) * pos
+  }
   par_order <- unique(tegappar$uniq)
   if (!setequal(par_order, egappar_sum$uniq))
     stop("Selectivity patterns and parameters don't match.",

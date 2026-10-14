@@ -1002,6 +1002,15 @@ UpdateLFWeights <- function(todo='No'){
 #' @param scale_file Character. File the Hessian diagonal is read from and
 #'   saved to at the end of the final phase. Default
 #'   \code{"Output/hess_diag.rds"}.
+#' @param fix_proj_recdevs Logical. If \code{TRUE} (default), recruitment
+#'   deviations in projection years that no data can inform are fixed at 0 and
+#'   not estimated. The cut-off is taken from the model dimensions: projection
+#'   years start at \code{Data$BurnIn + Data$Nyear}, and the first
+#'   \code{recdev_keep_proj} of them stay estimated.
+#' @param recdev_keep_proj Integer or \code{NULL}. Number of projection-year
+#'   deviations to keep estimated. \code{NULL} (default) uses
+#'   \code{Data$Larval_Offset} (the puerulus delay), since puerulus in the last
+#'   assessment years informs recruitment that many years into the projection.
 #'
 #' @details
 #' \strong{Stall detection:} nlminb calls in the final phase (initial,
@@ -1059,7 +1068,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      stall_tol_restart = 0.5, bfgs_skip_grad = 50,
                      stall_final_only = TRUE,
                      use_scale = TRUE,
-                     scale_file = "Output/hess_diag.rds") {
+                     scale_file = "Output/hess_diag.rds",
+                     fix_proj_recdevs = TRUE,
+                     recdev_keep_proj = NULL) {
 
   ##  globals populated by LoadData() / LoadPars() --------
   need <- c("Data", "InitialVars")
@@ -1098,6 +1109,28 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           InitialVars[[pname]]$Phase[i] <- -abs(InitialVars[[pname]]$Phase[i])
         }
       }
+    }
+  }
+
+  ## Fix projection-year recruitment deviations that no data can inform ##
+  # RecDevs[i] applies to model-year index Data$RecYr1 + i - 1 (IMuLT.cpp: ActRecDev).
+  # Projection years start at Data$BurnIn + Data$Nyear. Puerulus in the last assessment
+  # years informs recruitment Larval_Offset years ahead, so that many projection devs are
+  # kept; the rest have nothing to fit and, left free, are used to balance the
+  # sum-to-zero penalty. Setting their phase negative here (not editing the map later)
+  # keeps map, EstVec and bounds aligned in SetInitialAndPhases.
+  if (isTRUE(fix_proj_recdevs) && length(InitialVars$RecDevs$Initial) > 0) {
+    keep_proj <- if (!is.null(recdev_keep_proj)) recdev_keep_proj else if (!is.null(Data$Larval_Offset)) Data$Larval_Offset else 0
+    nrd     <- length(InitialVars$RecDevs$Initial)
+    rd_iyr  <- Data$RecYr1 + seq_len(nrd) - 1               # model-year index of each dev
+    first_p <- Data$BurnIn + Data$Nyear                     # first projection-year index
+    rd_off  <- rd_iyr >= first_p + keep_proj
+    if (any(rd_off)) {
+      InitialVars$RecDevs$Initial[rd_off] <- 0
+      ph <- InitialVars$RecDevs$Phase[rd_off]
+      InitialVars$RecDevs$Phase[rd_off] <- ifelse(ph == 0, -1, -abs(ph))
+      cat(sprintf("RecDevs: last %d of %d fixed at 0 (projection years beyond %d kept; Nproj = %d)\n",
+                  sum(rd_off), nrd, keep_proj, Data$Nproj))
     }
   }
 

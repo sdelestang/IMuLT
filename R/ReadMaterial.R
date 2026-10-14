@@ -441,12 +441,27 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   NcpueDataSeries <- as.numeric(DataFile[Index+2,1]);
   IndexType <- as.numeric(DataFile[Index+4,1:NcpueDataSeries]);
   FixSigmaCpue <- as.numeric(DataFile[Index+6,1:NcpueDataSeries]);
-  TreatQcpue <- as.numeric(DataFile[Index+8,1:NcpueDataSeries]);
-  EnvIndCpue  <- as.numeric(DataFile[Index+10,1:NcpueDataSeries]);
-  EffCrIndCpue  <- as.numeric(DataFile[Index+12,1:NcpueDataSeries]);
-  EffCrLag  <- as.numeric(DataFile[Index+14,1:max(EffCrIndCpue)]);
-  SigmaCpueOffset <- as.numeric(DataFile[Index+16,1]);
-  SigmaCpueCeiling <- as.numeric(DataFile[Index+18,1]);
+
+  # Optional: fixed sigma by series (line straight after "Treatment of sigma"). 0 = estimate.
+  # If absent (older DATA.DAT), default to all zeros and no offset for the lines below.
+  Off <- 0
+  if (identical(as.character(DataFile[Index+7,1]),"#") & identical(as.character(DataFile[Index+7,2]),"Fixed") & identical(as.character(DataFile[Index+7,3]),"sigma"))
+  {
+    FixedSigmaCpue <- as.numeric(DataFile[Index+8,1:NcpueDataSeries])
+    if (any(is.na(FixedSigmaCpue))) { print("Error reading Fixed sigma by series; not enough inputs: Stopping"); AAA }
+    if (asnum(DataFile[Index+8,NcpueDataSeries+1])) { print("Error reading Fixed sigma by series; too many inputs: Stopping"); AAA }
+    if (any(FixedSigmaCpue < 0)) { print("Error reading Fixed sigma by series; values must be >= 0: Stopping"); AAA }
+    Off <- 2
+  }
+  else
+    FixedSigmaCpue <- rep(0,NcpueDataSeries)
+
+  TreatQcpue <- as.numeric(DataFile[Index+Off+8,1:NcpueDataSeries]);
+  EnvIndCpue  <- as.numeric(DataFile[Index+Off+10,1:NcpueDataSeries]);
+  EffCrIndCpue  <- as.numeric(DataFile[Index+Off+12,1:NcpueDataSeries]);
+  EffCrLag  <- as.numeric(DataFile[Index+Off+14,1:max(EffCrIndCpue)]);
+  SigmaCpueOffset <- as.numeric(DataFile[Index+Off+16,1]);
+  SigmaCpueCeiling <- as.numeric(DataFile[Index+Off+18,1]);
   Index <- MatchTable(DataFile,Char1="#",Char2="The",Char3="cpue",Char4="data"); Ncpue  <- as.numeric(DataFile[Index+1,1]); Index <- Index + 2
   write(paste("Number of cpue points",Ncpue),EchoFile,append=T)
   IndexI <- matrix(0,nrow=Ncpue,ncol=5)
@@ -567,6 +582,7 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
   ReturnObj$NcpueDataSeries <- NcpueDataSeries
   ReturnObj$IndexType <- IndexType
   ReturnObj$FixSigmaCpue <- FixSigmaCpue
+  ReturnObj$FixedSigmaCpue <- FixedSigmaCpue
   ReturnObj$SigmaCpueOffset <- SigmaCpueOffset
   ReturnObj$SigmaCpueCeiling <- SigmaCpueCeiling
   ReturnObj$TreatQcpue <- TreatQcpue
@@ -707,6 +723,16 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   write("Number of fleets by area",EchoFile,append=T)
   write(Narea_fleet,EchoFile,append=T)
 
+  # Optional: morph (red) catchability applied to each fleet's data predictions (1=yes, 0=no). Default all 1.
+  MorphQFleet <- rep(1, GeneralSpecs$Nfleet)
+  Index <- which(ControlFile[,1]=="#" & ControlFile[,2]=="Morph" & ControlFile[,3]=="catchability")
+  if (length(Index)==1)
+  {
+    MorphQFleet <- as.numeric(ControlFile[Index+1,1:GeneralSpecs$Nfleet])
+    if (any(is.na(MorphQFleet)) | any(!MorphQFleet %in% c(0,1))) { print("Error reading Morph catchability by fleet; need Nfleet values of 0 or 1: Stopping"); AAA }
+    if (asnum(ControlFile[Index+1,GeneralSpecs$Nfleet+1])) { print("Error reading Morph catchability by fleet; too many inputs: Stopping"); AAA }
+  }
+
   Index <- MatchTable(ControlFile,Char1="#",Char2="Number",Char4="Zones");
   Nzone <- as.numeric(ControlFile[Index+1,1])
   Index <- MatchTable(ControlFile,Char1="#",Char2="Areas",Char4="each",Char5="Zone");
@@ -791,8 +817,8 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   # WeightInitialN <- as.numeric(ControlFile[Index+7,1])
   # WeightInit3 <- as.numeric(ControlFile[Index+8,1])
 
-  LambdaCpue2 <- rep(1.0,Data$NcpueDataSeries)
-  LambdaNumbers2 <- rep(1.0,Data$NcatchDataSeries)
+  LambdaCpue2 <- rep(1.0,DataSpecs$NcpueDataSeries)
+  LambdaNumbers2 <- rep(1.0,DataSpecs$NcatchDataSeries)
   LambdaLength2 <- array(1.0,dim=c(GeneralSpecs$Nfleet,GeneralSpecs$Nstep,GeneralSpecs$Nsex))
   Index <- MatchTable(ControlFile,Char1="#",Char2="Weights",Char3="by");
   UseLambdaDetailed <- as.numeric(ControlFile[Index+2,1])
@@ -801,16 +827,23 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
     for (II in 1:UseLambdaDetailed)
     {
       TheSpec <-as.numeric(ControlFile[Index+2+II,1:5])
+      # CPUE: match by fleet (0-based, as in IndexI[,2]); dataset IDs are 0-based -> +1 for R position
       if (TheSpec[1]==1)
       {
-        Fleet <- TheSpec[2]+1; IdataSet <- unique(Data$IndexI[Data$IndexI[,2]==Fleet,1]); Wght <- TheSpec[5]
+        Fleet <- TheSpec[2]; Wght <- TheSpec[5]
+        IdataSet <- unique(DataSpecs$IndexI[DataSpecs$IndexI[,2]==Fleet,1]) + 1
+        #if (length(IdataSet)==0) warning("Weights by fleet: no CPUE data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaCpue2[IdataSet] <- Wght
       }
+      # Numbers: match by fleet (0-based, as in NumbersI[,2]); dataset IDs are 0-based -> +1 for R position
       if (TheSpec[1]==2)
       {
-        IdataSet <- TheSpec[2]+1; Wght <- TheSpec[5]
+        Fleet <- TheSpec[2]; Wght <- TheSpec[5]
+        IdataSet <- unique(DataSpecs$NumbersI[DataSpecs$NumbersI[,2]==Fleet,1]) + 1
+        if (length(IdataSet)==0) warning("Weights by fleet: no catch-numbers data for fleet ", Fleet, " (0-based) - weight ignored", call.=FALSE)
         LambdaNumbers2[IdataSet] <- Wght
       }
+      # Length: fleet/step/sex are 0-based in the file -> +1 for R array positions
       if (TheSpec[1]==3)
       {
         Ifleet <- TheSpec[2]+1;Istep <- TheSpec[3]; Isex <- TheSpec[4]+1; Wght <- TheSpec[5]
@@ -819,9 +852,12 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
         else
           LambdaLength2[Ifleet,Istep+1,Isex] <- Wght
       }
-
     }
   }
+  write("CPUE weights by data set",EchoFile,append=T)
+  write(LambdaCpue2,EchoFile,append=T,ncol=length(LambdaCpue2))
+  write("Catch-numbers weights by data set",EchoFile,append=T)
+  write(LambdaNumbers2,EchoFile,append=T,ncol=max(1,length(LambdaNumbers2)))
 
   Index <- MatchTable(ControlFile,Char1="#",Char2="Number",Char4="variance");
   NvarTypes <- as.numeric(ControlFile[Index+1,1])
@@ -849,14 +885,13 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$Fleet_area <- Fleet_area
   ReturnObj$Narea_fleet <- Narea_fleet
   ReturnObj$Area_fleet <- Area_fleet
+  ReturnObj$MorphQFleet <- MorphQFleet
   ReturnObj$Nzone <- Nzone
   ReturnObj$NareasPerZone <- NareasPerZone
   ReturnObj$AreasPerZone <- AreasPerZone
   ReturnObj$NefficPar <- NefficPar
   ReturnObj$Phi1 <- Phi
   ReturnObj$WeightLen <- WeightLen
-  #ReturnObj$MatFem <- MatFem
-  #ReturnObj$MatAge <- MatAge
   ReturnObj$MatTimeStep <- MatTimeStep
   ReturnObj$BioTimeStep <- BioTimeStep
   ReturnObj$RecYr1 <- RecYr1
@@ -1650,11 +1685,17 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   write("Fixed recruitment patterns",EchoFile,append=T)
   write(t(RecruitFrac),EchoFile,append=T,ncol=GeneralSpecs$MaxLen)
 
-  # REcruitment Parameters linking conditions
+  # Recruitment Parameters linking conditions
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Recuitment1");
   npars <- GeneralSpecs$Narea+(NfixedRecruits*2)
   RecparsLink <- as.numeric(RecruitFile[(Index+2):(Index+npars+1),5])
   RecparsPrior <- apply(as.matrix(RecruitFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
+
+  # Larval / puerulus conditions
+  Index <- MatchTable(RecruitFile,Char1="#",Char2="Puerulus",Char3="Power");
+  npars <- as.numeric(RecruitFile[Index+1,1])
+  LarparsLink <- as.numeric(RecruitFile[(Index+3):(Index+npars+2),5])
+  LarparsPrior <- apply(as.matrix(RecruitFile[(Index+3):(Index+npars+2),6:8]),2,as.numeric)
 
   Index <- MatchTable(RecruitFile,Char1="#",Char2="Bias",Char3="ramp")+1;
   Bias_Ramp_Yr1 <- as.numeric(RecruitFile[Index,1])-GeneralSpecs$Year1;
@@ -1677,6 +1718,8 @@ ReadRecruitFile <- function(RecruitFile,GeneralSpecs)
   ReturnObj$CalcRecruitFrac <- CalcRecruitFrac
   ReturnObj$RecparsLink <- RecparsLink
   ReturnObj$RecparsPrior <- RecparsPrior
+  ReturnObj$LarparsLink <- LarparsLink
+  ReturnObj$LarparsPrior <- LarparsPrior
   ReturnObj$Bias_Ramp_Yr1  <- Bias_Ramp_Yr1;
   ReturnObj$Bias_Ramp_Yr2  <- Bias_Ramp_Yr2;
   ReturnObj$Bias_Ramp_Yr3  <- Bias_Ramp_Yr3;
@@ -2163,7 +2206,7 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   # Main parameters
   # R0, M-bar, M-at-age-offset, WjotyesScaleM, RedsScaleQ, SigmaR
   OK <- 1
-  NmainPars = 4+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
+  NmainPars = 5+(GeneralSpecs$Nage)+GeneralSpecs$Narea;                       #// 5 is no virgin M
   Index <- MatchTable(ControlFile,Char1="#",Char2="Basic",Char3="parameters");
   MainPars <- rep(0,NmainPars)
   MainBnd <- matrix(0,nrow=NmainPars,ncol=2)

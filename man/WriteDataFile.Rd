@@ -59,7 +59,7 @@ When generating pseudo-data, the function simulates realistic observation error:
 \itemize{
 \item \strong{CPUE/Index data}: Lognormal error with bias correction:
 \code{pred * exp(rnorm(0, sigma) - sigma²/2)}
-  \item \strong{Catch-in-numbers}: Lognormal error as above
+\item \strong{Catch-in-numbers}: Lognormal error as above
 \item \strong{Length compositions}: Multinomial resampling accounting for overdispersion
 via LambdaLength2 parameters, then rescaled to original sample size
 \item \strong{Larval indices}: Lognormal error with specified CV

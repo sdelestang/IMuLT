@@ -314,10 +314,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ctl2 <- findNclean(c('#','Basic','parameters'), ctl1, 1, char=T)
   mpnames <- ctl2$X10
   mainP$name <- mpnames[as.numeric(do.call('rbind', strsplit(mainP$name, '_'))[,2])]
-  mainP$est <- round(mainP$est,2)
-  #mainP <- mainP[c(1,nrow(mainP)),]
-  #rownames(mainP) <- 1:2
-  #pander(mainP)
+  mainP$est <- round(as.numeric(mainP$value), 2)
 
   pout <- read.delim(paste("Parameters_solved.txt",sep=''),sep='\t',stringsAsFactors =F)
   pout$Parameter <- ifelse(pout$Parameter=='MainPars', mpnames[pout$Number],pout$Parameter)
@@ -598,9 +595,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   #### Growth ####
   print("Making Growth Curves")
-  #  grow <- findNclean(c('#Growth','Curves'), dat, 2)
-  #  head(grow)
-  #  num <- length(unique(grow$sex))*length(unique(grow$area))
 
   find_unique_growth_years <- function(GrowthPnt) {
     dims  <- dim(GrowthPnt)
@@ -617,11 +611,18 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     results
   }
 
-  compound_growth_trajectory <- function(Data, GrowthPnt, length_midpoints = Data$MidLenBin[1,1:Data$Nlen[1]], Nyear_traj = 30) {
+  # STM: array [pattern/pointer, to, from] -- Data$TransInp (inputted, prespecified
+  # matrices) or Report$ActGrowth (the matrices the model actually used, i.e. built
+  # from the estimated growth parameters). GrowthPnt stores the pattern number,
+  # which indexes ActGrowth directly; it indexes TransInp only because pattern i
+  # points to prespecified matrix i in this model.
+  compound_growth_trajectory <- function(Data, GrowthPnt, STM = Data$TransInp,
+                                         length_midpoints = Data$MidLenBin[1,1:Data$Nlen[1]],
+                                         Nyear_traj = 30) {
 
     dims  <- dim(GrowthPnt)
     Narea <- dims[1]; Nsex <- dims[2]; Nstep <- dims[5]
-    nlbin <- dim(Data$TransInp)[2]
+    nlbin <- dim(STM)[2]
 
     unique_years <- find_unique_growth_years(GrowthPnt)
 
@@ -647,7 +648,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
             for (t in 1:Nstep) {
               ptr <- GrowthPnt[a, s, 1, py, t]
               if (ptr >= 0) {
-                stm  <- Data$TransInp[ptr + 1, , ]
+                stm  <- STM[ptr + 1, , ]
                 dist <- as.numeric(stm %*% dist)
               }
             }
@@ -678,30 +679,55 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     do.call(rbind, all_results)
   }
 
-  # Run
-  growth_traj <- compound_growth_trajectory(Data, Data$GrowthPnt, Nyear_traj = 30)
-
-  growth_traj %<>% mutate(year=factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]))
+  # Run: inputted STMs, plus the model's own STMs if BigSave.lda is available
+  growth_traj <- compound_growth_trajectory(Data, Data$GrowthPnt, STM = Data$TransInp,
+                                            Nyear_traj = 30) %>% mutate(source = "Input STM")
+  if (file.exists("BigSave.lda")) {
+    BigSave <- NULL
+    load("BigSave.lda")
+    if (!is.null(BigSave$Report$ActGrowth)) {
+      growth_traj <- bind_rows(
+        growth_traj,
+        compound_growth_trajectory(Data, Data$GrowthPnt, STM = BigSave$Report$ActGrowth,
+                                   Nyear_traj = 30) %>% mutate(source = "Model")
+      )
+    }
+  } else {
+    print("BigSave.lda not found - plotting inputted growth only")
+  }
+  growth_traj %<>% mutate(year   = factor((Data$Year1:Data$Year2)[as.numeric(as.character(pattern_year))]),
+                          source = factor(source, levels = c("Input STM", "Model")))
+  has_model <- "Model" %in% growth_traj$source
 
   for(s in unique(growth_traj$sex)){
     filename <- filenametopath(rundir,paste(s,"Growth_Curves1.png"))
     plotprep(width=10,height=10,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=Fdims(1))
-    # Plot with ribbon for +/- 1 SD
-    print(ggplot(growth_traj[growth_traj$sex==s,], aes(x = age, colour = year, fill = year)) +
-            geom_ribbon(aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
+    # Ribbon (+/- 1 SD) on the model curves only (or input if no model), to keep it readable
+    rib_src <- if (has_model) "Model" else "Input STM"
+    print(ggplot(growth_traj[growth_traj$sex==s,],
+                 aes(x = age, colour = year, fill = year, linetype = source)) +
+            geom_ribbon(data = growth_traj[growth_traj$sex==s & growth_traj$source==rib_src,],
+                        aes(ymin = lo_len, ymax = hi_len), alpha = 0.15, colour = NA) +
             geom_line(aes(y = mean_len), linewidth = 0.8) +
+            scale_linetype_manual(values = c("Input STM" = "dashed", "Model" = "solid")) +
             facet_wrap( ~ area) +
             labs(
-              x      = "Age (years since recruitment)",
-              y      = "Mean length (mm)",
-              colour = "Year first seen",
-              fill   = "Year first seen",
-              title  = "Growth by area"
+              x        = "Age (years since recruitment)",
+              y        = "Mean length (mm)",
+              colour   = "Year first seen",
+              fill     = "Year first seen",
+              linetype = NULL,
+              title    = paste("Growth by area -", s)
             ) +
             theme_bw())
 
-    caption <- paste("Inputted growth trajectories by model areas for",s)
+    caption <- if (has_model) {
+      paste("Growth trajectories by model area for", s,
+            "- inputted STMs (dashed) and the STMs used by the model (solid, ribbon = +/- 1 SD).")
+    } else {
+      paste("Inputted growth trajectories by model areas for", s)
+    }
     addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)}
 
   filename <- filenametopath(rundir,"Growth_Curves2.png")
@@ -709,16 +735,19 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   parset(plots=Fdims(1))
   print(ggplot(growth_traj, aes(x = age, y = mean_len, colour = area, linetype = year)) +
           geom_line(linewidth = 0.8) +
-          facet_wrap(~ sex) +
+          facet_grid(source ~ sex) +
           labs(
             x            = "Age (years since 1st Length bin)",
             y            = "Mean length (mm)",
             colour       = "Model area",
             title        = "Growth by sex"
           ) + theme_bw())
-  caption <- "Inputted growth trajectories between model areas."
+  caption <- if (has_model) {
+    "Growth trajectories between model areas: inputted STMs (top) and STMs used by the model (bottom)."
+  } else {
+    "Inputted growth trajectories between model areas."
+  }
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
-
   #### Fit to Data ####
   #### Commercial Catches ####
   print("Making Model fit to Catch")
@@ -860,15 +889,21 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   #### Index data ####
+  #### Index data ####
   print("Making Model fit to Abundance Indices")
   tdat <- findNclean(c('Index','data'), dat, 2)
   cpuesd <- sdr[grepl('PredCpue', sdr$name),]
 
   if(nrow(cpuesd)>0) suppressWarnings(tdat <- cbind(tdat,cpuesd))
-  if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>% group_by(Sex, Fleet,Year,Time_step) %>%  summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV), obsUp=exp(log(mean(Observed))+(Lse*SclErr)) ,obsLow=exp(log(mean(Observed))-(Lse*SclErr)), est=mean(Predicted), esd=NA,estlwr=est,estupr=est)
+  ## Keep Data_set in the grouping so each index series stays separate (needed to break lines)
+  if(nrow(cpuesd)==0) tdat1 <- tdat %>% mutate(yts=Year+(Time_step-1)/max(Time_step)) %>%
+    group_by(Data_set, Sex, Fleet, Year, Time_step) %>%
+    summarise(obs=mean(Observed), Lse=log(mean(Observed))*mean(Relative_CV),
+              obsUp=exp(log(mean(Observed))+(Lse*SclErr)), obsLow=exp(log(mean(Observed))-(Lse*SclErr)),
+              est=mean(Predicted), esd=NA, estlwr=est, estupr=est, .groups = "drop")
   if(nrow(cpuesd)>0) tdat1 <- tdat %>%
     mutate(yts = Year + (Time_step-1)/max(Time_step)) %>%
-    group_by(Sex, Fleet, Year, Time_step) %>%
+    group_by(Data_set, Sex, Fleet, Year, Time_step) %>%
     summarise(obs    = mean(Observed),
               Lse    = mean(Relative_CV),
               obsUp  = exp(log(mean(Observed)) + Lse*SclErr),
@@ -879,6 +914,16 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
               .groups = "drop")
 
   tdat2 <- tdat1 %>% pivot_longer(col=c(obs,est), names_to = 'type') %>% mutate(lwr=ifelse(type=='obs',obsLow,estlwr),upr=ifelse(type=='obs',obsUp,estupr))
+
+  ## Line segments: a new segment wherever a year is missing within a series, and every
+  ## series (Data_set) is its own line -- so lines never join across gaps or across the
+  ## switch from one index series to the next (e.g. the pre/post-2013 q split)
+  tdat2 <- tdat2 %>%
+    arrange(Fleet, Sex, Time_step, type, Data_set, Year) %>%
+    group_by(Fleet, Sex, Time_step, type, Data_set) %>%
+    mutate(seg = cumsum(c(TRUE, diff(Year) > 1))) %>%
+    ungroup() %>%
+    mutate(lgrp = interaction(type, Data_set, seg, drop = TRUE))
 
   tdat2$Fleettype <- fleets$group[match(tdat2$Fleet, fleets$fleet)]
   tdat2$Area <- fleets$newarea[match(tdat2$Fleet, fleets$fleet)]
@@ -892,32 +937,23 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     filename <- filenametopath(rundir,paste0("Fleet ",uf,".png"))
     plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
     parset(plots=c(1,1))
-    if(length(unique(tdat3$aSex))>1) {
-      print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-              geom_line()+geom_point()+
-              geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-              facet_grid(Time_step~aSex)+
-              scale_color_manual(values=c("red","black")) +
-              scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
-              theme(panel.background = element_rect(fill = "white",colour = NA),
-                    panel.border = element_rect(fill = NA, colour = "grey20"),
-                    axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-              ylab('Catch rate (kg/pot)')) } else {
-                {print(ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-                         geom_line()+geom_point()+
-                         geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-                         facet_wrap(~Time_step)+
-                         scale_color_manual(values=c("red","black")) +
-                         scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
-                         theme(panel.background = element_rect(fill = "white",colour = NA),
-                               panel.border = element_rect(fill = NA, colour = "grey20"),
-                               axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-                         ylab('Catch rate (kg/pot)'))}
-              }
+    p <- ggplot(tdat3, aes(x=Year, y=value, colour=type))+
+      geom_line(aes(group = lgrp))+geom_point()+
+      geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
+      scale_color_manual(values=c("red","black")) +
+      scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
+      theme(panel.background = element_rect(fill = "white",colour = NA),
+            panel.border = element_rect(fill = NA, colour = "grey20"),
+            axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
+      ylab('Catch rate (kg/pot)')
+    if(length(unique(tdat3$aSex))>1) p <- p + facet_grid(Time_step~aSex) else p <- p + facet_wrap(~Time_step)
+    print(p)
     caption <- paste(paste(unique(tdat3$aSex), collapse = " & "), unique(tdat3$Descrip),
-                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.")
+                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.",
+                     "Lines break at missing years and where one index series ends and the next begins.")
     addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
   }
+
 
   ### Index/CPUE tuning summary ###
   print("Making Index Tuning Table")
@@ -1349,6 +1385,107 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
                            pearson = (Obs - Est) / sqrt(Est + 1e-5),
                            yt = year + tstep / (max(tstep) + 1))
 
+    ## Where tags ended up: observed vs estimated recaptures by recapture area,
+    ## one panel per release area (summed over years, steps and sexes; sqrt scale
+    ## because most tags are recaptured where they were released)
+    all_areas <- sort(unique(c(tag$RelArea, tag$RecArea)))
+    tagdest <- tag %>%
+      group_by(RelArea, RecArea, repSplit) %>%
+      summarise(Observed = sum(Obs), Estimated = sum(Est), .groups = "drop") %>%
+      group_by(RelArea, repSplit) %>%
+      mutate(ObsProp = Observed / sum(Observed), EstProp = Estimated / sum(Estimated)) %>%
+      ungroup() %>%
+      mutate(RecArea = factor(RecArea, levels = all_areas),
+             RelLab  = factor(paste('Release area', RelArea),
+                              levels = paste('Release area', sort(unique(RelArea)))),
+             Split   = paste('Report split', repSplit))
+    nsplit <- length(unique(tagdest$repSplit))
+
+    dest_plot <- function(d, ylab) {
+      p <- ggplot(d, aes(x = RecArea, y = value, fill = Type)) +
+        geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+        scale_y_sqrt() +
+        scale_x_discrete(drop = FALSE) +
+        scale_fill_manual(values = c(Observed = "grey30", Estimated = "red")) +
+        xlab("Recapture area") + ylab(ylab) +
+        theme_bw() + theme(legend.position = "bottom", legend.title = element_blank())
+      if (nsplit > 1) p + facet_grid(Split ~ RelLab, scales = "free_y")
+      else            p + facet_wrap(~ RelLab, scales = "free_y")
+    }
+
+    # Numbers recaptured
+    d_num <- tagdest %>% dplyr::select(RelLab, RecArea, Split, Observed, Estimated) %>%
+      pivot_longer(c(Observed, Estimated), names_to = "Type", values_to = "value")
+    filename <- filenametopath(rundir, "Tag_destination_numbers.png")
+    plotprep(width = 12, height = if (nsplit > 1) 8 else 10, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(dest_plot(d_num, "Recaptures (sqrt scale)")))
+    caption <- paste("Where tags ended up: observed (grey) and estimated (red) recaptures by recapture area,",
+                     "one panel per release area, summed over years, time steps and sexes (sqrt scale).",
+                     "Differences in bar heights within the release area show reporting/exploitation scale;",
+                     "see the proportions plot for movement alone.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    # Proportion of each release area's recaptures by recapture area (movement only, scale removed)
+    d_prop <- tagdest %>% dplyr::select(RelLab, RecArea, Split, Observed = ObsProp, Estimated = EstProp) %>%
+      pivot_longer(c(Observed, Estimated), names_to = "Type", values_to = "value")
+    filename <- filenametopath(rundir, "Tag_destination_proportions.png")
+    plotprep(width = 12, height = if (nsplit > 1) 8 else 10, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(dest_plot(d_prop, "Proportion of recaptures (sqrt scale)")))
+    caption <- paste("Destination of recaptured tags as a proportion of each release area's recaptures:",
+                     "observed (grey) vs estimated (red), sqrt scale. Removes the overall reporting/exploitation",
+                     "scale so the plot shows movement only.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    ## Observed vs estimated recaptures, one panel per release area, recapture area
+    ## as colour, 1:1 line, sqrt axes
+    tagoe <- tag %>%
+      group_by(RelArea, RecArea, year, repSplit) %>%                 # sum over time steps and sexes
+      summarise(Observed = sum(Obs), Estimated = sum(Est), .groups = "drop") %>%
+      mutate(RecArea = factor(RecArea, levels = all_areas),
+             RelLab  = factor(paste('Release area', RelArea),
+                              levels = paste('Release area', sort(unique(RelArea)))),
+             Split   = paste('Report split', repSplit))
+
+    oe_plot <- function(d, title, ptsize = 1.8) {
+      # square panels: each panel's x and y run from 0 to the same maximum
+      lim <- d %>% group_by(RelLab, Split) %>%
+        summarise(mx = max(c(Observed, Estimated), na.rm = TRUE), .groups = "drop")
+      p <- ggplot(d, aes(x = Observed, y = Estimated, colour = RecArea)) +
+        geom_blank(data = lim, aes(x = mx, y = mx), inherit.aes = FALSE) +
+        geom_blank(data = lim, aes(x = 0,  y = 0),  inherit.aes = FALSE) +
+        geom_abline(intercept = 0, slope = 1, linetype = "dashed", colour = "grey40") +
+        geom_point(alpha = 0.7, size = ptsize) +
+        scale_x_sqrt() + scale_y_sqrt() +
+        scale_colour_brewer(palette = "Dark2", drop = FALSE, name = "Recapture area") +
+        xlab("Observed recaptures (sqrt scale)") + ylab("Estimated recaptures (sqrt scale)") +
+        ggtitle(title) + theme_bw() + theme(legend.position = "bottom")
+      if (nsplit > 1) p + facet_wrap(Split ~ RelLab, scales = "free")
+      else            p + facet_wrap(~ RelLab, scales = "free")
+    }
+
+    # By year (one point per release area x recapture area x year)
+    filename <- filenametopath(rundir, "Tag_obs_vs_est_by_year.png")
+    plotprep(width = 11, height = 11, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(oe_plot(tagoe, "Tag recaptures by year")))
+    caption <- paste("Observed vs estimated tag recaptures by year (summed over time steps and sexes),",
+                     "one panel per release area, coloured by recapture area; dashed line is 1:1 (sqrt axes).",
+                     "Points below the line are under-predicted.")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
+    # Totals (one point per release area x recapture area)
+    tagtot <- tagoe %>% group_by(RelLab, RecArea, Split) %>%
+      summarise(Observed = sum(Observed), Estimated = sum(Estimated), .groups = "drop")
+    filename <- filenametopath(rundir, "Tag_obs_vs_est_totals.png")
+    plotprep(width = 11, height = 11, filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    suppressWarnings(print(oe_plot(tagtot, "Tag recaptures, all years", ptsize = 3)))
+    caption <- paste("Total observed vs estimated tag recaptures over all years by release area (panel)",
+                     "and recapture area (colour); dashed line is 1:1 (sqrt axes).")
+    addplot(filen = filename, rundir = rundir, category = "Tag-Recapture", caption = caption)
+
     # Pearson residuals by release area, faceted by recapture area
     for (a in as.numeric(sort(unique(tag$RelArea)))) {
       tmp <- tag[tag$RelArea == a, ]
@@ -1393,7 +1530,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       }
     }
   }
-
 #### Model Outputs ####
   ### Relative Legal Biomass by area ###
   print("Making Legal Biomass")
@@ -1689,6 +1825,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
 
   ## Estimated parameters ####
+  n_est <- suppressWarnings(as.numeric(dat[p2, 4]))   # from "#Total estimated parameters: N"
+  if (!is.na(n_est) && n_est > 0) {
   print("Making Parameter Diagnostics")
   pars <- findNclean(c('#','Parameter','Par'), dat, 1, char = T)
   nms <- dat[find(c('#','Parameter','Par'), dat, 0),1:15];
@@ -1903,7 +2041,9 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     caption <- "Parameter correlation matrix. Values shown where |r| > 0.85."
     addplot(filen = filename, rundir = rundir, category = "Parameter Table", caption = caption)
   }
-
+  } else {
+    print("No estimated parameters (dummy run) - skipping parameter diagnostics")
+  }
   txt5 <- "Built by Simon de Lestang, Andre Punt  and  Klaas Hartmann. Relies on packages developed by Malcolm Haddon."
 
   runnotes <- matrix(c(txt2,txt2.1,txt3,txt4,txt5), nrow=5)

@@ -6,7 +6,9 @@
 #'
 #' @param ParOld Numeric vector of parameter values from previous phase(s). Used
 #'   to initialize parameters that were estimated in earlier phases at their
-#'   converged values
+#'   converged values. If \code{NULL} (e.g. a warm start via
+#'   \code{FitModel(start_phase = )}), parameters from earlier phases keep their
+#'   initial values from the input files.
 #' @param parameters Named list of parameter arrays/vectors matching the RTMB/TMB
 #'   model structure. Must include all parameter types defined in InitialVars
 #' @param InitialVars Nested list from ReadInitialValues() containing Initial,
@@ -82,7 +84,8 @@ SetInitialAndPhases <- function(ParOld, parameters, InitialVars, CurrPhase)
     Npar <- length(Est)
     for (Ipar in 1:Npar)
     {
-      if (Phase[Ipar] > 0 & Phase[Ipar] <= (CurrPhase-1))
+      # ParOld is NULL on a warm start (start_phase > 1): keep initial values
+      if (!is.null(ParOld) && Phase[Ipar] > 0 && Phase[Ipar] <= (CurrPhase-1))
       {
         Ipnt <<- Ipnt + 1
         Est[Ipar] <- ParOld[Ipnt]
@@ -320,29 +323,29 @@ UpdatePars <- function(todo=' '){
            "before parameters can be updated.", call. = FALSE)
     }
 
-find <- function(KeyWord, DataFile, Offset){
-    KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
-    if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,2]))+Offset
-    if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])))+Offset
-    if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])+grepl(KeyWord[3],DataFile[,4])))+Offset
-    return(pos1)}
+    find <- function(KeyWord, DataFile, Offset){
+      KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
+      if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,2]))+Offset
+      if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])))+Offset
+      if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])+grepl(KeyWord[3],DataFile[,4])))+Offset
+      return(pos1)}
 
-  pout <- read.delim('Output/model final.par',sep='\t',stringsAsFactors =F)
-  #unique(pout$name)
-  locs <-data.frame(par=c('MainPars', 'RecruitPars','PuerPowPars','RecDevs','Qpars','efpars','RecSpatDevs','MovePars','SelPars'), file=c('CONTROL.DAT', 'RECRUITSPEC.DAT', 'RECRUITSPEC.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','MOVESPEC.DAT','SELEXSPEC.DAT'), id=c('Basic parameters','Recuitment1 parameters','Puerulus Power for','Prespecify_rec_devs','Q parameters','Efficiency parameters','Prespecify_spatial_rec_devs','Movement parameters','Selectivity Parameters'), off=c(1,2,3,2,1,2,2,2,2), col=c(3,3,3,1,3,3,1,3,3))
+    pout <- read.delim('Output/model final.par',sep='\t',stringsAsFactors =F)
+    #unique(pout$name)
+    locs <-data.frame(par=c('MainPars', 'RecruitPars','PuerPowPars','RecDevs','Qpars','efpars','RecSpatDevs','MovePars','SelPars'), file=c('CONTROL.DAT', 'RECRUITSPEC.DAT', 'RECRUITSPEC.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','MOVESPEC.DAT','SELEXSPEC.DAT'), id=c('Basic parameters','Recuitment1 parameters','Puerulus Power for','Prespecify_rec_devs','Q parameters','Efficiency parameters','Prespecify_spatial_rec_devs','Movement parameters','Selectivity Parameters'), off=c(1,2,3,2,1,2,2,2,2), col=c(3,3,3,1,3,3,1,3,3))
 
-  for (i in 1:nrow(locs)){
-    DataFile <- read.table(locs$file[i],comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-    ptmp <- pout$est[grepl(locs$par[i], pout$name)]
-    roff <- locs$off[i]
-    coff <- locs$col[i]
-    pos <- find(c(unlist(strsplit(locs$id[i],' '))), DataFile, roff)
-    if(length(ptmp)>0){
-      DataFile[pos:(pos+length(ptmp)-1),coff] <- ptmp
-      write.table(DataFile, locs$file[i], na=" ", sep=" ", row.names = F, col.names = F, quote=F)}
-    print(paste("Parameters upated: ", locs$par[i]))
-  }
-}}
+    for (i in 1:nrow(locs)){
+      DataFile <- read.table(locs$file[i],comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
+      ptmp <- pout$est[grepl(locs$par[i], pout$name)]
+      roff <- locs$off[i]
+      coff <- locs$col[i]
+      pos <- find(c(unlist(strsplit(locs$id[i],' '))), DataFile, roff)
+      if(length(ptmp)>0){
+        DataFile[pos:(pos+length(ptmp)-1),coff] <- ptmp
+        write.table(DataFile, locs$file[i], na=" ", sep=" ", row.names = F, col.names = F, quote=F)}
+      print(paste("Parameters upated: ", locs$par[i]))
+    }
+  }}
 
 
 #' Load Initial Parameter Values for Model Estimation
@@ -481,7 +484,7 @@ LoadPars <- function(aask=''){
   par_info <- list(
     MainPars    = list(phase = InitialVars$MainPars$Phase,      link = Data$MparsLink),
     RecruitPars = list(phase = InitialVars$RecruitPars$Phase,   link = Data$RecparsLink),
-    PuerPowPars = list(phase = InitialVars$PuerPowPars$Phase,   link = NULL),
+    PuerPowPars = list(phase = InitialVars$PuerPowPars$Phase,   link = Data$LarparsLink),
     SelPars     = list(phase = InitialVars$SelPars$Phase,       link = Data$SelparsLink),
     #RetPars     = list(phase = InitialVars$RetPars$Phase,       link = NULL),
     RecDevs     = list(phase = InitialVars$RecDevs$Phase,       link = NULL),
@@ -579,7 +582,7 @@ MakeDiagReport <- function(is95=T,folder_name = '',openfile=TRUE) {
   #source('../../R files/MakeOutPut.R')
   MakeOutPut(is95,folder_name,openfile=openfile)
 
-    #return user to wd
+  #return user to wd
   setwd(current_wd)
 }
 
@@ -928,91 +931,99 @@ UpdateLFWeights <- function(todo='No'){
 #' Fit the IMuLT Stock Assessment Model
 #'
 #' Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-#' progressively introduced across phases, with the final phase employing
-#' sandwich restarts (alternating BFGS on logit-transformed parameters and
-#' nlminb) to escape local minima. Optional Newton polishing steps can further
-#' refine the solution.
-#'
-#' Non-final phases include a plateau diagnostic: after each phase completes,
-#' the rolling delta history is inspected and a message is printed if a plateau
-#' was detected, suggesting a more efficient \code{phit} value for future runs.
-#' nlminb is never interrupted — the diagnostic is informational only.
+#' progressively introduced across phases. In the final phase, nlminb runs until
+#' it stalls (less than \code{stall_tol} NLL reduction over the last
+#' \code{stall_window} evaluations) or hits \code{lphit}, then sandwich restarts
+#' (alternating BFGS on logit-transformed parameters and nlminb) polish the
+#' solution. Optional Newton polishing steps can further refine it.
 #'
 #' @param phit Integer. Maximum number of function evaluations per phase for
 #'   all phases except the last. Default 500.
 #' @param lphit Integer. Maximum number of function evaluations for the last
-#'   phase (per optimiser call). Default 1000.
+#'   phase (per nlminb call). With stall detection on, this is a safety ceiling
+#'   and can be set high (e.g. 5000). Default 1000.
 #' @param mxph Integer. Maximum phase number. If 0, treated as 1. Defaults to
 #'   the global \code{MaxPhase}.
 #' @param PrintLag Integer. Print and plot progress every \code{PrintLag}
-#'   function evaluations. Default 50.
+#'   function evaluations, including during BFGS. Default 50.
 #' @param report Logical. If \code{TRUE}, produce SD report and save outputs
 #'   after the final phase. Default \code{FALSE}.
-#' @param nRestarts Logical. If \code{TRUE}, sandwich restarts (alternating
-#'   BFGS and nlminb) run adaptively in the final phase until either the
-#'   gradient falls below \code{newton_grad_thresh} (ready for Newton) or two
-#'   successive cycles fail to improve the NLL (stuck). If \code{FALSE}, no
-#'   sandwich is performed. Default \code{TRUE}.
+#' @param nRestarts Logical. If \code{TRUE}, sandwich restarts run in the final
+#'   phase. Default \code{TRUE}.
 #' @param newtonSteps Integer. Maximum number of damped Newton polishing steps
-#'   after the sandwich. Only attempted if the gradient is below
-#'   \code{newton_grad_thresh} at sandwich exit; otherwise a warning is
-#'   printed. Default 5.
+#'   after the sandwich. Default 5.
 #' @param newton_grad_thresh Numeric. Gradient threshold below which Newton
-#'   polishing is considered safe. Also used as the sandwich convergence
-#'   criterion. Default 0.1.
-#' @param PrintNll Logical. If \code{TRUE}, display a live multi-panel trace
-#'   plot of the negative log-likelihood during fitting. Default \code{TRUE}.
-#' @param plateau_k Integer. Number of consecutive reporting intervals (each
-#'   \code{PrintLag} evaluations) used in the rolling window for plateau
-#'   detection. Default 4.
-#' @param plateau_cv Numeric. Coefficient of variation threshold below which
-#'   the delta window is declared a plateau. A diagnostic message is printed
-#'   after the phase suggesting a more efficient \code{phit}. Set to 0 to
-#'   disable. Default 0.05 (5\%).
+#'   polishing is considered safe; also the sandwich convergence criterion.
+#'   Default 0.1.
+#' @param sandwich_entry_grad Numeric. If the initial final-phase nlminb ends by
+#'   hitting \code{lphit} while still improving (not stalled), nlminb is re-run
+#'   from its last point until the maximum absolute gradient is at or below this
+#'   value, it stalls, or \code{max_pre_nlminb} calls are used. Also the floor
+#'   for the BFGS gradient-inflation rejection. Default 10.
+#' @param max_pre_nlminb Integer. Maximum number of extra nlminb calls before
+#'   the sandwich. Default 5.
+#' @param bfgs_maxit Integer. Maximum BFGS iterations per sandwich cycle.
+#'   Default 200.
+#' @param checkpoint Logical. If \code{TRUE}, overwrite \code{Output/model final.par}
+#'   (the file \code{UpdatePars()} reads) after every optimiser call in every phase,
+#'   with \code{Output/model final.status.txt} recording the stage, objective and
+#'   max gradient; in the final phase also save \code{Output/checkpoint_par.rds}.
+#'   \code{model final.par} is always rewritten at the end of each phase regardless.
+#'   Default \code{TRUE}.
+#' @param PrintNll Logical. If \code{TRUE}, display a live trace plot of the
+#'   negative log-likelihood. Default \code{TRUE}.
+#' @param plateau_k Integer. Window size (in reporting intervals) for the
+#'   plateau diagnostic. Default 4.
+#' @param plateau_cv Numeric. CV threshold for the plateau diagnostic in
+#'   non-final phases. Set to 0 to disable. Default 0 (off), because a steady
+#'   rate of slow improvement also has a low CV and the diagnostic can mislead.
+#' @param start_phase Integer. First phase to run. Use \code{MaxPhase} for a
+#'   warm start after \code{UpdatePars("Yes")}: earlier-phase parameters start
+#'   from the values in the input files instead of being re-polished. Default 1.
+#' @param stall_window Integer. Number of function evaluations over which
+#'   progress is judged for stall detection. Default 200.
+#' @param stall_tol Numeric. Minimum absolute NLL reduction required over
+#'   \code{stall_window} evaluations; less than this and nlminb is stopped and
+#'   its best point returned. Set to 0 to disable. Default 5.
+#' @param stall_tol_restart Numeric. Stall tolerance (NLL reduction over
+#'   \code{stall_window} evals) for the sandwich and post-Newton nlminb calls,
+#'   where gains are small but the gradient still needs polishing. Default 0.5.
+#' @param bfgs_skip_grad Numeric. Once max|grad| at the start of a sandwich
+#'   cycle is below this, BFGS is skipped and only nlminb runs, since near the
+#'   optimum BFGS mostly inflates the gradient and is rejected. Default 50.
+#' @param stall_final_only Logical. If \code{TRUE}, stall detection is only used
+#'   in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.
+#' @param use_scale Logical. If \code{TRUE}, final-phase nlminb calls use
+#'   \code{scale = sqrt(|diag(H)|)} (normalised to median 1, clamped to
+#'   between 1e-3 and 1e3) so badly scaled parameters such as ln(R0) get sensible step
+#'   sizes. The Hessian diagonal is read from \code{scale_file} (matched by
+#'   parameter name) where available; any parameters not found there are
+#'   computed by forward-differencing the AD gradient. Default \code{TRUE}.
+#' @param scale_file Character. File the Hessian diagonal is read from and
+#'   saved to at the end of the final phase. Default
+#'   \code{"Output/hess_diag.rds"}.
 #'
 #' @details
-#' \strong{Phased estimation:} Parameters are activated across phases via
-#' \code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
-#' the final phase uses \code{lphit}.
+#' \strong{Stall detection:} nlminb calls in the final phase (initial,
+#' pre-sandwich, sandwich step B, post-Newton) are stopped once the best NLL
+#' has improved by less than \code{stall_tol} over the last
+#' \code{stall_window} function evaluations. The best point found is returned.
+#' If the initial final-phase nlminb stalls, the pre-sandwich loop is skipped
+#' and the fit goes straight to BFGS. Stall detection is never applied to BFGS
+#' or to the Newton Hessian evaluations.
 #'
-#' \strong{Plateau diagnostic:} In non-final phases, after the full nlminb call
-#' completes, the rolling window of \code{plateau_k} delta values is inspected.
-#' If the coefficient of variation falls below \code{plateau_cv}, a message is
-#' printed reporting the eval at which the plateau was first detected and
-#' suggesting that \code{phit} could be reduced to that value for future runs.
-#' nlminb is never interrupted — this is purely informational. Set
-#' \code{plateau_cv = 0} to disable. The final phase is never reported on.
+#' \strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
+#' parameters near a bound have tiny chain-rule gradients and can be pushed onto
+#' the bound. A BFGS result is therefore rejected if its gradient is non-finite,
+#' or if it inflates the maximum gradient more than 5-fold (and above
+#' \code{sandwich_entry_grad}); nlminb then continues from the pre-BFGS point.
 #'
-#' \strong{Sandwich restarts:} If \code{nRestarts = TRUE}, the final phase
-#' runs adaptive sandwich cycles (BFGS then nlminb) until the gradient falls
-#' below \code{newton_grad_thresh} or two successive cycles produce no NLL
-#' improvement. BFGS operates in logit-transformed unconstrained space so it
-#' can never step outside bounds or into non-finite regions. The gradient is
-#' adjusted via the chain rule. After BFGS, parameters are back-transformed
-#' and passed to nlminb with full bounds. A safety ceiling of 20 cycles
-#' prevents runaway loops.
+#' \strong{Gradient wrapper:} returns zeros for non-finite gradients to keep
+#' optimisers alive; every accepted point is checked for a finite gradient.
 #'
-#' \strong{Finite penalty wrapper:} The objective function wrapper returns a
-#' large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
-#' TMB evaluation, preventing optimiser crashes.
-#'
-#' \strong{Gradient wrapper:} The gradient wrapper returns a zero vector for
-#' any non-finite or error-producing gradient evaluation, preventing crashes
-#' in optimisers that require finite gradients.
-#'
-#' \strong{Newton polishing:} If \code{newtonSteps > 0} and the gradient at
-#' sandwich exit is below \code{newton_grad_thresh}, damped Newton steps are
-#' attempted using the full Hessian. Each step performs a backtracking line
-#' search (halving the step size up to 10 times) to ensure the objective
-#' actually improves before accepting the step. A final nlminb call follows
-#' to clean up any remaining gradient. If the gradient is above
-#' \code{newton_grad_thresh} at sandwich exit, Newton is skipped with a
-#' warning — the Hessian is unlikely to be well-conditioned and steps would
-#' be unreliable.
-#'
-#' \strong{Global side effects:} Writes to the global environment via
-#' \code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
-#' in \code{TotalEval}, and the current stage label in \code{CurrentStage}.
+#' \strong{Global side effects:} writes \code{TraceDF}, \code{TotalEval},
+#' \code{CurrentStage}, \code{ProfileReport}, \code{ProfileGrad} and
+#' \code{InitialVars} to the global environment.
 #'
 #' @return Invisibly returns \code{NULL}. Side effects include writing
 #'   parameter files to \code{Output/}, and if \code{report = TRUE}, saving
@@ -1023,29 +1034,32 @@ UpdateLFWeights <- function(todo='No'){
 #' # Quick fit, no sandwich
 #' FitModel(500, 1000, nRestarts = FALSE)
 #'
-#' # Full fit — adaptive sandwich + Newton polishing
-#' FitModel(500, 3000, report = TRUE)
+#' # Full fit; final phase runs until stalled (ceiling 5000 evals)
+#' FitModel(500, 5000, report = TRUE)
 #'
-#' # Tighter Newton threshold (only polish if gradient < 0.01)
-#' FitModel(500, 3000, report = TRUE, newton_grad_thresh = 0.01)
+#' # Warm start from a previous run: skip straight to the final phase
+#' UpdatePars("Yes"); LoadPars()
+#' FitModel(500, 5000, report = TRUE, start_phase = MaxPhase)
 #'
-#' # Fit without live plotting
-#' FitModel(500, 1000, PrintNll = FALSE)
-#'
-#' # Tighter plateau diagnostic
-#' FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
-#'
-#' # Disable plateau diagnostic
-#' FitModel(500, 1000, plateau_cv = 0)
+#' # Stricter stall rule
+#' FitModel(500, 5000, report = TRUE, stall_window = 300, stall_tol = 2)
 #' }
 #'
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
                      nRestarts = TRUE, newtonSteps = 5,
-                     newton_grad_thresh = 0.1,
+                     newton_grad_thresh = 20,
+                     sandwich_entry_grad = 10, max_pre_nlminb = 5,
+                     bfgs_maxit = 200, checkpoint = TRUE,
                      PrintNll = TRUE,
-                     plateau_k = 4, plateau_cv = 0.05) {
+                     plateau_k = 4, plateau_cv = 0,
+                     start_phase = 1,
+                     stall_window = 200, stall_tol = 1,
+                     stall_tol_restart = 0.5, bfgs_skip_grad = 50,
+                     stall_final_only = TRUE,
+                     use_scale = TRUE,
+                     scale_file = "Output/hess_diag.rds") {
 
   ##  globals populated by LoadData() / LoadPars() --------
   need <- c("Data", "InitialVars")
@@ -1060,6 +1074,13 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   MaxPhase <- ifelse(mxph == 0, 1, mxph)
+
+  ## Start phase (warm start) ##
+  start_phase <- max(1L, min(as.integer(start_phase), MaxPhase))
+  if (start_phase > 1)
+    cat("Warm start: skipping phases 1 to", start_phase - 1,
+        "- earlier-phase parameters start from input-file values\n")
+  ParOld <- NULL   # earlier phases (if skipped) take their values from the input files
 
   ## Force negative phase for mirrored parameters ##
   link_map <- list(MainPars    = Data$MparsLink,
@@ -1080,6 +1101,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
   }
 
+  assign("InitialVars", InitialVars, envir = .GlobalEnv)   # keep global phases consistent with the fit
+
+  ## Release any graphics hold left by an interrupted earlier run ##
+  # (an Esc/error between dev.hold() and dev.flush() leaves the device frozen
+  #  for the rest of the session, so no further trace plots appear)
+  if (PrintNll && dev.cur() > 1) {
+    for (i in 1:100) if (dev.flush() <= 0) break
+  }
+
   ## Track ##
   TraceDF      <<- data.frame(eval = numeric(0), nll = numeric(0),
                               stage = character(0),
@@ -1096,8 +1126,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   ## Logit transform  (bounded <-> unconstrained) ##
-  # Maps x in [lo, hi] to y in (-Inf, Inf) and back.
-  # Keeps x strictly inside bounds to avoid log(0).
   .to_unbounded <- function(x, lo, hi) {
     x_c <- pmax(pmin(x, hi - 1e-8), lo + 1e-8)
     log((x_c - lo) / (hi - x_c))
@@ -1108,7 +1136,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   # Chain-rule correction: dL/dy = dL/dx * dx/dy
-  # dx/dy for logit = (hi - lo) * sigmoid(y) * (1 - sigmoid(y))
   .chain_grad <- function(g, y, lo, hi) {
     sig  <- 1 / (1 + exp(-y))
     dxdy <- (hi - lo) * sig * (1 - sig)
@@ -1116,10 +1143,19 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
   }
 
   ## Phase loop ##
-  for (CurrPhase in 1:MaxPhase) {
+  for (CurrPhase in start_phase:MaxPhase) {
 
     MaXeVaL    <- ifelse(CurrPhase < MaxPhase, phit, lphit)
     is_final   <- CurrPhase == MaxPhase
+
+    ## Stall detection state ##
+    stall_on     <- stall_tol > 0 && (is_final || !isTRUE(stall_final_only))
+    stall_active <- FALSE        # only TRUE inside .run_nlminb()
+    cur_stall_tol <- stall_tol   # tolerance for the nlminb call currently running
+    stall_hist   <- numeric(0)   # best NLL at each fn call of the current stage
+    BestPar      <- NULL         # parameters at BestFn for the current stage
+    nl_scale     <- 1            # nlminb scale; set from Hessian diagonal in final phase
+    hdiag_used   <- NULL         # Hessian diagonal used this phase (for saving)
 
     parameters <- list(
       MainPars    = InitialVars$MainPars$Initial,
@@ -1169,24 +1205,20 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     last_good <- BestFn   # tracks last finite fn value for penalty fallback
 
-    ## Plateau diagnostic state ─ Not sure this ois worth it. ##
-    # Tracks delta history across all phases. In non-final phases, after the
-    # full nlminb call completes, the behaviour is examined post-hoc and a
-    # suggestion is printed if a plateau was detected. nlminb is never
+    ## Plateau diagnostic state (non-final phases; off by default) ##
     delta_history  <- numeric(0)
-    plateau_eval   <- NA_integer_   # eval at which plateau was first detected
-    min_evals_diag <- PrintLag * (plateau_k + 2)  # warm-up guard
+    plateau_eval   <- NA_integer_
+    min_evals_diag <- PrintLag * (plateau_k + 2)
 
     ## Print suppression flag ##
-    # Set TRUE during sandwich and Newton to silence per-eval NLL prints.
-    # Summary lines from .report_fit are unaffected (outside model$fn).
+    # Only set TRUE around Newton Hessian calculations; BFGS and nlminb print progress.
     suppress_print <- FALSE
 
     ## Store originals then wrap both fn and gr ##
     model$fn_Orig <- model$fn
     model$gr_Orig <- model$gr
 
-    # Objective wrapper: finite-penalty + progress tracking + delta accumulation
+    # Objective wrapper: finite-penalty + progress tracking + delta accumulation + stall check
     model$fn <- function(x) {
       tyy <- model$fn_Orig(x)
 
@@ -1197,22 +1229,22 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       FnCallNo  <<- FnCallNo + 1
 
       if (!is.na(BestFn) && BestFn > tyy) {
-        BestFn <<- tyy
+        BestFn  <<- tyy
+        BestPar <<- x
         if ((FnCallNo %% PrintLag) == 0 && !suppress_print) {
           delta <- 100 * (1 - (tyy / LastPrintFn))
-          cat("Phase ", CurrPhase, " ", FnCallNo, " -LogLike: ",
+          cat(CurrentStage, " ", FnCallNo, " -LogLike: ",
               round(tyy, 3), " | Delta: ", round(abs(delta), 6), "%\n", sep = "")
           LastPrintFn <<- tyy
           .trace_append(TotalEval + FnCallNo, tyy)
           if (PrintNll) {
             dev.hold()
-            .plot_trace(TraceDF, tyy)
-            dev.flush()
+            tryCatch(.plot_trace(TraceDF, tyy),
+                     error   = function(e) NULL,      # a plot failure must never stop the fit
+                     finally = dev.flush())           # always release the hold, even on interrupt
           }
 
-          ## Accumulate delta for post-hoc plateau diagnostic ##
-          # Only in non-final phases, past the warm-up guard, and when enabled. Records the first eval at which the rolling
-          # window CV drops below the threshold.
+          ## Plateau diagnostic (non-final phases only, if enabled) ##
           if (!is_final && plateau_cv > 0 && FnCallNo >= min_evals_diag) {
             delta_history <<- c(delta_history, abs(delta))
             if (length(delta_history) >= plateau_k && is.na(plateau_eval)) {
@@ -1221,22 +1253,165 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
               if (cv < plateau_cv) plateau_eval <<- FnCallNo
             }
           }
-          # ──────────────────────────────────────────────────────────────
+        }
+      }
+
+      ## Stall check (nlminb calls only, via .run_nlminb) ##
+      if (stall_active) {
+        stall_hist[FnCallNo] <<- BestFn
+        if (FnCallNo > stall_window &&
+            (stall_hist[FnCallNo - stall_window] - BestFn) < cur_stall_tol) {
+          stop(structure(class = c("fit_stall", "error", "condition"),
+                         list(message = "nlminb stalled", call = NULL)))
         }
       }
       return(tyy)
     }
 
-    # Gradient wrapper: return zero gradient for non-finite regions instead
-    # of crashing optimisers that require finite gradients
+    # Gradient wrapper: zeros for non-finite gradients (keeps optimisers alive).
+    # A zero gradient looks like convergence, so accepted points are checked with .max_grad().
+    nonfinite_gr <- 0L
+    GrCallNo     <- 0L      # gradient calls in the current nlminb call (for reporting when stalled)
     model$gr <- function(x) {
+      GrCallNo <<- GrCallNo + 1L
       g <- tryCatch(model$gr_Orig(x), error = function(e) NULL)
-      if (is.null(g) || any(!is.finite(g))) return(rep(0, length(x)))
+      if (is.null(g) || any(!is.finite(g))) {
+        nonfinite_gr <<- nonfinite_gr + 1L
+        return(rep(0, length(x)))
+      }
       return(g)
+    }
+
+    # Max |gradient| at x; Inf if non-finite or error.
+    .max_grad <- function(x) {
+      g <- tryCatch(model$gr_Orig(x), error = function(e) NA_real_)
+      if (length(g) == 0 || any(!is.finite(g))) return(Inf)
+      max(abs(g))
+    }
+
+    # Diagonal of the Hessian by forward-differencing the AD gradient
+    # (one gradient call per parameter in idx, plus one).
+    .hess_diag <- function(x, idx = seq_along(x), h = 1e-5) {
+      g0 <- as.vector(model$gr_Orig(x))
+      d  <- rep(NA_real_, length(x))
+      for (i in idx) {
+        hi <- h * max(1, abs(x[i]))
+        xi <- x; xi[i] <- x[i] + hi
+        if (has_bounds && xi[i] > RunSpecs$uppBnd[i]) { hi <- -hi; xi[i] <- x[i] + hi }
+        gi <- tryCatch(as.vector(model$gr_Orig(xi)), error = function(e) NULL)
+        if (!is.null(gi) && is.finite(gi[i])) d[i] <- (gi[i] - g0[i]) / hi
+      }
+      d
+    }
+
+    # nlminb scale from a Hessian diagonal: sqrt(|Hii|), median-normalised and clamped
+    .make_scale <- function(hd) {
+      s <- sqrt(abs(hd))
+      s[!is.finite(s) | s == 0] <- NA
+      if (all(is.na(s))) return(rep(1, length(hd)))
+      s <- s / median(s, na.rm = TRUE)
+      s[is.na(s)] <- 1
+      pmin(pmax(s, 1e-3), 1e3)
+    }
+
+    # Save current final-phase parameters so an interrupted run isn't wasted
+    # Keep Output/model final.par current after every optimiser call (any phase), so
+    # UpdatePars() always picks up the latest parameters, even from an interrupted run.
+    # Output/model final.status.txt records which stage those parameters came from.
+    .checkpoint <- function(m, label) {
+      if (isTRUE(checkpoint)) {
+        .save_par(m$par, " final")
+        .write_status(label, m$objective, .max_grad(m$par), complete = FALSE)
+        if (is_final)
+          saveRDS(list(par = m$par, pnames = pnames, objective = m$objective,
+                       label = label, time = Sys.time()),
+                  "Output/checkpoint_par.rds")
+      }
+    }
+
+    # Reset the progress-print state at the start of an optimiser call
+    .start_stage <- function(label, start_value) {
+      CurrentStage <<- label
+      FnCallNo     <<- 0
+      BestFn       <<- start_value
+      LastPrintFn  <<- start_value
+      .trace_append(TotalEval, start_value)
+    }
+
+    # Write parameters to Output/model<suffix>.par (same format as the end-of-phase save)
+    .write_status <- function(label, objective, maxgrad, complete = FALSE) {
+      writeLines(c(paste("Stage:", label),
+                   paste("Phase:", CurrPhase, "of", MaxPhase),
+                   paste("Objective:", signif(objective, 10)),
+                   paste("Max|grad|:", signif(maxgrad, 6)),
+                   paste("Fit complete:", complete),
+                   paste("Time:", format(Sys.time()))),
+                 "Output/model final.status.txt")
+    }
+
+    .save_par <- function(par, suffix) {
+      names(par) <- pnames
+      pout_tmp <- unlist(parameters)
+      pout_tmp[names(pout_tmp) %in% names(par)] <- par
+      write.table(pout_tmp, paste0("Output/model", suffix, ".par"),
+                  sep = "\t", col.names = c("name\test"), quote = FALSE)
+    }
+
+    # nlminb with stall detection. Returns an nlminb-like list plus $stalled.
+    # Call .start_stage() (or reset FnCallNo/BestFn) before this.
+    .run_nlminb <- function(start, ctrl, label, tol = stall_tol) {
+      cur_stall_tol <<- tol
+      stall_hist   <<- numeric(0)
+      GrCallNo     <<- 0L
+      BestPar      <<- start
+      stall_active <<- stall_on
+      on.exit(stall_active <<- FALSE)
+      res <- tryCatch(
+        nlminb(start, model$fn, model$gr,
+               lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
+               scale = nl_scale, control = ctrl),
+        fit_stall = function(e) NULL
+      )
+      if (is.null(res)) {
+        cat("  ", label, " stalled at eval ", FnCallNo, ": < ", tol,
+            " NLL reduction over last ", stall_window, " evals\n", sep = "")
+        res <- list(par = BestPar, objective = BestFn, convergence = 99L,
+                    iterations = GrCallNo,   # nlminb uses about one gradient per iteration
+                    evaluations = c("function" = FnCallNo, "gradient" = GrCallNo),
+                    message = "stalled", stalled = TRUE)
+      } else {
+        res$stalled <- FALSE
+      }
+      res
     }
     # ─────────────────────────────────────────────────────────────────────
 
     has_bounds <- !is.null(RunSpecs$lowBnd) && !is.null(RunSpecs$uppBnd)
+
+    # ── Parameter scaling for final-phase nlminb ──────────────────────────
+    if (is_final && isTRUE(use_scale)) {
+      hd <- rep(NA_real_, length(model$par))
+      if (file.exists(scale_file)) {
+        saved <- tryCatch(readRDS(scale_file), error = function(e) NULL)
+        if (!is.null(saved) && !is.null(names(saved))) {
+          hd <- as.numeric(saved[match(pnames, names(saved))])
+          cat("  Scaling: Hessian diagonal for", sum(is.finite(hd)), "of", length(hd),
+              "parameters read from", scale_file, "\n")
+        }
+      }
+      need_hd <- which(!is.finite(hd))
+      if (length(need_hd) > 0) {
+        cat("  Scaling: computing Hessian diagonal for", length(need_hd),
+            "parameters (", length(need_hd) + 1, "gradient calls)\n")
+        hd[need_hd] <- .hess_diag(model$par, need_hd)[need_hd]
+      }
+      names(hd)  <- pnames
+      hdiag_used <- hd
+      nl_scale   <- .make_scale(hd)
+      top <- order(nl_scale, decreasing = TRUE)[1:min(5, length(nl_scale))]
+      cat("  Scaling: largest scale factors:",
+          paste0(pnames[top], "=", signif(nl_scale[top], 3), collapse = ", "), "\n")
+    }
 
     # ── Initial nlminb ────────────────────────────────────────────────────
     CurrentStage <<- paste0("Phase ", CurrPhase, " \u2013 nlminb")
@@ -1248,9 +1423,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                  rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-    mout <- nlminb(model$par, model$fn, model$gr,
-                   lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                   control = ctrl)
+    mout <- .run_nlminb(model$par, ctrl, paste0("Phase ", CurrPhase, " nlminb"))
+
+    if (!is.finite(.max_grad(mout$par)))
+      cat("  WARNING: initial nlminb ended at a point with a non-finite gradient (",
+          nonfinite_gr, " non-finite gradient calls so far)\n", sep = "")
 
     ## Post-hoc plateau diagnostic (non-final phases only) ##
     if (!is_final && plateau_cv > 0 && !is.na(plateau_eval)) {
@@ -1264,41 +1441,89 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     .report_fit(mout, model, pnames, initBestFn, label = "  Initial nlminb")
     TotalEval <<- TotalEval + FnCallNo
+    .checkpoint(mout, "initial nlminb")
 
-    ## Sandwich restarts (final phase only) - crunches down the nLL and gradient way faster ##
+    ## Pre-sandwich nlminb: only if the initial nlminb hit lphit while still improving ##
+    if (is_final && isTRUE(nRestarts)) {
+      if (isTRUE(mout$stalled)) {
+        cat("  Initial nlminb stalled \u2014 skipping pre-sandwich, going straight to BFGS\n")
+      } else {
+        entry_grad <- .max_grad(mout$par)
+        for (k in seq_len(max_pre_nlminb)) {
+          if (!is.finite(entry_grad) || entry_grad <= sandwich_entry_grad) break
+          cat("\n  Pre-sandwich nlminb", k, "- starting max|grad| =", round(entry_grad, 3), "\n")
+          prev_obj <- mout$objective
+          .start_stage(paste0("Pre-sandwich nlminb ", k), prev_obj)
+          mout_k <- .run_nlminb(mout$par,
+                                list(iter.max = MaXeVaL, eval.max = MaXeVaL,
+                                     rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0),
+                                paste0("Pre-sandwich nlminb ", k))
+          TotalEval <<- TotalEval + FnCallNo
+          new_grad <- .max_grad(mout_k$par)
+          if (!is.finite(new_grad)) {
+            cat("  Pre-sandwich nlminb ended on a non-finite gradient — keeping previous point\n")
+            break
+          }
+          mout <- mout_k
+          .report_fit(mout, model, pnames, prev_obj, label = paste("  Pre-sandwich nlminb", k))
+          .checkpoint(mout, paste("pre-sandwich nlminb", k))
+          if (isTRUE(mout$stalled) ||
+              (prev_obj - mout$objective < 1e-6 && new_grad >= entry_grad)) {
+            cat("  Pre-sandwich nlminb stalled — moving to sandwich\n")
+            entry_grad <- new_grad
+            break
+          }
+          entry_grad <- new_grad
+        }
+      }
+    }
+
+    ## Save final-phase nlminb result before BFGS/sandwich (as for earlier phases) ##
+    if (is_final) {
+      .save_par(mout$par, CurrPhase)
+      cat("  Saved Output/model", CurrPhase, ".par (pre-sandwich)\n", sep = "")
+    }
+
+    ## Sandwich restarts (final phase only) ##
     if (is_final && isTRUE(nRestarts)) {
 
-      suppress_print <<- TRUE        # silence per-eval prints during sandwich
       sandwich_done <- FALSE
       no_improve    <- 0L                    # consecutive cycles with no grad improvement
       max_sandwich  <- 20L                   # safety ceiling
-      prev_grad     <- max(abs(model$gr_Orig(mout$par)))  # gradient at sandwich entry
+      prev_grad     <- .max_grad(mout$par)   # gradient at sandwich entry
 
       for (restart in seq_len(max_sandwich)) {
 
         cat("\n--- Sandwich restart", restart, "---\n")
 
-        # Tighter tolerances from restart 2 onwards — by then we're in the
-        # basin and want fine-grained polishing rather than broad exploration.
         bfgs_reltol  <- ifelse(restart == 1, 1e-12, 1e-15)
         nlminb_rtol  <- ifelse(restart == 1, 1e-12, 1e-15)
         nlminb_xtol  <- ifelse(restart == 1, 1e-12, 1e-15)
 
         ## Step A: BFGS in logit-transformed unconstrained space ##
-        CurrentStage <<- paste0("Restart ", restart, " \u2013 BFGS")
-        cat("  Step A: BFGS (logit-transformed)\n")
-        FnCallNo <<- 0
+        cat("  Step A: BFGS (logit-transformed, max", bfgs_maxit, "iterations)\n")
 
+        # last.par.best can be a point with a non-finite gradient - only use it if fn and gradient are finite
         bfgs_start     <- model$env$last.par.best
         fn_check       <- model$fn(bfgs_start)
-        pre_bfgs_grad  <- max(abs(model$gr_Orig(bfgs_start)))
-        if (!is.finite(fn_check)) {
-          cat("  WARNING: last.par.best non-finite, falling back to mout$par\n")
+        pre_bfgs_grad  <- .max_grad(bfgs_start)
+        if (!is.finite(fn_check) || !is.finite(pre_bfgs_grad)) {
+          cat("  WARNING: last.par.best has non-finite objective or gradient, falling back to mout$par\n")
           bfgs_start    <- mout$par
-          pre_bfgs_grad <- max(abs(model$gr_Orig(bfgs_start)))
+          fn_check      <- model$fn(bfgs_start)
+          pre_bfgs_grad <- .max_grad(bfgs_start)
         }
+        .start_stage(paste0("Restart ", restart, " \u2013 BFGS"), fn_check)
 
-        if (has_bounds) {
+        # Near the optimum BFGS mostly inflates the gradient and gets rejected;
+        # below bfgs_skip_grad go straight to nlminb polishing instead.
+        skip_bfgs <- is.finite(pre_bfgs_grad) && pre_bfgs_grad < bfgs_skip_grad
+        if (skip_bfgs) {
+          cat("  max|grad| =", round(pre_bfgs_grad, 4), "< bfgs_skip_grad (", bfgs_skip_grad,
+              ") \u2014 skipping BFGS, nlminb polish only\n")
+          fit_bfgs <- list(par = bfgs_start, value = fn_check, convergence = NA)
+
+        } else if (has_bounds) {
           lo <- RunSpecs$lowBnd
           hi <- RunSpecs$uppBnd
 
@@ -1312,7 +1537,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
           fit_bfgs <- optim(bfgs_start_u, fn_u, gr_u,
                             method  = "BFGS",
-                            control = list(maxit  = MaXeVaL,
+                            control = list(maxit  = bfgs_maxit,
                                            reltol = bfgs_reltol))
 
           fit_bfgs$par <- .to_bounded(fit_bfgs$par, lo, hi)
@@ -1320,73 +1545,100 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         } else {
           fit_bfgs <- optim(bfgs_start, model$fn, model$gr,
                             method  = "BFGS",
-                            control = list(maxit  = MaXeVaL %/% 2,
+                            control = list(maxit  = bfgs_maxit,
                                            reltol = bfgs_reltol))
         }
 
-        bfgs_grad <- max(abs(model$gr_Orig(fit_bfgs$par)))
-        cat("  BFGS complete: obj =", round(fit_bfgs$value, 6),
-            "| max|grad| =", round(bfgs_grad, 6),
-            "| convergence:", fit_bfgs$convergence, "\n")
+        bfgs_grad <- if (skip_bfgs) pre_bfgs_grad else .max_grad(fit_bfgs$par)
+        if (!skip_bfgs)
+          cat("  BFGS complete: obj =", round(fit_bfgs$value, 6),
+              "| max|grad| =", round(bfgs_grad, 6),
+              "| convergence:", fit_bfgs$convergence,
+              "| fn evals:", FnCallNo, "\n")
         TotalEval <<- TotalEval + FnCallNo
 
-        ## BFGS gradient revert guard ##
-        # Keep BFGS solution if NLL improved, even if gradient worsened —
-        # nlminb will polish from the better location. Only revert if BFGS
-        # degraded BOTH NLL and gradient.
-        bfgs_nll_improved  <- fit_bfgs$value < fn_check
-        bfgs_grad_improved <- bfgs_grad <= pre_bfgs_grad
+        ## BFGS acceptance guards ##
+        if (skip_bfgs) {
+          # nothing to accept or reject
 
-        if (!bfgs_nll_improved && !bfgs_grad_improved) {
-          cat("  BFGS degraded both NLL (", round(fn_check, 4), "->",
-              round(fit_bfgs$value, 4), ") and gradient (",
-              round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-              ") — reverting to pre-BFGS parameters\n", sep = "")
+        } else if (!is.finite(bfgs_grad)) {
+          # Non-finite gradient: nlminb can't polish from here (gr wrapper returns zeros)
+          cat("  BFGS ended at a point with a non-finite gradient — reverting to pre-BFGS parameters\n")
           fit_bfgs$par   <- bfgs_start
           fit_bfgs$value <- fn_check
+          bfgs_grad      <- pre_bfgs_grad
+
+        } else if (bfgs_grad > 5 * pre_bfgs_grad && bfgs_grad > sandwich_entry_grad) {
+          # Gradient badly inflated - typically parameters pushed onto bounds in logit space
+          cat("  BFGS inflated max|grad| (", round(pre_bfgs_grad, 3), "->", round(bfgs_grad, 3),
+              ") — rejecting and keeping pre-BFGS parameters\n", sep = "")
+          fit_bfgs$par   <- bfgs_start
+          fit_bfgs$value <- fn_check
+          bfgs_grad      <- pre_bfgs_grad
+
         } else {
-          if (bfgs_nll_improved && !bfgs_grad_improved) {
-            cat("  BFGS improved NLL (", round(fn_check, 4), "->",
-                round(fit_bfgs$value, 4), ") but degraded gradient (",
-                round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-                ") — keeping, nlminb will polish\n", sep = "")
-          } else if (!bfgs_nll_improved && bfgs_grad_improved) {
-            cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
-                round(bfgs_grad, 4), ") but degraded NLL (",
-                round(fn_check, 4), "->", round(fit_bfgs$value, 4),
-                ") — keeping\n", sep = "")
-          } else {
-            cat("  BFGS improved both NLL (", round(fn_check, 4), "->",
+          bfgs_nll_improved  <- fit_bfgs$value < fn_check
+          bfgs_grad_improved <- bfgs_grad <= pre_bfgs_grad
+
+          if (!bfgs_nll_improved && !bfgs_grad_improved) {
+            cat("  BFGS degraded both NLL (", round(fn_check, 4), "->",
                 round(fit_bfgs$value, 4), ") and gradient (",
                 round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
-                ")\n", sep = "")
+                ") — reverting to pre-BFGS parameters\n", sep = "")
+            fit_bfgs$par   <- bfgs_start
+            fit_bfgs$value <- fn_check
+            bfgs_grad      <- pre_bfgs_grad
+          } else {
+            if (bfgs_nll_improved && !bfgs_grad_improved) {
+              cat("  BFGS improved NLL (", round(fn_check, 4), "->",
+                  round(fit_bfgs$value, 4), ") but degraded gradient (",
+                  round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                  ") — keeping, nlminb will polish\n", sep = "")
+            } else if (!bfgs_nll_improved && bfgs_grad_improved) {
+              cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
+                  round(bfgs_grad, 4), ") but degraded NLL (",
+                  round(fn_check, 4), "->", round(fit_bfgs$value, 4),
+                  ") — keeping\n", sep = "")
+            } else {
+              cat("  BFGS improved both NLL (", round(fn_check, 4), "->",
+                  round(fit_bfgs$value, 4), ") and gradient (",
+                  round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
+                  ")\n", sep = "")
+            }
+            pre_bfgs_grad <- bfgs_grad
           }
-          # Update prev_grad tracking to reflect the actual BFGS gradient
-          # so the stall detector sees the true current state
-          pre_bfgs_grad <- bfgs_grad
         }
+
         ## Step B: nlminb from BFGS solution ##
-        CurrentStage <<- paste0("Restart ", restart, " \u2013 nlminb")
         cat("  Step B: nlminb\n")
-        FnCallNo    <<- 0
-        BestFn      <- fit_bfgs$value
-        initBestFn  <- BestFn
-        LastPrintFn <<- BestFn
-        .trace_append(TotalEval, BestFn)
+        .start_stage(paste0("Restart ", restart, " \u2013 nlminb"), fit_bfgs$value)
+        initBestFn <- fit_bfgs$value
 
         ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                      rel.tol  = nlminb_rtol,
                      x.tol    = nlminb_xtol,
                      abs.tol  = 0)
-        mout <- nlminb(fit_bfgs$par, model$fn, model$gr,
-                       lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                       control = ctrl)
+        mout <- .run_nlminb(fit_bfgs$par, ctrl, paste("nlminb restart", restart),
+                            tol = stall_tol_restart)
 
         .report_fit(mout, model, pnames, initBestFn,
                     label = paste("  nlminb restart", restart))
         TotalEval <<- TotalEval + FnCallNo
 
-        cur_grad <- max(abs(model$gr_Orig(mout$par)))
+        cur_grad <- .max_grad(mout$par)
+
+        ## nlminb non-finite gradient guard ##
+        if (!is.finite(cur_grad)) {
+          cat("  WARNING: nlminb ended at a point with a non-finite gradient (",
+              nonfinite_gr, " non-finite gradient calls this phase) — reverting to BFGS point and ending sandwich\n", sep = "")
+          mout$par       <- fit_bfgs$par
+          mout$objective <- fit_bfgs$value
+          cur_grad       <- .max_grad(mout$par)
+          .checkpoint(mout, paste("sandwich", restart, "(reverted)"))
+          break
+        }
+        .checkpoint(mout, paste("sandwich", restart))
+
         cat("  Restart", restart, "complete: max|grad| =",
             round(cur_grad, 6), "\n")
 
@@ -1399,11 +1651,9 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           break
         }
 
-        # 2. Gradient stall — two consecutive cycles with no meaningful
-        #    gradient reduction. NLL may be flat (basin floor) while the
-        #    gradient is still improving, so we track gradient not NLL.
+        # 2. Gradient stall — two consecutive cycles with no meaningful gradient reduction
         grad_improvement <- prev_grad - cur_grad
-        if (grad_improvement < newton_grad_thresh * 0.01) {
+        if (!is.finite(grad_improvement) || grad_improvement < newton_grad_thresh * 0.01) {
           no_improve <- no_improve + 1L
           cat("  Gradient not improving (delta =",
               round(grad_improvement, 6), ") — strike", no_improve, "of 2\n")
@@ -1413,18 +1663,17 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
             break
           }
         } else {
-          no_improve <- 0L    # reset strike counter on meaningful improvement
+          no_improve <- 0L
         }
         prev_grad <- cur_grad
       }
 
-      ## Newton polishing - re-fincescale steps - helps get a hessian that works
-      suppress_print <<- FALSE       # restore printing for Newton and beyond
+      ## Newton polishing ##
       if (newtonSteps > 0) {
 
-        cur_grad <- max(abs(model$gr_Orig(mout$par)))
+        cur_grad <- .max_grad(mout$par)
 
-        if (cur_grad >= newton_grad_thresh) {
+        if (!is.finite(cur_grad) || cur_grad >= newton_grad_thresh) {
           cat("\n  WARNING: gradient =", round(cur_grad, 4),
               ">= newton_grad_thresh (", newton_grad_thresh, ")",
               "— skipping Newton (Hessian likely ill-conditioned).\n")
@@ -1432,15 +1681,17 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           cat("\n--- Newton polishing steps ---\n")
           CurrentStage <<- "Newton polish"
           newton_par   <- model$env$last.par.best
+          if (!is.finite(.max_grad(newton_par))) newton_par <- mout$par
 
           for (ns in seq_len(newtonSteps)) {
             improved <- FALSE
             tryCatch({
+              suppress_print <- TRUE                     # silence fn prints during Hessian
               H    <- optimHess(newton_par, model$fn, model$gr)
+              suppress_print <- FALSE
               g    <- as.vector(model$gr_Orig(newton_par))
               step <- solve(H, g)
 
-              # Backtracking line search — halve step until objective improves
               base_obj   <- model$fn(newton_par)
               step_size  <- 1.0
               for (backstep in seq_len(10)) {
@@ -1449,7 +1700,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                   candidate <- pmax(candidate, RunSpecs$lowBnd)
                   candidate <- pmin(candidate, RunSpecs$uppBnd)
                 }
-                if (model$fn(candidate) < base_obj) {
+                if (model$fn(candidate) < base_obj && is.finite(.max_grad(candidate))) {
                   newton_par <- candidate
                   improved   <- TRUE
                   break
@@ -1465,7 +1716,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                       "\u2014 line search failed, stopping Newton.\n")
                 }
               } else {
-                ng <- max(abs(model$gr_Orig(newton_par)))
+                ng <- .max_grad(newton_par)
                 cat("  Newton step", ns,
                     "- obj:", round(model$fn(newton_par), 6),
                     "| max|grad|:", round(ng, 8),
@@ -1484,32 +1735,63 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                 cat("    (H not yet computed — failure occurred before solve())\n")
               }
             })
+            suppress_print <- FALSE
             if (!improved) break
           }
 
           # Final nlminb from Newton-polished parameters
-          CurrentStage <<- "Post-Newton nlminb"
           cat("  Final nlminb (post-Newton)\n")
-          FnCallNo    <<- 0
-          BestFn      <- model$fn(newton_par)
-          initBestFn  <- BestFn
-          LastPrintFn <<- BestFn
-          .trace_append(TotalEval, BestFn)
+          start_obj <- model$fn(newton_par)
+          .start_stage("Post-Newton nlminb", start_obj)
+          initBestFn <- start_obj
 
           ctrl <- list(iter.max = MaXeVaL, eval.max = MaXeVaL,
                        rel.tol = 1e-12, x.tol = 1e-12, abs.tol = 0)
-          mout <- nlminb(newton_par, model$fn, model$gr,
-                         lower = RunSpecs$lowBnd, upper = RunSpecs$uppBnd,
-                         control = ctrl)
+          mout_newton <- .run_nlminb(newton_par, ctrl, "Post-Newton nlminb",
+                                     tol = stall_tol_restart)
+          if (is.finite(.max_grad(mout_newton$par))) {
+            mout <- mout_newton
+          } else {
+            cat("  WARNING: post-Newton nlminb ended on a non-finite gradient — keeping Newton point\n")
+            mout$par       <- newton_par
+            mout$objective <- model$fn(newton_par)
+          }
           .report_fit(mout, model, pnames, initBestFn,
                       label = "  Final nlminb (post-Newton)")
           TotalEval <<- TotalEval + FnCallNo
+          .checkpoint(mout, "post-Newton nlminb")
         }
       }
 
       ## Bound diagnostics ##
       .check_bounds(mout$par, RunSpecs$lowBnd, RunSpecs$uppBnd, pnames, model)
     }
+
+    ## Save Hessian diagonal at the solution for scaling the next run ##
+    if (is_final && isTRUE(use_scale)) {
+      hd_out <- NULL
+      if (exists("H", inherits = FALSE) && is.matrix(H) && nrow(H) == length(pnames)) {
+        hd_out <- diag(H)                                  # from Newton polishing
+      } else {
+        cat("  Scaling: computing Hessian diagonal at solution for next run\n")
+        hd_out <- tryCatch(.hess_diag(mout$par), error = function(e) NULL)
+      }
+      if (is.null(hd_out)) hd_out <- hdiag_used
+      if (!is.null(hd_out)) {
+        names(hd_out) <- pnames
+        if (file.exists(scale_file)) {                     # keep entries for pars not in this run
+          old <- tryCatch(readRDS(scale_file), error = function(e) NULL)
+          if (!is.null(old) && !is.null(names(old)))
+            hd_out <- c(hd_out, old[!names(old) %in% names(hd_out)])
+        }
+        saveRDS(hd_out, scale_file)
+        cat("  Scaling: Hessian diagonal saved to", scale_file, "\n")
+      }
+    }
+
+    if (nonfinite_gr > 0)
+      cat("  NOTE: Phase", CurrPhase, "had", nonfinite_gr,
+          "gradient evaluation(s) with non-finite values (returned as zeros to the optimiser).\n")
 
     ## Store and save parameters ##
     pars        <- mout$par
@@ -1518,9 +1800,15 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 
     pout <- unlist(parameters)
     pout[names(pout) %in% names(pars)] <- pars
-    suffix <- ifelse(is_final, " final", CurrPhase)
-    write.table(pout, paste0("Output/model", suffix, ".par"),
+    # Per-phase record (the final phase's pre-sandwich point is already in model<MaxPhase>.par)
+    if (!is_final)
+      write.table(pout, paste0("Output/model", CurrPhase, ".par"),
+                  sep = "\t", col.names = c("name\test"), quote = FALSE)
+    # Always keep model final.par as the latest parameters, for UpdatePars()
+    write.table(pout, "Output/model final.par",
                 sep = "\t", col.names = c("name\test"), quote = FALSE)
+    .write_status(if (is_final) "end of final phase" else paste("end of phase", CurrPhase),
+                  mout$objective, .max_grad(mout$par), complete = is_final)
 
     if (is_final) {
       assign("ProfileReport", model$report(),               envir = .GlobalEnv)
@@ -1578,12 +1866,26 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
 #'
 #' @keywords internal
 .report_fit <- function(mout, model, pnames, initBestFn, label = "") {
-  Grad   <- abs(model$gr(mout$par))
-  badpar <- paste0("[", pnames[Grad == max(Grad)], "]")
-  cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
-      "| Max grad [par]:", round(max(Grad), 6), badpar,
-      "| Iter:", mout$iterations,
-      "| Eval:", mout$evaluations, "\n")
+  g   <- tryCatch(model$gr_Orig(mout$par),
+                  error = function(e) rep(NA_real_, length(mout$par)))
+  bad <- !is.finite(g)
+  if (any(bad)) {
+    nb <- sum(bad)
+    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
+        "| NON-FINITE gradient for", nb, "par(s):",
+        paste0("[", head(pnames[bad], 20), "]", collapse = " "),
+        if (nb > 20) paste0("... (+", nb - 20, " more)") else "",
+        "| Iter:", mout$iterations,
+        "| Eval:", mout$evaluations, "\n")
+  } else {
+    Grad   <- abs(g)
+    top    <- head(pnames[Grad == max(Grad)], 5)
+    badpar <- paste0("[", top, "]", collapse = " ")
+    cat(label, "- Likelihood:", round(initBestFn, 6), "to", round(mout$objective, 6),
+        "| Max grad [par]:", round(max(Grad), 6), badpar,
+        "| Iter:", mout$iterations,
+        "| Eval:", mout$evaluations, "\n")
+  }
 }
 
 

@@ -13,9 +13,21 @@ FitModel(
   nRestarts = TRUE,
   newtonSteps = 5,
   newton_grad_thresh = 0.1,
+  sandwich_entry_grad = 10,
+  max_pre_nlminb = 5,
+  bfgs_maxit = 200,
+  checkpoint = TRUE,
   PrintNll = TRUE,
   plateau_k = 4,
-  plateau_cv = 0.05
+  plateau_cv = 0,
+  start_phase = 1,
+  stall_window = 200,
+  stall_tol = 5,
+  stall_tol_restart = 0.5,
+  bfgs_skip_grad = 50,
+  stall_final_only = TRUE,
+  use_scale = TRUE,
+  scale_file = "Output/hess_diag.rds"
 )
 }
 \arguments{
@@ -23,43 +35,89 @@ FitModel(
 all phases except the last. Default 500.}
 
 \item{lphit}{Integer. Maximum number of function evaluations for the last
-phase (per optimiser call). Default 1000.}
+phase (per nlminb call). With stall detection on, this is a safety ceiling
+and can be set high (e.g. 5000). Default 1000.}
 
 \item{mxph}{Integer. Maximum phase number. If 0, treated as 1. Defaults to
 the global \code{MaxPhase}.}
 
 \item{PrintLag}{Integer. Print and plot progress every \code{PrintLag}
-function evaluations. Default 50.}
+function evaluations, including during BFGS. Default 50.}
 
 \item{report}{Logical. If \code{TRUE}, produce SD report and save outputs
 after the final phase. Default \code{FALSE}.}
 
-\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts (alternating
-BFGS and nlminb) run adaptively in the final phase until either the
-gradient falls below \code{newton_grad_thresh} (ready for Newton) or two
-successive cycles fail to improve the NLL (stuck). If \code{FALSE}, no
-sandwich is performed. Default \code{TRUE}.}
+\item{nRestarts}{Logical. If \code{TRUE}, sandwich restarts run in the final
+phase. Default \code{TRUE}.}
 
 \item{newtonSteps}{Integer. Maximum number of damped Newton polishing steps
-after the sandwich. Only attempted if the gradient is below
-\code{newton_grad_thresh} at sandwich exit; otherwise a warning is
-printed. Default 5.}
+after the sandwich. Default 5.}
 
 \item{newton_grad_thresh}{Numeric. Gradient threshold below which Newton
-polishing is considered safe. Also used as the sandwich convergence
-criterion. Default 0.1.}
+polishing is considered safe; also the sandwich convergence criterion.
+Default 0.1.}
 
-\item{PrintNll}{Logical. If \code{TRUE}, display a live multi-panel trace
-plot of the negative log-likelihood during fitting. Default \code{TRUE}.}
+\item{sandwich_entry_grad}{Numeric. If the initial final-phase nlminb ends by
+hitting \code{lphit} while still improving (not stalled), nlminb is re-run
+from its last point until the maximum absolute gradient is at or below this
+value, it stalls, or \code{max_pre_nlminb} calls are used. Also the floor
+for the BFGS gradient-inflation rejection. Default 10.}
 
-\item{plateau_k}{Integer. Number of consecutive reporting intervals (each
-\code{PrintLag} evaluations) used in the rolling window for plateau
-detection. Default 4.}
+\item{max_pre_nlminb}{Integer. Maximum number of extra nlminb calls before
+the sandwich. Default 5.}
 
-\item{plateau_cv}{Numeric. Coefficient of variation threshold below which
-the delta window is declared a plateau. A diagnostic message is printed
-after the phase suggesting a more efficient \code{phit}. Set to 0 to
-disable. Default 0.05 (5\\%).}
+\item{bfgs_maxit}{Integer. Maximum BFGS iterations per sandwich cycle.
+Default 200.}
+
+\item{checkpoint}{Logical. If \code{TRUE}, overwrite \code{Output/model final.par}
+(the file \code{UpdatePars()} reads) after every optimiser call in every phase,
+with \code{Output/model final.status.txt} recording the stage, objective and
+max gradient; in the final phase also save \code{Output/checkpoint_par.rds}.
+\code{model final.par} is always rewritten at the end of each phase regardless.
+Default \code{TRUE}.}
+
+\item{PrintNll}{Logical. If \code{TRUE}, display a live trace plot of the
+negative log-likelihood. Default \code{TRUE}.}
+
+\item{plateau_k}{Integer. Window size (in reporting intervals) for the
+plateau diagnostic. Default 4.}
+
+\item{plateau_cv}{Numeric. CV threshold for the plateau diagnostic in
+non-final phases. Set to 0 to disable. Default 0 (off), because a steady
+rate of slow improvement also has a low CV and the diagnostic can mislead.}
+
+\item{start_phase}{Integer. First phase to run. Use \code{MaxPhase} for a
+warm start after \code{UpdatePars("Yes")}: earlier-phase parameters start
+from the values in the input files instead of being re-polished. Default 1.}
+
+\item{stall_window}{Integer. Number of function evaluations over which
+progress is judged for stall detection. Default 200.}
+
+\item{stall_tol}{Numeric. Minimum absolute NLL reduction required over
+\code{stall_window} evaluations; less than this and nlminb is stopped and
+its best point returned. Set to 0 to disable. Default 5.}
+
+\item{stall_tol_restart}{Numeric. Stall tolerance (NLL reduction over
+\code{stall_window} evals) for the sandwich and post-Newton nlminb calls,
+where gains are small but the gradient still needs polishing. Default 0.5.}
+
+\item{bfgs_skip_grad}{Numeric. Once max|grad| at the start of a sandwich
+cycle is below this, BFGS is skipped and only nlminb runs, since near the
+optimum BFGS mostly inflates the gradient and is rejected. Default 50.}
+
+\item{stall_final_only}{Logical. If \code{TRUE}, stall detection is only used
+in the final phase; non-final phases run to \code{phit}. Default \code{TRUE}.}
+
+\item{use_scale}{Logical. If \code{TRUE}, final-phase nlminb calls use
+\code{scale = sqrt(|diag(H)|)} (normalised to median 1, clamped to
+between 1e-3 and 1e3) so badly scaled parameters such as ln(R0) get sensible step
+sizes. The Hessian diagonal is read from \code{scale_file} (matched by
+parameter name) where available; any parameters not found there are
+computed by forward-differencing the AD gradient. Default \code{TRUE}.}
+
+\item{scale_file}{Character. File the Hessian diagonal is read from and
+saved to at the end of the final phase. Default
+\code{"Output/hess_diag.rds"}.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing
@@ -68,79 +126,48 @@ parameter files to \code{Output/}, and if \code{report = TRUE}, saving
 }
 \description{
 Fits the IMuLT TMB model using a phased optimisation approach. Parameters are
-progressively introduced across phases, with the final phase employing
-sandwich restarts (alternating BFGS on logit-transformed parameters and
-nlminb) to escape local minima. Optional Newton polishing steps can further
-refine the solution.
+progressively introduced across phases. In the final phase, nlminb runs until
+it stalls (less than \code{stall_tol} NLL reduction over the last
+\code{stall_window} evaluations) or hits \code{lphit}, then sandwich restarts
+(alternating BFGS on logit-transformed parameters and nlminb) polish the
+solution. Optional Newton polishing steps can further refine it.
 }
 \details{
-Non-final phases include a plateau diagnostic: after each phase completes,
-the rolling delta history is inspected and a message is printed if a plateau
-was detected, suggesting a more efficient \code{phit} value for future runs.
-nlminb is never interrupted — the diagnostic is informational only.
+\strong{Stall detection:} nlminb calls in the final phase (initial,
+pre-sandwich, sandwich step B, post-Newton) are stopped once the best NLL
+has improved by less than \code{stall_tol} over the last
+\code{stall_window} function evaluations. The best point found is returned.
+If the initial final-phase nlminb stalls, the pre-sandwich loop is skipped
+and the fit goes straight to BFGS. Stall detection is never applied to BFGS
+or to the Newton Hessian evaluations.
 
-\strong{Phased estimation:} Parameters are activated across phases via
-\code{SetInitialAndPhases()}. Early phases use \code{phit} evaluations;
-the final phase uses \code{lphit}.
+\strong{Sandwich restarts:} BFGS operates in logit-transformed space, where
+parameters near a bound have tiny chain-rule gradients and can be pushed onto
+the bound. A BFGS result is therefore rejected if its gradient is non-finite,
+or if it inflates the maximum gradient more than 5-fold (and above
+\code{sandwich_entry_grad}); nlminb then continues from the pre-BFGS point.
 
-\strong{Plateau diagnostic:} In non-final phases, after the full nlminb call
-completes, the rolling window of \code{plateau_k} delta values is inspected.
-If the coefficient of variation falls below \code{plateau_cv}, a message is
-printed reporting the eval at which the plateau was first detected and
-suggesting that \code{phit} could be reduced to that value for future runs.
-nlminb is never interrupted — this is purely informational. Set
-\code{plateau_cv = 0} to disable. The final phase is never reported on.
+\strong{Gradient wrapper:} returns zeros for non-finite gradients to keep
+optimisers alive; every accepted point is checked for a finite gradient.
 
-\strong{Sandwich restarts:} If \code{nRestarts = TRUE}, the final phase
-runs adaptive sandwich cycles (BFGS then nlminb) until the gradient falls
-below \code{newton_grad_thresh} or two successive cycles produce no NLL
-improvement. BFGS operates in logit-transformed unconstrained space so it
-can never step outside bounds or into non-finite regions. The gradient is
-adjusted via the chain rule. After BFGS, parameters are back-transformed
-and passed to nlminb with full bounds. A safety ceiling of 20 cycles
-prevents runaway loops.
-
-\strong{Finite penalty wrapper:} The objective function wrapper returns a
-large finite penalty (\code{last_good * 1.5 + 1e6}) for any non-finite
-TMB evaluation, preventing optimiser crashes.
-
-\strong{Gradient wrapper:} The gradient wrapper returns a zero vector for
-any non-finite or error-producing gradient evaluation, preventing crashes
-in optimisers that require finite gradients.
-
-\strong{Newton polishing:} If \code{newtonSteps > 0} and the gradient at
-sandwich exit is below \code{newton_grad_thresh}, damped Newton steps are
-attempted using the full Hessian. Each step performs a backtracking line
-search (halving the step size up to 10 times) to ensure the objective
-actually improves before accepting the step. A final nlminb call follows
-to clean up any remaining gradient. If the gradient is above
-\code{newton_grad_thresh} at sandwich exit, Newton is skipped with a
-warning — the Hessian is unlikely to be well-conditioned and steps would
-be unreliable.
-
-\strong{Global side effects:} Writes to the global environment via
-\code{<<-}. The trace is stored in \code{TraceDF}, cumulative evaluations
-in \code{TotalEval}, and the current stage label in \code{CurrentStage}.
+\strong{Global side effects:} writes \code{TraceDF}, \code{TotalEval},
+\code{CurrentStage}, \code{ProfileReport}, \code{ProfileGrad} and
+\code{InitialVars} to the global environment.
 }
 \examples{
 \dontrun{
 # Quick fit, no sandwich
 FitModel(500, 1000, nRestarts = FALSE)
 
-# Full fit — adaptive sandwich + Newton polishing
-FitModel(500, 3000, report = TRUE)
+# Full fit; final phase runs until stalled (ceiling 5000 evals)
+FitModel(500, 5000, report = TRUE)
 
-# Tighter Newton threshold (only polish if gradient < 0.01)
-FitModel(500, 3000, report = TRUE, newton_grad_thresh = 0.01)
+# Warm start from a previous run: skip straight to the final phase
+UpdatePars("Yes"); LoadPars()
+FitModel(500, 5000, report = TRUE, start_phase = MaxPhase)
 
-# Fit without live plotting
-FitModel(500, 1000, PrintNll = FALSE)
-
-# Tighter plateau diagnostic
-FitModel(500, 1000, plateau_k = 5, plateau_cv = 0.02)
-
-# Disable plateau diagnostic
-FitModel(500, 1000, plateau_cv = 0)
+# Stricter stall rule
+FitModel(500, 5000, report = TRUE, stall_window = 300, stall_tol = 2)
 }
 
 }

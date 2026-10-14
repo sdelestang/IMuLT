@@ -186,8 +186,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tstmp <- times %>% group_by(tstep) %>% mutate(prop=length(month)/nrow(times)) %>% summarise(prop=mean(prop))
   tmp <- c(tmp, "\n# The Time steps\n# \n", paste(round(tstmp$prop,5), collapse = "\t"))
 
-  # tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", dynamics$value[dynamics$object=='tune_years'])
-
   tmp <- c(tmp, "\n# Loop counter for initial conditions\n", 10,"\n# Years over which to tune (one per area)\n", paste(areas$tune_years,collapse=" "))
 
   # Length Bins cont.
@@ -200,9 +198,31 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  Udat <- readWorkbook(wb,sheet='CPUE', startRow = 2) %>% filter(Year%in%startseason:endseason) %>% group_by(Fleet) %>% mutate(nobs=length(unique(Year))) %>% filter(nobs>1) %>% dplyr::select(-nobs) %>% mutate(CpueInd=as.factor(as.character(CpueInd)), CpueInd=as.numeric(CpueInd), Year=as.numeric(as.character(Year))) %>% ungroup() %>% mutate(CpueInd=CpueInd-min(CpueInd)) %>% arrange(CpueInd)
+  min_cpue_obs <- 5
+  catch_cells  <- dat %>% filter(catch > 0) %>% distinct(year, step, fleet)
+  Udat <- readWorkbook(wb, sheet = 'CPUE', startRow = 2) %>%
+    mutate(Year = as.numeric(as.character(Year))) %>%
+    filter(Year %in% startseason:endseason) %>%
+    filter(!(Fleet %in% catch_cells$fleet) |
+             paste(Year, Step, Fleet) %in% paste(catch_cells$year, catch_cells$step, catch_cells$fleet)) %>%
+    group_by(CpueInd) %>% filter(n_distinct(Year) >= min_cpue_obs) %>% ungroup() %>%
+    mutate(CpueInd = dplyr::dense_rank(as.numeric(as.character(CpueInd))) - 1) %>%
+    arrange(CpueInd)
   tmpUdat <- Udat %>% group_by(CpueInd) %>% summarise(numwei=median(Metric))
-  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric)
+
+  ## Fixed sigma by index (optional 'Fixsigma' column; blank/NA/missing = 0 = estimate)
+  if ("Fixsigma" %in% names(Udat)) {
+    fixsig <- Udat %>% mutate(Fixsigma = suppressWarnings(as.numeric(Fixsigma)), Fixsigma = ifelse(is.na(Fixsigma), 0, Fixsigma)) %>%
+      group_by(CpueInd) %>% summarise(nval = length(unique(Fixsigma)), Fixsigma = first(Fixsigma), .groups = "drop")
+    if (any(fixsig$nval > 1)) stop("CPUE sheet: 'Fixsigma' must be a single value per index; indices with multiple values: ",
+                                   paste(fixsig$CpueInd[fixsig$nval > 1], collapse = ", "), call. = FALSE)
+    if (any(fixsig$Fixsigma < 0)) stop("CPUE sheet: 'Fixsigma' values must be >= 0 (0 = estimate).", call. = FALSE)
+    FixedSigmaCpue <- fixsig$Fixsigma
+  } else {
+    FixedSigmaCpue <- rep(0, length(unique(Udat$CpueInd)))
+  }
+
+  Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric, -any_of("Fixsigma"))
   SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
   cpuenumbers <- unique(Udat$CpueInd)
 
@@ -210,6 +230,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Index data \n#Number of cpue datasets\n", length(cpuenumbers))
   tmp <- c(tmp, "\n# Type of index (1=weight;2=numbers)\n", paste(tmpUdat$numwei, collapse=" "))
   tmp <- c(tmp, "\n# Treatment of sigma (unique value represents a unique SS for the series)\n", paste((1:length(cpuenumbers))-1, collapse=" "))  ## Fixsigma
+  tmp <- c(tmp, "\n# Fixed sigma by series (0 = estimate)\n", paste(FixedSigmaCpue, collapse=" "))
   tmp <- c(tmp, "\n# Treatment of q (a value represents a unique q for that series)\n", paste(cpuenumbers, collapse=" "))
   tmp <- c(tmp, "\n# Environmental Index (value points to index, 0 = no index)\n", paste(rep(0,100)[1:length(cpuenumbers)], collapse=" "))
   ## Efficiency creep
@@ -219,6 +240,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Efficiency creep year lag (each par compounds for this many years until next par starts\n", paste(effic$temporal.cover, collapse=" "))
   tmp <- c(tmp, "\n# Minimum sigma\n", 0.05)
   tmp <- c(tmp, "\n# Maximum sigma\n", round(SigmaCpueCeiling, 3))
+
   #Size of cpue data
   tmp <- c(tmp,"\n# The cpue data\n", nrow(Udat))
 
@@ -279,6 +301,10 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   fleetcode2 <- fleets %>% group_by(fleet) %>% summarise(area=unique(newarea), group=description) %>% mutate(fleet=fleet-min(fleet), area=area-min(area))
   for(i in 1:nrow(fleetcode2)){ tmp <- c(tmp, paste(fleetcode2[i,c('fleet','area','group')], collapse = "\t"),"\n\t")}
   #as.data.frame(fleetcode2)
+  morphQ <- if ("morphQ" %in% names(fleets)) {
+    fleets %>% group_by(fleet) %>% summarise(m = first(morphQ), .groups = "drop") %>% arrange(fleet) %>% pull(m)
+  } else rep(1, max(fleets$fleet))
+  tmp <- c(tmp, "\n# Morph catchability applied to data predictions by fleet (1=yes, 0=no)\n", paste(morphQ, collapse = " "), "\n")
   tmp <- c(tmp, "\n# Number of Zones\n", zones, "\n# Areas in each Zone\n", paste(as.numeric(sapply(zoneareas, length)), collapse = " "),'\n')
   tmp <- c(tmp, "\n# The Zones\n")
   for(z in 1:length(zoneareas)){
@@ -357,7 +383,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
 
   mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
-  NumMPars <- 1+nrow(areas)+ages+3
+  NumMPars <- 2+nrow(areas)+ages+3
 
   n_need <- NumMPars
   vals   <- nrow(mainpar)
@@ -374,8 +400,10 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, paste(Mpar4,collapse="\t"), "\n")
   Mpar5 <- mainpar %>% filter(grepl('Morph0Q', name, ignore.case=T)) %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar5,collapse="\t"), "\n")
-  Mpar6 <- mainpar %>% filter(grepl('Sigma', name, ignore.case=T)) %>% dplyr::select(-name)
+  Mpar6 <- mainpar %>% filter(name == 'SigmaR')    %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar6,collapse="\t"), "\n")
+  Mpar7 <- mainpar %>% filter(name == 'SigmaSpat') %>% dplyr::select(-name)
+  tmp <- c(tmp, paste(Mpar7,collapse="\t"), "\n")
 
   tmp <- c(tmp, "\n# Q parameters\n")
   Qpar1 <- 1
@@ -434,18 +462,24 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   umat <- unique(gsp$matrix)                  # pattern order = order matrices appear on the sheet
   nstm <- length(umat)
   gsp <- gsp %>% mutate(sex = adjsex(sex, nsex, section = 'Growth')) %>%
-    tidyr::separate_rows(area, sep = ",", convert = TRUE) %>% mutate(area = as.numeric(area))
+    tidyr::separate_rows(area,  sep = ",") %>%
+    tidyr::separate_rows(tstep, sep = ",") %>%
+    mutate(area  = suppressWarnings(as.numeric(trimws(area))),
+           tstep = suppressWarnings(as.numeric(trimws(tstep))))
+  bad <- is.na(gsp$area) | is.na(gsp$tstep)
+  if (any(bad)) stop("Growth sheet: 'area' and 'tstep' must be numbers or comma-separated lists of numbers. ",
+                     "Problem in matrix row(s): ", paste(unique(gsp$matrix[bad]), collapse = ", "), call. = FALSE)
 
   ## 2. One row per pattern (matrix), in umat order
   pat <- gsp %>% group_by(matrix) %>%
     summarise(nsex = n_distinct(sex), ntstep = n_distinct(tstep), ngrow = n_distinct(grow),
-              sex = first(sex), tstep = first(tstep), grow = first(grow),
+              sex = first(sex), tstep = paste(sort(unique(tstep)), collapse = ","), grow = first(grow),
               areas = paste(sort(unique(area - 1)), collapse = ","),
               Years = paste(unique(paste(startseason, endseason, sep = "-")), collapse = ","), .groups = "drop") %>%
     slice(match(umat, matrix))
-  if (any(pat$nsex > 1 | pat$ntstep > 1 | pat$ngrow > 1))
-    stop("Growth matrix label(s) used with more than one sex, tstep or compound value: ",
-         paste(pat$matrix[pat$nsex > 1 | pat$ntstep > 1 | pat$ngrow > 1], collapse = ", "), call. = FALSE)
+  if (any(pat$nsex > 1 | pat$ngrow > 1))
+    stop("Growth matrix label(s) used with more than one sex or compound value: ",
+         paste(pat$matrix[pat$nsex > 1 | pat$ngrow > 1], collapse = ", "), call. = FALSE)
 
   gspec <- data.frame(Pattern = 0:(nstm-1), Type = ifelse(IsGPars, 2, 1), Sex = pat$sex - 1, Extra = 0,
                       Pointer = 0:(nstm-1), Mpower = 1, hash = '#', tsteps = pat$tstep,
@@ -846,9 +880,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 3)))){
     puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))
-    tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n#LB\tUP\tEstimate\tPhase\n")
+    tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",nrow(puerpar),"\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd\n")
     for(a in 1:nrow(puerpar)){ tmp <- c(tmp, paste(puerpar[a,],collapse = "\t"), "\n") }} else {
-      tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",0,"\n#LB\tUP\tEstimate\tPhase\n")
+      tmp <- c(tmp, "\n# Puerulus Power for puerulus to recruit relationship\n",0,"\n# lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd\n")
     }
 
   tmp <- c(tmp, "\n# Final check\n123456")
@@ -943,6 +977,40 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   }
   egappar_sum %<>% mutate(Pointer=pattern)
   tegappar  <- ExpandSelectPars(wb, startseason, endseason)
+  lk <- which(tolower(names(tegappar)) == "link")
+  if (length(lk) != 1)
+    stop("Expected one 'link' column in tegappar (found: ", paste(names(tegappar), collapse = ", "), ")", call. = FALSE)
+  names(tegappar)[lk] <- "link"
+  ## ---- Remap selectivity links after expansion -----------------------------
+  ## Excel 'link' = 1-based row in the Selectivity parameter table (egappar order).
+  ## ExpandSelectPars copies rows for decimal yearlinks and the output is re-ordered,
+  ## so translate each link to the key of the row it names, then to its final position.
+  ## Copied families (e.g. 4.1) keep linking to the base row named in Excel.
+  xl_key  <- paste(egappar$uniq, tolower(egappar$id))            # Excel row order
+  out_key <- paste(tegappar$uniq, tolower(tegappar$id))          # final SELEXSPEC order
+  if (anyDuplicated(out_key))
+    stop("Duplicate selectivity parameter keys: ",
+         paste(unique(out_key[duplicated(out_key)]), collapse = ", "), call. = FALSE)
+
+  for (r in which(tegappar$link != 0)) {
+    L <- abs(tegappar$link[r])
+    if (L > length(xl_key))
+      stop("Selectivity link ", L, " (row ", r, ", ", out_key[r],
+           ") is beyond the Excel parameter table", call. = FALSE)
+    pos <- match(xl_key[L], out_key)
+    if (is.na(pos))
+      stop("Selectivity link target '", xl_key[L], "' (row ", r, ") not found after expansion", call. = FALSE)
+    if (pos == r)
+      stop("Selectivity row ", r, " (", out_key[r], ") links to itself", call. = FALSE)
+    if (pos > r)
+      stop("Selectivity row ", r, " (", out_key[r], ") links forward to row ", pos,
+           " (", out_key[pos], "); reorder so the parent comes first", call. = FALSE)
+    if (tegappar$link[pos] != 0)
+      warning("Selectivity row ", r, " (", out_key[r], ") links to row ", pos, " (", out_key[pos],
+              ") which is itself linked; point it at the final parent instead", call. = FALSE)
+    if (tegappar$link[r] > 0) tegappar$par[r] <- tegappar$par[pos]  # mirror: show parent's value
+    tegappar$link[r] <- sign(tegappar$link[r]) * pos
+  }
   par_order <- unique(tegappar$uniq)
   if (!setequal(par_order, egappar_sum$uniq))
     stop("Selectivity patterns and parameters don't match.",
@@ -1230,5 +1298,3 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   write.table(tmp, paste(floc,'/PROJECTIONS.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
   invisible(floc)
 }
-
-

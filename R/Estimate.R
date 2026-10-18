@@ -779,47 +779,82 @@ tk_choice <- function(choices, title = "Select") {
 }
 #' Update Length Frequency Data Weights Based on Tuning Results
 #'
-#' Updates the weighting of length frequency data in CONTROL.DAT based on
-#' model tuning results. This adjusts relative weights to improve model fit
-#' to length composition data after iterative tuning analyses.
+#' Updates the weighting of length frequency data in CONTROL.DAT using the
+#' Francis (2011) multipliers that IMuLT writes to Output.RL. This adjusts the
+#' relative weights of the length composition data after a model run.
 #'
 #' @param todo Character string indicating whether to update weights.
 #'   Options are 'Yes' or 'No' (default). Use 'Yes' to apply tuning results.
+#' @param rl_file Path to the Output.RL of the run whose fit is being tuned.
+#'   Default 'Output/Output.RL'.
+#' @param ctl_file Path to the CONTROL.DAT to update. This should be the file that
+#'   run used. Default 'CONTROL.DAT'.
+#' @param lo,hi Lower and upper clamp on the multiplier applied in one step.
+#'   Defaults 0.2 and 2.
+#' @param hold_fleets Fleets (1-based, as numbered in Output.RL) whose weights are
+#'   left unchanged. Default 25:28 (the ISS fleets).
+#' @param backup Logical. If TRUE (default), copy ctl_file to
+#'   '<ctl_file>.bak_<timestamp>' before writing.
 #'
-#' @return NULL (invisibly). The function modifies CONTROL.DAT as a side effect.
+#' @return Invisibly, a data frame with columns Fleet, Sex, Multiplier, Applied,
+#'   Old and New (NULL if nothing was done). CONTROL.DAT is modified as a side
+#'   effect.
 #'
 #' @details
-#' The function reads tuning scale factors from 'Output/Summary/result/Tuning.csv'
-#' and applies them to length frequency weights in CONTROL.DAT. Each existing
-#' weight is multiplied by its corresponding tuning scale factor from the
-#' iterative weighting analysis.
+#' The function reads the '#Length data tuning' table from Output.RL (columns
+#' Fleet, Sex, Npnts, Francis_Multiplier; Fleet and Sex 1-based) and matches it,
+#' on both fleet and sex, to the type-3 (length) rows of the 'Weights by fleet'
+#' block in CONTROL.DAT (Type, Fleet, Time-step, Sex, Value; Fleet and Sex
+#' 0-based). Each weight is updated as
+#'
+#' \deqn{w_{new} = w_{old} \times \min(hi, \max(lo, m))}
+#'
+#' where \eqn{m} is the Francis multiplier. Only the value field of the matched
+#' lines is replaced; every other line, the comments and the line endings are
+#' written back exactly as read.
 #'
 #' The tuning process typically involves:
 #' \enumerate{
 #'   \item Running the model with initial weights
-#'   \item Analyzing length frequency fit diagnostics
-#'   \item Calculating appropriate scaling factors
-#'   \item Applying these factors using this function
+#'   \item Checking the Francis multipliers in Output.RL
+#'   \item Applying them using this function
 #'   \item Re-running the model with updated weights
+#'   \item Repeating once or twice at most, stopping once the multipliers sit
+#'     within about 0.5-2
 #' }
 #'
-#' The function will stop with an error message if the number of predetermined
-#' weights doesn't match the number of length composition datasets.
+#' The clamp stops a single badly fitted fleet from swinging its weight by an
+#' order of magnitude in one step; repeated unclamped iterations can compound
+#' weights without limit.
+#'
+#' The function stops with an error if any fleet/sex in CONTROL.DAT has no
+#' multiplier in Output.RL (usually because Output.RL comes from a run with a
+#' different CONTROL.DAT), and warns if the two counts differ.
 #'
 #' @note
 #' \itemize{
 #'   \item Must be run from within a model run directory containing CONTROL.DAT
-#'   \item Requires 'Output/Summary/result/Tuning.csv' from a completed tuning run
-#'   \item The Tuning.csv file must contain columns: Fleet, Sex, and Multiscale
+#'     (or with \code{ctl_file} and \code{rl_file} pointing to the right files)
+#'   \item Requires Output/Output.RL from a completed run, e.g.
+#'     \code{FitModel(1000, 2000, report = TRUE)}
+#'   \item Output.RL must contain the '#Length data tuning' table
 #' }
+#'
+#' @references
+#' Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock
+#' assessment models. Canadian Journal of Fisheries and Aquatic Sciences 68:
+#' 1124-1138.
 #'
 #' @examples
 #' \dontrun{
 #' # Navigate to model run directory
 #' choose_model()
 #'
-#' # After running tuning analysis, update weights
+#' # After a completed run, update weights
 #' UpdateLFWeights("Yes")
+#'
+#' # Tighter clamp, and also hold the IBSS fleets
+#' UpdateLFWeights("Yes", lo = 0.5, hi = 2, hold_fleets = c(19:24, 25:28))
 #'
 #' # Skip updating (default behavior)
 #' UpdateLFWeights()
@@ -831,50 +866,87 @@ tk_choice <- function(choices, title = "Select") {
 #' \code{\link{choose_model}} for selecting a model run directory
 #'
 #' @export
-UpdateLFWeights <- function(todo='No'){
-  library(dplyr); library(magrittr)
-  if(todo=='Yes'){
-    ## Check Output.RL exists
-    rl_file <- "Output/Output.RL"
-    if (!file.exists(rl_file)) {
-      message("Output.RL not found. Run FitModel with report = TRUE,..  first, e.g.:\n",
-              "  FitModel(1000, 2000, report = TRUE)\n",
-              "Skipping length-frequency weight update.")
-      return(invisible(NULL))
-    }
+UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL",
+                            ctl_file = "CONTROL.DAT", lo = 0.2, hi = 2,
+                            hold_fleets = 25:28, backup = TRUE) {
+  if (todo != "Yes") return(invisible(NULL))
 
-    ## Function to calculate the slope
-    lmslope <- function(x,y)  return(coefficients(lm(y~x-1)))
-
-    output <- read.table(rl_file, comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:200)
-    tdat <- findNclean(c('Obs/Pred','Fleet'), output, 1, convert=1) %>% filter(`Obs/Pred`=='P')
-    tdat <- tdat[,1:7]
-    DataFile   <- read.table('CONTROL.DAT', comment.char = "?", fill=T, blank.lines.skip=F, stringsAsFactors=F, col.names=1:200)
-    didtune <- findNclean(c('#','Weights','by','fleet'), DataFile, 3)
-    tdat$ScaleNsamp <- didtune[match(tdat$Fleet,(didtune$Fleet+1)),5]
-    tdat %<>% mutate(ScaleNsamp=ifelse(is.na(ScaleNsamp),1,ScaleNsamp)) %>% group_by(Sex, Fleet) %>% summarise(Multiscale=lmslope(ScaleNsamp,EffN))
-
-    if (identical(tdat, NA) || is.null(tdat) || !is.data.frame(tdat)) {
-      message("No Francis tuning data found in Output.RL. Skipping weight update.")
-      return(invisible(NULL))
-    }
-
-    pos1 <- which(grepl('Weights',DataFile[,2]) & grepl('by',DataFile[,3]))
-    pos2 <- which(grepl('Basic',DataFile[,2]) & grepl('parameters',DataFile[,3]))
-    pos3 <- which(grepl('3',DataFile[,1]) & nchar(DataFile[,1])==1)
-    posall <- pos3[pos3>pos1 & pos3<pos2]
-    if(length(posall)!=nrow(tdat)) {
-      stop("Predetermined weights do not match length compositions")
-    }
-    for (i in 1:length(posall)) {
-      ttmp <- DataFile[posall[i], 1:10]
-      Scale <- as.numeric(tdat$Multiscale[(as.numeric(tdat$Fleet) - 1) == as.numeric(ttmp[, 2]) & (as.numeric(tdat$Sex) - 1) == as.numeric(ttmp[, 4])])
-      DataFile[posall[i], 5] <- as.numeric(DataFile[posall[i], 5]) * as.numeric(Scale)
-    }
-    write.table(DataFile, 'CONTROL.DAT', na=" ", sep=" ", row.names = F, col.names = F, quote=F)
+  if (!file.exists(rl_file)) {
+    message("Output.RL not found. Run FitModel with report = TRUE first, e.g.:\n",
+            "  FitModel(1000, 2000, report = TRUE)\n",
+            "Skipping length-frequency weight update.")
+    return(invisible(NULL))
   }
-}
 
+  ## ---- Francis multipliers from Output.RL ---------------------------------------
+  rl <- readLines(rl_file, warn = FALSE)
+  s  <- grep("^#Length data tuning", rl)[1]
+  if (is.na(s)) {
+    message("No '#Length data tuning' table in ", rl_file, ". Skipping weight update.")
+    return(invisible(NULL))
+  }
+  i <- s + 2                                   # skip the column-header line
+  rows <- character(0)
+  while (i <= length(rl) && nzchar(trimws(rl[i])) && !startsWith(rl[i], "#")) {
+    rows <- c(rows, rl[i]); i <- i + 1
+  }
+  fm <- read.table(text = rows, col.names = c("Fleet", "Sex", "Npnts", "Mult"))
+  if (any(!is.finite(fm$Mult)))
+    stop("Non-finite Francis multiplier(s) for fleet/sex: ",
+         paste(fm$Fleet[!is.finite(fm$Mult)], fm$Sex[!is.finite(fm$Mult)], collapse = ", "),
+         call. = FALSE)
+
+  ## ---- Type-3 weight lines in CONTROL.DAT --------------------------------------
+  raw <- readBin(ctl_file, "raw", file.info(ctl_file)$size)
+  txt <- rawToChar(raw)
+  eol <- if (grepl("\r\n", txt, fixed = TRUE)) "\r\n" else "\n"
+  ctl <- strsplit(txt, eol, fixed = TRUE)[[1]]
+
+  p1 <- grep("^#\\s*Weights by fleet", ctl)[1]
+  p2 <- grep("^#\\s*Basic parameters", ctl)[1]
+  if (is.na(p1) || is.na(p2) || p2 <= p1)
+    stop("Could not find the 'Weights by fleet' block in ", ctl_file, call. = FALSE)
+
+  idx <- (p1 + 1):(p2 - 1)
+  tok <- strsplit(trimws(ctl[idx]), "\\s+")
+  is3 <- vapply(tok, function(t) length(t) >= 5 && t[1] == "3", logical(1))
+  idx <- idx[is3]; tok <- tok[is3]
+  if (!length(idx)) stop("No type-3 (length) weight rows found.", call. = FALSE)
+
+  fleet <- as.integer(vapply(tok, `[`, "", 2)) + 1    # to 1-based, as in Output.RL
+  sex   <- as.integer(vapply(tok, `[`, "", 4)) + 1
+  old   <- as.numeric(vapply(tok, `[`, "", 5))
+
+  m <- fm$Mult[match(paste(fleet, sex), paste(fm$Fleet, fm$Sex))]
+  if (anyNA(m))
+    stop("No Francis multiplier for fleet/sex: ",
+         paste(fleet[is.na(m)], sex[is.na(m)], sep = "/", collapse = ", "),
+         ". Check that ", rl_file, " comes from a run with this CONTROL.DAT.", call. = FALSE)
+  if (nrow(fm) != length(idx))
+    warning(nrow(fm), " multipliers in Output.RL but ", length(idx),
+            " type-3 rows in CONTROL.DAT.", call. = FALSE)
+
+  applied <- ifelse(fleet %in% hold_fleets, 1, pmin(hi, pmax(lo, m)))
+  new     <- old * applied
+
+  ## ---- Replace only the value field, keep the rest of each line ----------------
+  for (k in seq_along(idx)) {
+    ln  <- ctl[idx[k]]
+    pat <- "^(\\s*\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+)(\\S+)(.*)$"
+    ctl[idx[k]] <- sub(pat, paste0("\\1", format(signif(new[k], 8), scientific = FALSE),
+                                   "\\3"), ln, perl = TRUE)
+  }
+
+  if (backup) file.copy(ctl_file, paste0(ctl_file, ".bak_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+  out <- paste(ctl, collapse = eol)
+  if (endsWith(txt, eol)) out <- paste0(out, eol)
+  writeBin(charToRaw(out), ctl_file)
+
+  res <- data.frame(Fleet = fleet, Sex = sex, Multiplier = round(m, 3),
+                    Applied = round(applied, 3), Old = round(old, 3), New = round(new, 3))
+  print(res, row.names = FALSE)
+  invisible(res)
+}
 
 # ── Helper: build the live-trace plot ─────────────────────────────────────────
 

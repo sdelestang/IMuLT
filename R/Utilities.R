@@ -359,3 +359,65 @@ EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
   invisible(list(eigenvalue = min_val, flat_loadings = loadings,
                  ranked_index = ord, worst_par = pnames[top]))
 }
+
+#' Bias-adjustment ramp years for recruitment deviations
+#'
+#' Sets the four Methot & Taylor (2011) ramp years from the data that inform
+#' recruitment, in order of priority: puerulus first, length frequencies second,
+#' model structure last. BiasMult is 0 before `ramp_start`, rises linearly to 1 at
+#' `full_start`, stays at 1 to `full_end`, falls linearly to 0 at `ramp_end`, and is
+#' 0 after. Equal adjacent years give a step (safe in IMuLT.cpp: no division by 0).
+#'
+#'  * full_start: first recruitment year informed by puerulus (first puerulus year +
+#'    larval_offset); else by length data (first LF year - lf_lag); else startseason.
+#'  * ramp_start: the earliest year any data inform, if that is earlier than
+#'    full_start (length data usually reach back before the puerulus series);
+#'    otherwise full_start - ramp_len. Never before startseason.
+#'  * full_end: the last year informed by the primary source, capped at endseason.
+#'  * ramp_end: the last recruitment year that source informs (puerulus reach
+#'    larval_offset years past endseason); otherwise full_end.
+#'
+#' @param puer_years    years of puerulus (larval) observations, any area; NULL if none
+#' @param lf_years      years of length-frequency observations, any fleet; NULL if none
+#' @param startseason,endseason first and last model years
+#' @param larval_offset years from puerulus settlement to recruitment in the model
+#' @param lf_lag        years from recruitment to first appearing in the length data
+#' @param ramp_len      ramp length when no earlier data define it
+#' @return named integer vector: ramp_start, full_start, full_end, ramp_end, plus
+#'   attribute "source" ("puerulus", "length", or "model")
+BiasRampYears <- function(puer_years = NULL, lf_years = NULL, startseason, endseason,
+                          larval_offset = 3, lf_lag = 4, ramp_len = 5) {
+  puer_years <- sort(unique(puer_years[is.finite(puer_years)]))
+  lf_years   <- sort(unique(lf_years[is.finite(lf_years)]))
+
+  lf_first <- if (length(lf_years)) min(lf_years) - lf_lag else NA
+  lf_last  <- if (length(lf_years)) max(lf_years) - lf_lag else NA
+
+  if (length(puer_years)) {
+    src        <- "puerulus"
+    full_start <- min(puer_years) + larval_offset
+    last_inf   <- max(puer_years) + larval_offset
+  } else if (length(lf_years)) {
+    src        <- "length"
+    full_start <- lf_first
+    last_inf   <- lf_last
+  } else {
+    src        <- "model"
+    full_start <- startseason
+    last_inf   <- endseason
+  }
+
+  earliest   <- min(c(full_start, lf_first), na.rm = TRUE)
+  ramp_start <- if (earliest < full_start) earliest else full_start - ramp_len
+
+  ramp_start <- max(startseason, ramp_start)
+  full_start <- max(ramp_start, full_start)
+  full_end   <- max(full_start, min(last_inf, endseason))
+  ramp_end   <- max(full_end, last_inf)
+
+  out <- as.integer(round(c(ramp_start = ramp_start, full_start = full_start,
+                            full_end = full_end, ramp_end = ramp_end)))
+  names(out) <- c("ramp_start", "full_start", "full_end", "ramp_end")
+  attr(out, "source") <- src
+  out
+}

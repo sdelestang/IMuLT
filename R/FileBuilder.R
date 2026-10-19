@@ -264,7 +264,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   #Puerulus index
   tmp <- c(tmp,"\n# Larval index (puerulus)\n# Likelihood for larval (puerulus) data (0=lognormal, else normal\n",0)
-  tmp <- c(tmp,"\n# Delay from puerulus to entering the model (years)\n",3)
+  puer <- readWorkbook(wb,sheet='Puerulus',startRow = 2)
+  if(length(puer$larval_delay)>0) {larval_delay <- as.numeric(puer$larval_delay[1])}else{larval_delay <- 3}
+  tmp <- c(tmp,"\n# Delay from puerulus to entering the model (years)\n",larval_delay)
   puer <- readWorkbook(wb,sheet='Puerulus',startRow = 2)  %>%  mutate(area=area,mn=round(mn,1), sd=round(cv*mn,2))  %>% dplyr::select(area,season, mn, sd) %>% filter(season %in% startseason:endseason, area %in% areas$AreaCode)
   if(dim(puer)[1]==0) { tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",'0\n# Area\tYear\tIndex\tSD\n') } else {
     tmp <- c(tmp,"\n# Number of data points (puerulus samples)\n",nrow(puer),'\n# Area\tYear\tIndex\tSD\n')
@@ -694,63 +696,146 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   #### Movement file ####
   print("Building Migration File")
 
-  migrate999 <- migrate %>% filter(Season==999)
-  dat <- expand.grid(age=(1:ages)-1, area=sort(unique(areas$AreaCode))-1, step=sort(unique(times$tstep))-1)
-  dat2 <- matrix(0, nrow=nrow(dat), ncol=length(startseason:endseason))
-  for(i in 1:nrow(migrate999)){
-    dat2[dat$age==(migrate999$Age[i]-1) & dat$area==(migrate999$Source[i]-1) & dat$step==(migrate999$tstep[i]-1),] <- i
-  }
-  migrateNOT999 <- migrate %>% filter(Season<=100)
-  if(nrow(migrateNOT999)>0){
-    nyears <- ncol(dat2)
-    parpoint <- max(dat2)+1
-    for(i in 1:nrow(migrateNOT999)){
-      for(y in 1:ceiling(nyears/migrateNOT999$Season[i])){
-        pos <- ((y-1)*migrateNOT999$Season[i])+(1:migrateNOT999$Season[i])
-        pos <- pos[pos<=nyears]
-        dat2[dat$age==(migrateNOT999$Age[i]-1) & dat$area==(migrateNOT999$Source[i]-1) & dat$step==(migrateNOT999$tstep[i]-1),pos] <- parpoint
-        tmpmigrateNOT999 <- migrateNOT999[i,]
-        tmpmigrateNOT999$pointer <- parpoint
-        migrate999 <- rbind(migrate999,tmpmigrateNOT999)
-        parpoint <- parpoint + 1
-      }}
-  }
-  # ## See if there were any specific years when migration was to be different and implement this.
-  # yrs2change <- unique(migrate$Season[migrate$Season!=999 & migrate$Season>1000])
-  # if(length(yrs2change)>0){
-  #   for(y in 1:length(yrs2change)){
-  #     tmpdf <- migrate[migrate$Season==yrs2change[y],]
-  #     dat2[dat$age==(tmpdf$Age-1) & dat$area==(tmpdf$Source-1) & dat$step==(tmpdf$tstep-1),(startseason:endseason)==tmpdf$Season] <- tmpdf$pointer
-  #   }}
+  ## Season column (one rule per row):
+  ##   999          every year not covered by another row for the same move
+  ##                (an every-N, single-year or block row overrides it in its years)
+  ##   N  (<= 100)  a new parameter every N years (each chunk its own pattern)
+  ##   YYYY (>1000) that year only, overriding whatever else applies that year
+  ##                (including a block)
+  ##   a,b or a-b   block: every year from a to b inclusive. A move (age, source,
+  ##                tstep) given ONLY as blocks (no 999 row) has NO migration in years
+  ##                no block covers.
+  ## Pattern/parameter order in MOVESPEC: 999 rows (in sheet order), then every-N
+  ## chunks, then single years, then blocks. Link values are copied unchanged, so
+  ## they refer to these output positions (see the table printed below).
 
-  dat <- cbind(dat,dat2)
-  dat %<>% arrange(age, area, step)
+  yrs    <- startseason:endseason
+  nyears <- length(yrs)
 
-  #migratesum <- migrate %>% group_by()
+  stxt <- trimws(as.character(migrate$Season))
+  is_block <- grepl("^[0-9]{4}\\s*[,-]\\s*[0-9]{4}$", stxt)
+  snum <- suppressWarnings(as.numeric(ifelse(is_block, NA, stxt)))
+  stype <- ifelse(is_block, "block",
+                  ifelse(!is.na(snum) & snum == 999, "all",
+                         ifelse(!is.na(snum) & snum >= 1 & snum <= 100, "every",
+                                ifelse(!is.na(snum) & snum > 1000, "year", NA))))
+  if (anyNA(stype))
+    stop("Movement sheet: unrecognised Season value(s) in row(s) ",
+         paste(which(is.na(stype)), collapse = ", "), ": ",
+         paste(unique(stxt[is.na(stype)]), collapse = ", "),
+         ". Use 999, N (<= 100), a year, or a block 'a,b'.", call. = FALSE)
+  blk <- do.call(rbind, lapply(seq_along(stxt), function(i) {
+    if (!is_block[i]) return(c(NA, NA))
+    as.numeric(strsplit(gsub("\\s", "", stxt[i]), "[,-]")[[1]])
+  }))
+  if (any(is_block & blk[, 1] > blk[, 2]))
+    stop("Movement sheet: block start after end in row(s) ",
+         paste(which(is_block & blk[, 1] > blk[, 2]), collapse = ", "), call. = FALSE)
+
+  movekey <- paste(migrate$Age, migrate$Source, migrate$tstep)
+  ## Blocks for the same move must not overlap
+  for (k in unique(movekey[stype == "block"])) {
+    r <- which(stype == "block" & movekey == k)
+    r <- r[order(blk[r, 1])]
+    if (length(r) > 1 && any(blk[r[-1], 1] <= blk[r[-length(r)], 2]))
+      stop("Movement sheet: overlapping blocks for move (Age Source tstep) ", k,
+           " in rows ", paste(r, collapse = ", "), call. = FALSE)
+  }
+
+  dat  <- expand.grid(age = (1:ages) - 1, area = sort(unique(areas$AreaCode)) - 1,
+                      step = sort(unique(times$tstep)) - 1)
+  dat2 <- matrix(0, nrow = nrow(dat), ncol = nyears)
+  rowsel <- function(i) dat$age == (migrate$Age[i] - 1) & dat$area == (migrate$Source[i] - 1) &
+    dat$step == (migrate$tstep[i] - 1)
+
+  pars <- migrate[0, , drop = FALSE]; pars$Label <- character(0)
+  addpat <- function(i, cols, label) {
+    p <- nrow(pars) + 1
+    dat2[rowsel(i), cols] <<- p
+    newrow <- migrate[i, , drop = FALSE]; newrow$pointer <- p; newrow$Label <- label
+    pars <<- rbind(pars, newrow)
+  }
+
+  for (i in which(stype == "all")) addpat(i, seq_len(nyears), "")
+
+  for (i in which(stype == "every")) {
+    n <- snum[i]
+    for (y in seq_len(ceiling(nyears / n))) {
+      pos <- ((y - 1) * n) + seq_len(n); pos <- pos[pos <= nyears]
+      addpat(i, pos, sprintf(" (%d-%d)", yrs[min(pos)], yrs[max(pos)]))
+    }
+  }
+
+  for (i in which(stype == "block")) {
+    pos <- which(yrs >= blk[i, 1] & yrs <= blk[i, 2])
+    if (!length(pos)) { warning("Movement sheet row ", i, ": block ", stxt[i],
+                                " outside ", startseason, "-", endseason, "; ignored.",
+                                call. = FALSE); next }
+    addpat(i, pos, sprintf(" (%d-%d)", yrs[min(pos)], yrs[max(pos)]))
+  }
+
+  for (i in which(stype == "year")) {
+    pos <- which(yrs == snum[i])
+    if (!length(pos)) { warning("Movement sheet row ", i, ": year ", snum[i],
+                                " outside ", startseason, "-", endseason, "; ignored.",
+                                call. = FALSE); next }
+    addpat(i, pos, sprintf(" (%d)", snum[i]))
+  }
+
+  ## Report years with no migration for moves defined by blocks without a 999 row
+  for (k in setdiff(unique(movekey[stype == "block"]), movekey[stype == "all"])) {
+    i <- which(movekey == k)[1]
+    gap <- yrs[colSums(dat2[rowsel(i), , drop = FALSE]) == 0]
+    if (length(gap)) {
+      runs <- split(gap, cumsum(c(1, diff(gap) != 1)))
+      message("Movement ", migrate$Source[i], " to ", migrate$Dest[i], " (age ", migrate$Age[i],
+              ", tstep ", migrate$tstep[i], "): no migration in ",
+              paste(vapply(runs, function(r) if (length(r) == 1) r else
+                paste0(min(r), "-", max(r)), ""), collapse = ", "))
+    }
+  }
+
+  ## A pattern used in no year (e.g. a 999 row fully overridden by blocks) has a
+  ## parameter nothing informs: warn so it can be removed or fixed.
+  unused <- setdiff(seq_len(nrow(pars)), unique(as.vector(dat2)))
+  if (length(unused))
+    warning("Movement pattern(s) ", paste(unused, collapse = ", "),
+            " are not used in any year (fully overridden by other rows). Their ",
+            "parameters are uninformed: remove the row(s) or set the phase negative.",
+            call. = FALSE)
+
+  print(data.frame(Pattern = pars$pointer, Move = paste(pars$Source, "to", pars$Dest),
+                   Age = pars$Age, tstep = pars$tstep, Years = sub("^ \\((.*)\\)$", "\\1",
+                                                                   ifelse(pars$Label == "", " (all)", pars$Label))), row.names = FALSE)
+
+  dat <- cbind(dat, dat2)
+  dat <- dat[order(dat$age, dat$area, dat$step), ]
 
   tmp <- list()
-  tmp <- c(tmp, "# Movement section\n# Number of movement patterns\n",nrow(migrate999)+1,"\n")
+  tmp <- c(tmp, "# Movement section\n# Number of movement patterns\n", nrow(pars) + 1, "\n")
   tmp <- c(tmp, "# Pattern\tType\tDest\tExtra\t(Type 0: none; 1 constant [prespecified or estimated; 1 parameter]; 2 knife-eded-specific [pre-specified or estimated; 2 parameters])\n")
-  tmp <- c(tmp,"\t",paste(c(0,0,0,0),collapse = "\t"),"\n")
-  Nmigratepars <- nrow(migrate999)
-  if(Nmigratepars>0) {
-    for(i in 1:Nmigratepars) {
-      tmp <- c(tmp,"\t",paste(c(i,1,migrate999$Dest[i]-1,0),collapse = "\t"),"\n")}}
+  tmp <- c(tmp, "\t", paste(c(0, 0, 0, 0), collapse = "\t"), "\n")
+  Nmigratepars <- nrow(pars)
+  if (Nmigratepars > 0) {
+    for (i in 1:Nmigratepars) {
+      tmp <- c(tmp, "\t", paste(c(i, 1, pars$Dest[i] - 1, 0), collapse = "\t"), "\n")}}
 
   tmp <- c(tmp, "# Movement specifications\n")
-  tmp <- c(tmp, "#Age\tArea\tTStep\t", paste(startseason:endseason,collapse = "\t"),"\n")
-  for(i in 1:nrow(dat)){ tmp <- c(tmp,paste(dat[i,],collapse = "\t"),"\n")}
+  tmp <- c(tmp, "#Age\tArea\tTStep\t", paste(startseason:endseason, collapse = "\t"), "\n")
+  for (i in 1:nrow(dat)) { tmp <- c(tmp, paste(dat[i, ], collapse = "\t"), "\n")}
 
   tmp <- c(tmp, "# Movement parameters\n# Lower\tUpper\tEstimate\tPhase\tLink\tUsePrior\tPrior_mn\tPrior_sd\tSource to Dest & Age\n")
-  if(Nmigratepars>0) {
-    Mpar <- migrate999 %>% dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd)
-    for(i in 1:nrow(Mpar)){
-      tmp <- c(tmp,"\t",paste(Mpar[i,],collapse = "\t"),paste("\t\t #", migrate999$Source[i],"to", migrate999$Dest[i],"&",migrate999$Age[i],"\n"))}
+  if (Nmigratepars > 0) {
+    Mpar <- pars[, c("lower", "upper", "est", "Phase", "Link", "UsePrior", "Prior", "Priorsd")]
+    for (i in 1:nrow(Mpar)) {
+      tmp <- c(tmp, "\t", paste(Mpar[i, ], collapse = "\t"),
+               paste0("\t\t # ", pars$Source[i], " to ", pars$Dest[i], " & ", pars$Age[i],
+                      pars$Label[i], "\n"))}
   }
 
   tmp <- c(tmp, "\n# Final check\n123456")
 
-  write.table(tmp, paste(floc,'/MOVESPEC.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
+  write.table(tmp, paste(floc, '/MOVESPEC.DAT', sep = ''), sep = "", row.names = F, col.names = F, quote = F)
 
 
   #### TagRecapture file ####
@@ -876,7 +961,20 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(a in 1:nrow(rec)){ tmp <- c(tmp, paste(rec[a,],collapse='\t'), "\n")  }
 
   # Bias ramp
-  tmp <- c(tmp, "\n# Bias ramp - insert description here\n",paste(c(startseason, startseason, endseason, endseason),collapse = "\t"),"\t#description\tdescription\tdescription\tdescription\n")
+  # base on puerulus data first, then LF second then model structure last
+  br <- BiasRampYears(puer_years    = sort(unique(puer$season)),
+                      lf_years      = sort(unique(len$Season)),
+                      startseason   = startseason,
+                      endseason     = endseason,
+                      larval_offset = larval_delay,
+                      lf_lag        = 4,
+                      ramp_len      = 5)
+  tmp <- c(tmp,
+           paste0("\n# Bias ramp (recruitment deviation bias adjustment; source: ",
+                  attr(br, "source"), "): 0 before ramp_start, linear to 1 at full_start, ",
+                  "1 to full_end, linear to 0 at ramp_end\n"),
+           paste(br, collapse = "\t"),
+           "\t#ramp_start\tfull_start\tfull_end\tramp_end\n")
 
   if(suppressWarnings(!is.null(readWorkbook(wb,sheet='PuerulusPar', startRow = 3)))){
     puerpar <- readWorkbook(wb,sheet='PuerulusPar', startRow = 2) %>% mutate(description=paste('#', description))

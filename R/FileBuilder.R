@@ -804,9 +804,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
             "parameters are uninformed: remove the row(s) or set the phase negative.",
             call. = FALSE)
 
-  print(data.frame(Pattern = pars$pointer, Move = paste(pars$Source, "to", pars$Dest),
-                   Age = pars$Age, tstep = pars$tstep, Years = sub("^ \\((.*)\\)$", "\\1",
-                                                                   ifelse(pars$Label == "", " (all)", pars$Label))), row.names = FALSE)
+  #print(data.frame(Pattern = pars$pointer, Move = paste(pars$Source, "to", pars$Dest),
+  #                 Age = pars$Age, tstep = pars$tstep, Years = sub("^ \\((.*)\\)$", "\\1",
+  #                                                                 ifelse(pars$Label == "", " (all)", pars$Label))), row.names = FALSE)
 
   dat <- cbind(dat, dat2)
   dat <- dat[order(dat$age, dat$area, dat$step), ]

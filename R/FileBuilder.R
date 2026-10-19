@@ -705,9 +705,11 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   ##   a,b or a-b   block: every year from a to b inclusive. A move (age, source,
   ##                tstep) given ONLY as blocks (no 999 row) has NO migration in years
   ##                no block covers.
-  ## Pattern/parameter order in MOVESPEC: 999 rows (in sheet order), then every-N
-  ## chunks, then single years, then blocks. Link values are copied unchanged, so
-  ## they refer to these output positions (see the table printed below).
+  ## Pattern/parameter order in MOVESPEC follows the SHEET ROW ORDER (an every-N row
+  ## expands into its chunks in place). Precedence between rows for the same move
+  ## does not depend on order: single year > block > every-N > 999. Link values are
+  ## copied unchanged, so they refer to these output positions (see the table printed
+  ## below).
 
   yrs    <- startseason:endseason
   nyears <- length(yrs)
@@ -748,38 +750,46 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   rowsel <- function(i) dat$age == (migrate$Age[i] - 1) & dat$area == (migrate$Source[i] - 1) &
     dat$step == (migrate$tstep[i] - 1)
 
+  ## Pass 1: create patterns in SHEET ORDER (an every-N row expands into its chunks
+  ## in place), so MOVESPEC parameter k is the k-th sheet row when no every-N rows
+  ## are used.
   pars <- migrate[0, , drop = FALSE]; pars$Label <- character(0)
+  patrow <- integer(0); patcols <- list()
   addpat <- function(i, cols, label) {
     p <- nrow(pars) + 1
-    dat2[rowsel(i), cols] <<- p
     newrow <- migrate[i, , drop = FALSE]; newrow$pointer <- p; newrow$Label <- label
-    pars <<- rbind(pars, newrow)
+    pars    <<- rbind(pars, newrow)
+    patrow  <<- c(patrow, i)
+    patcols[[p]] <<- cols
   }
-
-  for (i in which(stype == "all")) addpat(i, seq_len(nyears), "")
-
-  for (i in which(stype == "every")) {
-    n <- snum[i]
-    for (y in seq_len(ceiling(nyears / n))) {
-      pos <- ((y - 1) * n) + seq_len(n); pos <- pos[pos <= nyears]
+  for (i in seq_len(nrow(migrate))) {
+    if (stype[i] == "all") {
+      addpat(i, seq_len(nyears), "")
+    } else if (stype[i] == "every") {
+      n <- snum[i]
+      for (y in seq_len(ceiling(nyears / n))) {
+        pos <- ((y - 1) * n) + seq_len(n); pos <- pos[pos <= nyears]
+        addpat(i, pos, sprintf(" (%d-%d)", yrs[min(pos)], yrs[max(pos)]))
+      }
+    } else if (stype[i] == "block") {
+      pos <- which(yrs >= blk[i, 1] & yrs <= blk[i, 2])
+      if (!length(pos)) { warning("Movement sheet row ", i, ": block ", stxt[i],
+                                  " outside ", startseason, "-", endseason, "; ignored.",
+                                  call. = FALSE); next }
       addpat(i, pos, sprintf(" (%d-%d)", yrs[min(pos)], yrs[max(pos)]))
+    } else if (stype[i] == "year") {
+      pos <- which(yrs == snum[i])
+      if (!length(pos)) { warning("Movement sheet row ", i, ": year ", snum[i],
+                                  " outside ", startseason, "-", endseason, "; ignored.",
+                                  call. = FALSE); next }
+      addpat(i, pos, sprintf(" (%d)", snum[i]))
     }
   }
 
-  for (i in which(stype == "block")) {
-    pos <- which(yrs >= blk[i, 1] & yrs <= blk[i, 2])
-    if (!length(pos)) { warning("Movement sheet row ", i, ": block ", stxt[i],
-                                " outside ", startseason, "-", endseason, "; ignored.",
-                                call. = FALSE); next }
-    addpat(i, pos, sprintf(" (%d-%d)", yrs[min(pos)], yrs[max(pos)]))
-  }
-
-  for (i in which(stype == "year")) {
-    pos <- which(yrs == snum[i])
-    if (!length(pos)) { warning("Movement sheet row ", i, ": year ", snum[i],
-                                " outside ", startseason, "-", endseason, "; ignored.",
-                                call. = FALSE); next }
-    addpat(i, pos, sprintf(" (%d)", snum[i]))
+  ## Pass 2: fill the year pointers in PRIORITY order, so later types override
+  ## earlier ones: 999, then every-N, then blocks, then single years.
+  for (ty in c("all", "every", "block", "year")) {
+    for (p in which(stype[patrow] == ty)) dat2[rowsel(patrow[p]), patcols[[p]]] <- p
   }
 
   ## Report years with no migration for moves defined by blocks without a 999 row
@@ -804,9 +814,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
             "parameters are uninformed: remove the row(s) or set the phase negative.",
             call. = FALSE)
 
-  #print(data.frame(Pattern = pars$pointer, Move = paste(pars$Source, "to", pars$Dest),
-  #                 Age = pars$Age, tstep = pars$tstep, Years = sub("^ \\((.*)\\)$", "\\1",
-  #                                                                 ifelse(pars$Label == "", " (all)", pars$Label))), row.names = FALSE)
+  print(data.frame(Pattern = pars$pointer, Move = paste(pars$Source, "to", pars$Dest),
+                   Age = pars$Age, tstep = pars$tstep, Years = sub("^ \\((.*)\\)$", "\\1",
+                                                                   ifelse(pars$Label == "", " (all)", pars$Label))), row.names = FALSE)
 
   dat <- cbind(dat, dat2)
   dat <- dat[order(dat$age, dat$area, dat$step), ]
@@ -836,7 +846,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   tmp <- c(tmp, "\n# Final check\n123456")
 
   write.table(tmp, paste(floc, '/MOVESPEC.DAT', sep = ''), sep = "", row.names = F, col.names = F, quote = F)
-
 
   #### TagRecapture file ####
   tag <- readWorkbook(wb,sheet='TagRecapture', startRow = 2,colNames = FALSE)

@@ -2,6 +2,7 @@
 
 export(AdjustPhase)
 export(BuildInputFiles)
+export(CopyLFWeights)
 export(FitModel)
 export(JitterFit)
 export(LoadData)

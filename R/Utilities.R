@@ -421,3 +421,86 @@ BiasRampYears <- function(puer_years = NULL, lf_years = NULL, startseason, endse
   attr(out, "source") <- src
   out
 }
+
+#' Copy length-frequency weights from a previous CONTROL.DAT
+#'
+#' After building a model from the Excel workbook, the length-frequency weights in
+#' the new CONTROL.DAT are the workbook defaults. This copies the tuned weights
+#' (type-3 rows of the "Weights by fleet" block) from a previous run's CONTROL.DAT,
+#' matching on fleet and sex, so a rebuilt model keeps the Francis weighting that
+#' run ended with. Only the value field of matched lines is replaced; everything
+#' else, including comments and line endings, is written back unchanged.
+#'
+#' Run it straight after the build and before fitting. To tune further, run
+#' \code{UpdateLFWeights("Yes")} afterwards as usual.
+#'
+#' @param from_ctl Path to the CONTROL.DAT holding the weights to copy
+#'   (e.g. the previous run's folder).
+#' @param to_ctl Path to the newly built CONTROL.DAT to update.
+#'   Default 'CONTROL.DAT'.
+#' @param types Weight types to copy (1 = cpue, 2 = numbers, 3 = length,
+#'   4 = larvae). Default 3.
+#' @param backup Logical. If TRUE (default), copy to_ctl to
+#'   '<to_ctl>.bak_<timestamp>' before writing.
+#'
+#' @return Invisibly, a data frame of the matched rows with old and new values.
+#'
+#' @examples
+#' \dontrun{
+#' CopyLFWeights("../x9/CONTROL.DAT")
+#' }
+#' @export
+CopyLFWeights <- function(from_ctl, to_ctl = "CONTROL.DAT", types = 3, backup = TRUE) {
+
+  read_ctl <- function(f) {
+    txt <- rawToChar(readBin(f, "raw", file.info(f)$size))
+    eol <- if (grepl("\r\n", txt, fixed = TRUE)) "\r\n" else "\n"
+    list(txt = txt, eol = eol, lines = strsplit(txt, eol, fixed = TRUE)[[1]])
+  }
+  weight_rows <- function(lines, file) {
+    p1 <- grep("^#\\s*Weights by fleet", lines)[1]
+    p2 <- grep("^#\\s*Basic parameters", lines)[1]
+    if (is.na(p1) || is.na(p2) || p2 <= p1)
+      stop("Could not find the 'Weights by fleet' block in ", file, call. = FALSE)
+    idx <- (p1 + 1):(p2 - 1)
+    tok <- strsplit(trimws(lines[idx]), "\\s+")
+    ok  <- vapply(tok, function(t) length(t) >= 5 && t[1] %in% as.character(types), logical(1))
+    idx <- idx[ok]; tok <- tok[ok]
+    data.frame(line  = idx,
+               key   = vapply(tok, function(t) paste(t[1], t[2], t[3], t[4]), ""),
+               value = vapply(tok, `[`, "", 5), stringsAsFactors = FALSE)
+  }
+
+  src <- read_ctl(from_ctl)
+  dst <- read_ctl(to_ctl)
+  ws  <- weight_rows(src$lines, from_ctl)
+  wd  <- weight_rows(dst$lines, to_ctl)
+
+  if (anyDuplicated(ws$key)) stop("Duplicate weight rows in ", from_ctl, call. = FALSE)
+  m <- match(wd$key, ws$key)
+  if (anyNA(m))
+    warning("No weight in ", from_ctl, " for: ", paste(wd$key[is.na(m)], collapse = "; "),
+            " (left unchanged).", call. = FALSE)
+  extra <- setdiff(ws$key, wd$key)
+  if (length(extra))
+    warning("Weights in ", from_ctl, " with no matching row in ", to_ctl, ": ",
+            paste(extra, collapse = "; "), call. = FALSE)
+
+  pat <- "^(\\s*\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+)(\\S+)(.*)$"
+  for (k in which(!is.na(m)))
+    dst$lines[wd$line[k]] <- sub(pat, paste0("\\1", ws$value[m[k]], "\\3"),
+                                 dst$lines[wd$line[k]], perl = TRUE)
+
+  if (backup) file.copy(to_ctl, paste0(to_ctl, ".bak_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+  out <- paste(dst$lines, collapse = dst$eol)
+  if (endsWith(dst$txt, dst$eol)) out <- paste0(out, dst$eol)
+  writeBin(charToRaw(out), to_ctl)
+
+  k  <- strsplit(wd$key, " ")
+  res <- data.frame(Type  = vapply(k, `[`, "", 1),
+                    Fleet = as.integer(vapply(k, `[`, "", 2)) + 1,
+                    Sex   = as.integer(vapply(k, `[`, "", 4)) + 1,
+                    Old   = wd$value, New = ifelse(is.na(m), wd$value, ws$value[m]))
+  print(res, row.names = FALSE)
+  invisible(res)
+}

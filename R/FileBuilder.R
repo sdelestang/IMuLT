@@ -95,11 +95,17 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   #This is the location of the data input files and their associated parameters
   dynamics <- readWorkbook(wb,sheet='Dynamics', startRow = 2)
+  reftimestep <- c(1,1)
+  if(length(dynamics$value[dynamics$object=='reftimestep'])>0) {
+    reftimestep <- as.numeric(strsplit(dynamics$value[dynamics$object=='reftimestep'],',')[[1]])
+    dynamics <- dynamics[dynamics$object!='reftimestep', ]
+  }
   if(!(dynamics$value[dynamics$object=='estimateVariance']==0|dynamics$value[dynamics$object=='estimateVariance']=='')){
     Varspos <- as.numeric(strsplit(dynamics$value[dynamics$object=='estimateVariance'], ",")[[1]])
     dynamics <- dynamics[dynamics$object!='estimateVariance', ]
     dynamics$value <- as.numeric(dynamics$value)
   }
+  dynamics$value <- as.numeric(dynamics$value)
   startseason <- as.numeric(dynamics$value[dynamics$object=='startseason'])
   endseason <- as.numeric(dynamics$value[dynamics$object=='endseason'])
   if (!is.null(end_override)) endseason <- end_override
@@ -290,9 +296,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   if(length(female.wat)==0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n") }
   if(length(female.wat)>0 & length(male.wat)==0){ tmp <- c(tmp, paste(female.wat,collapse = "\t"),"\n") }
 
-  tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",0,'\n')
+  tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",reftimestep[2]-1,'\n')
 
-  tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",0,'\n')
+  tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",reftimestep[1]-1,'\n')
 
   tmp <- c(tmp, "\n# Biomass target, threshold, limit (one per area)\n")
 

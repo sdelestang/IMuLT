@@ -450,7 +450,7 @@ BiasRampYears <- function(puer_years = NULL, lf_years = NULL, startseason, endse
 #' CopyLFWeights("../x9/CONTROL.DAT")
 #' }
 #' @export
-CopyLFWeights <- function(from_ctl, to_ctl = "CONTROL.DAT", types = 3, backup = TRUE) {
+CopyLFWeights <- function(from_ctl, to_ctl = "CONTROL.DAT", types = 3, backup = FALSE) {
 
   read_ctl <- function(f) {
     txt <- rawToChar(readBin(f, "raw", file.info(f)$size))
@@ -501,6 +501,6 @@ CopyLFWeights <- function(from_ctl, to_ctl = "CONTROL.DAT", types = 3, backup = 
                     Fleet = as.integer(vapply(k, `[`, "", 2)) + 1,
                     Sex   = as.integer(vapply(k, `[`, "", 4)) + 1,
                     Old   = wd$value, New = ifelse(is.na(m), wd$value, ws$value[m]))
-  print(res, row.names = FALSE)
+  #print(res, row.names = FALSE)
   invisible(res)
 }

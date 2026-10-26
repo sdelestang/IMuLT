@@ -310,16 +310,16 @@ UpdatePars <- function(todo = "Yes", source = ".")
 
   locs <- data.frame(
     par  = c("MainPars", "RecruitPars", "PuerPowPars", "RecDevs", "Qpars",
-             "efpars", "RecSpatDevs", "MovePars", "SelPars"),
+             "efpars", "RecSpatDevs", "MovePars", "SelPars", "GrowthPars"),
     file = c("CONTROL.DAT", "RECRUITSPEC.DAT", "RECRUITSPEC.DAT", "CONTROL.DAT",
              "CONTROL.DAT", "CONTROL.DAT", "CONTROL.DAT", "MOVESPEC.DAT",
-             "SELEXSPEC.DAT"),
+             "SELEXSPEC.DAT", "GROWTHSPEC.DAT"),
     id   = c("Basic parameters", "Recuitment1 parameters", "Puerulus Power for",
              "Prespecify_rec_devs", "Q parameters", "Efficiency parameters",
              "Prespecify_spatial_rec_devs", "Movement parameters",
-             "Selectivity Parameters"),
-    off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2),
-    col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3),
+             "Selectivity Parameters", "Growth parameters"),
+    off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2, 2),
+    col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3, 3),
     stringsAsFactors = FALSE)
 
   for (i in 1:nrow(locs)) {

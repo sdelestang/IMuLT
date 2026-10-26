@@ -467,7 +467,21 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   gsp <- graw %>% filter(!is.na(startseason)) %>%
     dplyr::select(startseason, endseason, sex, area, tstep, grow, matrix)
   if (any(is.na(gsp$matrix) | gsp$matrix == "")) stop("Every growth specification row needs a matrix label.", call. = FALSE)
-  umat <- unique(gsp$matrix)                  # pattern order = order matrices appear on the sheet
+
+  ## Pattern order: when growth parameters are given, follow the order of the
+  ## parameter rows on the sheet, so GROWTHSPEC.DAT, the .par file and the
+  ## Excel sheet all list the parameters in the same order. Otherwise use the
+  ## order the matrices appear in the specification rows.
+  umat_spec <- unique(gsp$matrix)
+  if (IsGPars) {
+    umat <- unique(graw$matrixmap[!is.na(graw$est)])
+    if (!setequal(umat, umat_spec))
+      stop("Growth matrix labels differ between the specification rows and the parameter rows.\n",
+           "  Only in specification: ", paste(setdiff(umat_spec, umat), collapse = ", "), "\n",
+           "  Only in parameters:    ", paste(setdiff(umat, umat_spec), collapse = ", "), call. = FALSE)
+  } else {
+    umat <- umat_spec
+  }
   nstm <- length(umat)
   gsp <- gsp %>% mutate(sex = adjsex(sex, nsex, section = 'Growth')) %>%
     tidyr::separate_rows(area,  sep = ",") %>%
@@ -508,11 +522,17 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   if (nrow(miss)) warning("No growth assigned for:\n",
                           paste0("sex=", miss$sex, " age=", miss$age, " area=", miss$area, " year=", miss$year, collapse = "\n"), call. = FALSE)
 
-  ## 4. Growth parameters: 7 per matrix, matched by matrixmap/Parid and put in umat x parorder order
+  ## 4. Growth parameters: 7 per matrix, in sheet order (umat x parorder)
   if (IsGPars) {
     gpars <- graw %>% filter(!is.na(est)) %>%
-      dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd, matrixmap, Parid) %>%
-      arrange(match(matrixmap, umat), match(Parid, parorder))
+      dplyr::select(lower, upper, est, Phase, Link, UsePrior, Prior, Priorsd, matrixmap, Parid)
+    ## Each matrix's rows must be contiguous on the sheet so the sheet order
+    ## and the file order match exactly
+    runs <- rle(gpars$matrixmap)$values
+    if (anyDuplicated(runs))
+      stop("Growth parameter rows for each matrix must be together on the sheet. Split matrix(es): ",
+           paste(unique(runs[duplicated(runs)]), collapse = ", "), call. = FALSE)
+    gpars <- gpars %>% arrange(match(matrixmap, umat), match(Parid, parorder))   # only reorders Parid within a matrix
     expect <- tidyr::expand_grid(matrixmap = umat, Parid = parorder)
     if (!identical(gpars$matrixmap, expect$matrixmap) || !identical(gpars$Parid, expect$Parid))
       stop("Growth parameters need exactly one row for each of ", paste(parorder, collapse = ", "),
@@ -567,7 +587,6 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
                                              ID = paste0(matrixmap, ":", Parid)), sep = " "),
     "\n# Final check\n123456\n")
   cat(out, file = file.path(floc, "GROWTHSPEC.DAT"), sep = "")
-
 
   #### Reproduction file ####
   print("Building Reproduction File")

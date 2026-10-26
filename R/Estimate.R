@@ -261,92 +261,86 @@ choose_model <- function(pattern = "Run", up = 3L) {
   invisible(selected)
 }
 
-#' Update Model Input Files with Estimated Parameters
+#' Update control-file parameters from a solved model
 #'
-#' Updates IMuLT model input files (.DAT files) with parameter estimates from
-#' a completed model run. This allows you to use converged parameter values
-#' as starting values for subsequent runs or modified scenarios.
-#'
-#' @param todo Character string indicating whether to update parameters.
-#'   Options are 'Yes' or 'No'. If not specified (default ' '), an interactive
-#'   dialog will prompt the user to choose.
-#'
-#' @return NULL (invisibly). The function modifies input files as a side effect.
-#'
-#' @details
-#' The function reads final parameter estimates from 'Output/model final.par' and
-#' updates the following input files with these values:
-#' \itemize{
-#'   \item CONTROL.DAT - Main parameters, Q parameters, efficiency parameters, recruitment deviations, and spatial recruitment deviations
-#'   \item RECRUITSPEC.DAT - Recruitment parameters and puerulus power parameters
-#'   \item MOVESPEC.DAT - Movement/migration parameters
-#'   \item SELEXSPEC.DAT - Selectivity parameters
-#' }
-#'
-#' This is useful when:
-#' \itemize{
-#'   \item Starting a new run from converged values
-#'   \item Running projections with estimated parameters
-#'   \item Testing model sensitivity with slightly modified starting values
-#' }
-#'
-#' @note This function must be run from within a model run directory that contains
-#'   the input .DAT files and an 'Output/model final.par' file from a completed run.
-#'
-#' @examples
-#' \dontrun{
-#' # Set working directory to a completed model run
-#' choose_model()
-#'
-#' # Update parameters interactively (prompts for Yes/No)
-#' UpdatePars()
-#'
-#' # Update parameters without prompting
-#' UpdatePars("Yes")
-#'
-#' # Skip updating (useful in scripts)
-#' UpdatePars("No")
-#' }
-#'
-#' @seealso \code{\link{choose_model}} for selecting a model run directory
-#'
-#' @export
-UpdatePars <- function(todo=' '){
-  if(todo==' ') {todo <- svDialogs::dlg_list(c('Yes','No','                '),  title=c('Update Parameters?                    '))$res  }
-  ## Get estimated parameters  KeyWord <- locs$id[i]
-  if(todo=='Yes'){
-    ## Ensure model final.par exists first
-    par_file <- "Output/model final.par"
-    if (!file.exists(par_file)) {
+#' @param todo "Yes" (default) to update, "No" to do nothing, or " " to be
+#'   asked via a dialog.
+#' @param source Directory of the model whose 'Output/model final.par' is used
+#'   as the source of parameter estimates. Defaults to the current model (".").
+UpdatePars <- function(todo = "Yes", source = ".")
+{
+  if (todo == " ") {
+    todo <- svDialogs::dlg_list(c("Yes", "No", "                "),
+                                title = c("Update Parameters?                    "))$res
+  }
+  if (length(todo) == 0 || todo != "Yes") return(invisible(NULL))
+
+  if (!dir.exists(source)) {
+    stop("Model directory '", source, "' not found.", call. = FALSE)
+  }
+
+  par_file <- file.path(source, "Output", "model final.par")
+  if (!file.exists(par_file)) {
+    if (normalizePath(source) == normalizePath(".")) {
       stop("'", par_file, "' not found. The model must be solved first, e.g.:\n",
-           "  FitModel(1000, 2000)\n",
-           "before parameters can be updated.", call. = FALSE)
+           "  FitModel(1000, 2000)\n", "before parameters can be updated.",
+           call. = FALSE)
+    } else {
+      stop("'", par_file, "' not found. The model in '", source,
+           "' must be solved before its parameters can be used.", call. = FALSE)
     }
+  }
+  message("Reading parameters from: ", normalizePath(par_file))
 
-    find <- function(KeyWord, DataFile, Offset){
-      KeyWord <- unlist(strsplit(as.character(KeyWord),' '))
-      if(length(KeyWord)==1) pos1 <- which(grepl(KeyWord,DataFile[,2]))+Offset
-      if(length(KeyWord)==2) pos1 <- which(2==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])))+Offset
-      if(length(KeyWord)==3) pos1 <- which(3==(grepl(KeyWord[1],DataFile[,2])+grepl(KeyWord[2],DataFile[,3])+grepl(KeyWord[3],DataFile[,4])))+Offset
-      return(pos1)}
+  find <- function(KeyWord, DataFile, Offset) {
+    KeyWord <- unlist(strsplit(as.character(KeyWord), " "))
+    if (length(KeyWord) == 1)
+      pos1 <- which(grepl(KeyWord, DataFile[, 2])) + Offset
+    if (length(KeyWord) == 2)
+      pos1 <- which(2 == (grepl(KeyWord[1], DataFile[, 2]) +
+                            grepl(KeyWord[2], DataFile[, 3]))) + Offset
+    if (length(KeyWord) == 3)
+      pos1 <- which(3 == (grepl(KeyWord[1], DataFile[, 2]) +
+                            grepl(KeyWord[2], DataFile[, 3]) +
+                            grepl(KeyWord[3], DataFile[, 4]))) + Offset
+    return(pos1)
+  }
 
-    pout <- read.delim('Output/model final.par',sep='\t',stringsAsFactors =F)
-    #unique(pout$name)
-    locs <-data.frame(par=c('MainPars', 'RecruitPars','PuerPowPars','RecDevs','Qpars','efpars','RecSpatDevs','MovePars','SelPars'), file=c('CONTROL.DAT', 'RECRUITSPEC.DAT', 'RECRUITSPEC.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','CONTROL.DAT','MOVESPEC.DAT','SELEXSPEC.DAT'), id=c('Basic parameters','Recuitment1 parameters','Puerulus Power for','Prespecify_rec_devs','Q parameters','Efficiency parameters','Prespecify_spatial_rec_devs','Movement parameters','Selectivity Parameters'), off=c(1,2,3,2,1,2,2,2,2), col=c(3,3,3,1,3,3,1,3,3))
+  pout <- read.delim(par_file, sep = "\t", stringsAsFactors = FALSE)
 
-    for (i in 1:nrow(locs)){
-      DataFile <- read.table(locs$file[i],comment.char = "?",fill=T, blank.lines.skip=F,stringsAsFactors=F,col.names=1:200)
-      ptmp <- pout$est[grepl(locs$par[i], pout$name)]
-      roff <- locs$off[i]
-      coff <- locs$col[i]
-      pos <- find(c(unlist(strsplit(locs$id[i],' '))), DataFile, roff)
-      if(length(ptmp)>0){
-        DataFile[pos:(pos+length(ptmp)-1),coff] <- ptmp
-        write.table(DataFile, locs$file[i], na=" ", sep=" ", row.names = F, col.names = F, quote=F)}
-      print(paste("Parameters upated: ", locs$par[i]))
+  locs <- data.frame(
+    par  = c("MainPars", "RecruitPars", "PuerPowPars", "RecDevs", "Qpars",
+             "efpars", "RecSpatDevs", "MovePars", "SelPars"),
+    file = c("CONTROL.DAT", "RECRUITSPEC.DAT", "RECRUITSPEC.DAT", "CONTROL.DAT",
+             "CONTROL.DAT", "CONTROL.DAT", "CONTROL.DAT", "MOVESPEC.DAT",
+             "SELEXSPEC.DAT"),
+    id   = c("Basic parameters", "Recuitment1 parameters", "Puerulus Power for",
+             "Prespecify_rec_devs", "Q parameters", "Efficiency parameters",
+             "Prespecify_spatial_rec_devs", "Movement parameters",
+             "Selectivity Parameters"),
+    off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2),
+    col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3),
+    stringsAsFactors = FALSE)
+
+  for (i in 1:nrow(locs)) {
+    DataFile <- read.table(locs$file[i], comment.char = "?", fill = TRUE,
+                           blank.lines.skip = FALSE, stringsAsFactors = FALSE,
+                           col.names = 1:200)
+    ptmp <- pout$est[grepl(locs$par[i], pout$name)]
+    roff <- locs$off[i]
+    coff <- locs$col[i]
+    pos  <- find(c(unlist(strsplit(locs$id[i], " "))), DataFile, roff)
+    if (length(ptmp) > 0) {
+      DataFile[pos:(pos + length(ptmp) - 1), coff] <- ptmp
+      write.table(DataFile, locs$file[i], na = " ", sep = " ",
+                  row.names = FALSE, col.names = FALSE, quote = FALSE)
+      print(paste("Parameters updated: ", locs$par[i]))
+    } else {
+      print(paste("No estimates found for:", locs$par[i]))
     }
-  }}
-
+  }
+  invisible(par_file)
+}
 
 #' Load Initial Parameter Values for Model Estimation
 #'

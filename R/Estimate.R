@@ -263,11 +263,47 @@ choose_model <- function(pattern = "Run", up = 3L) {
 
 #' Update control-file parameters from a solved model
 #'
+#' Copies parameter estimates from a solved model's 'Output/model final.par'
+#' into the start-value column of the .DAT files in the current working
+#' directory.
+#'
 #' @param todo "Yes" (default) to update, "No" to do nothing, or " " to be
 #'   asked via a dialog.
 #' @param source Directory of the model whose 'Output/model final.par' is used
 #'   as the source of parameter estimates. Defaults to the current model (".").
-UpdatePars <- function(todo = "Yes", source = ".")
+#' @param skip Optional character vector of parameter groups to leave
+#'   unchanged. Any of:
+#'   \describe{
+#'     \item{"MainPars"}{Basic parameters (CONTROL.DAT)}
+#'     \item{"RecruitPars"}{Recruitment parameters (RECRUITSPEC.DAT)}
+#'     \item{"PuerPowPars"}{Puerulus power parameters (RECRUITSPEC.DAT)}
+#'     \item{"RecDevs"}{Recruitment deviations (CONTROL.DAT)}
+#'     \item{"Qpars"}{Catchability parameters (CONTROL.DAT)}
+#'     \item{"efpars"}{Efficiency parameters (CONTROL.DAT)}
+#'     \item{"RecSpatDevs"}{Spatial recruitment deviations (CONTROL.DAT)}
+#'     \item{"MovePars"}{Movement parameters (MOVESPEC.DAT)}
+#'     \item{"SelPars"}{Selectivity parameters (SELEXSPEC.DAT)}
+#'     \item{"GrowthPars"}{Growth parameters (GROWTHSPEC.DAT)}
+#'   }
+#'   Default \code{NULL} updates all groups.
+#'
+#' @details Values are written row by row from the start of each block, so the
+#'   source and target models must have the same parameter structure and
+#'   ordering for every group not skipped.
+#'
+#' @return Invisibly, the path to the .par file used, or \code{NULL} if no
+#'   update was made.
+#'
+#' @examples
+#' \dontrun{
+#' UpdatePars()                                         # current model
+#' UpdatePars(source = "../8Area3AgeRun45_25_X14")      # all groups from X14
+#' UpdatePars(source = "../8Area3AgeRun45_25_X14",
+#'            skip = "GrowthPars")                      # everything but growth
+#' UpdatePars(source = "../8Area3AgeRun45_25_X14",
+#'            skip = c("GrowthPars", "SelPars"))
+#' }
+UpdatePars <- function(todo = "Yes", source = ".", skip = NULL)
 {
   if (todo == " ") {
     todo <- svDialogs::dlg_list(c("Yes", "No", "                "),
@@ -321,6 +357,12 @@ UpdatePars <- function(todo = "Yes", source = ".")
     off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2, 2),
     col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3, 3),
     stringsAsFactors = FALSE)
+
+  if (!is.null(skip)) {
+    bad <- setdiff(skip, locs$par)
+    if (length(bad)) stop("Unknown parameter group(s) in 'skip': ", paste(bad, collapse = ", "), call. = FALSE)
+    locs <- locs[!locs$par %in% skip, ]
+  }
 
   for (i in 1:nrow(locs)) {
     DataFile <- read.table(locs$file[i], comment.char = "?", fill = TRUE,

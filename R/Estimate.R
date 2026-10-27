@@ -905,7 +905,7 @@ tk_choice <- function(choices, title = "Select") {
 #' @export
 UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL",
                             ctl_file = "CONTROL.DAT", lo = 0.2, hi = 2,
-                            hold_fleets = NULL, backup = TRUE) {
+                            hold_fleets = NULL, backup = FALSE) {
   if (todo != "Yes") return(invisible(NULL))
 
   if (!file.exists(rl_file)) {

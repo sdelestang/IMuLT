@@ -303,6 +303,7 @@ choose_model <- function(pattern = "Run", up = 3L) {
 #' UpdatePars(source = "../8Area3AgeRun45_25_X14",
 #'            skip = c("GrowthPars", "SelPars"))
 #' }
+#' @export
 UpdatePars <- function(todo = "Yes", source = ".", skip = NULL)
 {
   if (todo == " ") {

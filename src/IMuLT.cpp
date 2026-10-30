@@ -1686,6 +1686,9 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
   array<Type> M_rate_Tag(dat.Narea, dat.Nage, dat.MaxLen);
   array<Type> Z_rate_Tag(dat.Narea, dat.Nage, dat.MaxLen);
   array<Type> RecapTmp(dat.Narea, thedata.NrepSplit, dat.MaxLen);
+  // Size shape of encounters (before reporting). Used for the recapture size likelihood so
+  // that recapture types with RepRate = 0 (e.g. DPIRD, growth only) still get a predicted shape
+  array<Type> EncShape(dat.Narea, dat.MaxLen);
   array<Type> Ntemp_Tag(thedata.NtagLag+1, dat.Narea, dat.Nage, dat.MaxLen);
 
   // LOCAL Ntag with reduced dimensions (no sex/group dimension needed)
@@ -1719,7 +1722,9 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             for (int Isize=0; Isize<dat.MaxLen; Isize++)
             {
               Ntag_local(Iarea,0,Iage,Isize) += Ntag_local(Iarea,1,Iage,Isize);
-              for (int ItagLag=NtagLag-1; ItagLag>0; ItagLag--)
+              // Shift ascending so each slot takes the one above BEFORE that slot is overwritten
+              // (the old descending loop copied the newest cohort into every slot when NtagLag>=3)
+              for (int ItagLag=1; ItagLag<NtagLag; ItagLag++)
                 Ntag_local(Iarea,ItagLag,Iage,Isize) = Ntag_local(Iarea,ItagLag+1,Iage,Isize);
               Ntag_local(Iarea,NtagLag,Iage,Isize) = 0;
             }
@@ -1767,6 +1772,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
 
       // D3b: Tag-pool mortality, recaptures (from encounters) and unreported removals
       RecapTmp.setZero();
+      EncShape.setZero();
       for (int Iarea=0; Iarea<Narea; Iarea++)
       {
         // Fraction of encounters reported in this area/step (all splits combined)
@@ -1803,6 +1809,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
               {
                 Enc        = Hrate(Kyear,Istep,Ifleet)*selexF(Ifleet,SexPass,Iage,Isize);
                 RetainTemp = selexF(Ifleet,SexPass,Iage,Isize) * (retainF(Ifleet,SexPass,Iage,Isize)+dat.Phi(Ifleet,Iage,Iyear,Istep)*(1.0-retainF(Ifleet,SexPass,Iage,Isize)));
+                EncShape(Iarea,Isize) += Enc*Deaths;
                 if (JyearOK)
                   for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
                   {
@@ -1832,15 +1839,18 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             if (thedata.FitTagSizes(IrepSplit) == 1) {
               if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0)>0) {
                 ObsSS = thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,0);
+                // Predicted size shape from encounters, not reported recaptures. RepOne does not
+                // vary with size, so for RepRate > 0 this is identical to using RecapTmp; for
+                // RepRate = 0 RecapTmp is all zero and the size data would carry no information
                 NtotalT = 0;
                 for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
-                  NtotalT += RecapTmp(Iarea,IrepSplit,Isize);
+                  NtotalT += EncShape(Iarea,Isize);
 
                 // Always computed (no branch on the AD value NtotalT): with no predicted
-                // recaptures PredL is ~0 and the 1e-10 terms keep the log finite
+                // encounters PredL is ~0 and the 1e-10 terms keep the log finite
                 for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
                 {
-                  PredL = RecapTmp(Iarea,IrepSplit,Isize)/(NtotalT+1e-10);
+                  PredL = EncShape(Iarea,Isize)/(NtotalT+1e-10);
                   PredTagSize(SexPass,GrpPass,Iarea,Isize) += PredL*ObsSS;
                   if (thedata.TagRec(SexPass,GrpPass,Iarea,IrepSplit,Jyear,Istep,Isize+1)>0)
                   {
@@ -1962,7 +1972,10 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
     for (int Iyear=0; Iyear<thedata.NyearTags; Iyear++)
       for (int Istep=0; Istep<dat.Nstep; Istep++)
         for (int IrepSplit=0; IrepSplit<NrepSplit; IrepSplit++)
-          if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0)
+          // Recapture types with RepRate = 0 (re-released research recaptures) are not part of
+          // the fate multinomial: their prediction is exactly 0, so they would only add a
+          // constant penalty, and a re-released tag can still be recaptured commercially later
+          if (thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep) > 0 && thedata.RepRate(IrepSplit) > 0)
           {
             // Add small constant to avoid log(0)
             LikeCompT = thedata.NrelTotal(SexPass,GrpPass)*thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)*log((RecapNum(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10)/(thedata.RecapObs(SexPass,GrpPass,Iarea,IrepSplit,Iyear,Istep)+1e-10));
@@ -1972,8 +1985,6 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
 
   return(NeglogLikelihood);
 }
-
-
 template<class Type>
 Type objective_function<Type>::operator() ()
 {

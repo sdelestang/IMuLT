@@ -4,43 +4,83 @@
 \alias{UpdateLFWeights}
 \title{Update Length Frequency Data Weights Based on Tuning Results}
 \usage{
-UpdateLFWeights(todo = "No")
+UpdateLFWeights(
+  todo = "No",
+  rl_file = "Output/Output.RL",
+  ctl_file = "CONTROL.DAT",
+  lo = 0.2,
+  hi = 2,
+  hold_fleets = NULL,
+  backup = TRUE
+)
 }
 \arguments{
 \item{todo}{Character string indicating whether to update weights.
 Options are 'Yes' or 'No' (default). Use 'Yes' to apply tuning results.}
+
+\item{rl_file}{Path to the Output.RL of the run whose fit is being tuned.
+Default 'Output/Output.RL'.}
+
+\item{ctl_file}{Path to the CONTROL.DAT to update. This should be the file that
+run used. Default 'CONTROL.DAT'.}
+
+\item{lo, hi}{Lower and upper clamp on the multiplier applied in one step.
+Defaults 0.2 and 2.}
+
+\item{hold_fleets}{Fleets (1-based, as numbered in Output.RL) whose weights are
+left unchanged. Default 25:28 (the ISS fleets).}
+
+\item{backup}{Logical. If TRUE (default), copy ctl_file to
+'<ctl_file>.bak_\if{html}{\out{<timestamp>}}' before writing.}
 }
 \value{
-NULL (invisibly). The function modifies CONTROL.DAT as a side effect.
+Invisibly, a data frame with columns Fleet, Sex, Multiplier, Applied,
+Old and New (NULL if nothing was done). CONTROL.DAT is modified as a side
+effect.
 }
 \description{
-Updates the weighting of length frequency data in CONTROL.DAT based on
-model tuning results. This adjusts relative weights to improve model fit
-to length composition data after iterative tuning analyses.
+Updates the weighting of length frequency data in CONTROL.DAT using the
+Francis (2011) multipliers that IMuLT writes to Output.RL. This adjusts the
+relative weights of the length composition data after a model run.
 }
 \details{
-The function reads tuning scale factors from 'Output/Summary/result/Tuning.csv'
-and applies them to length frequency weights in CONTROL.DAT. Each existing
-weight is multiplied by its corresponding tuning scale factor from the
-iterative weighting analysis.
+The function reads the '#Length data tuning' table from Output.RL (columns
+Fleet, Sex, Npnts, Francis_Multiplier; Fleet and Sex 1-based) and matches it,
+on both fleet and sex, to the type-3 (length) rows of the 'Weights by fleet'
+block in CONTROL.DAT (Type, Fleet, Time-step, Sex, Value; Fleet and Sex
+0-based). Each weight is updated as
+
+\deqn{w_{new} = w_{old} \times \min(hi, \max(lo, m))}
+
+where \eqn{m} is the Francis multiplier. Only the value field of the matched
+lines is replaced; every other line, the comments and the line endings are
+written back exactly as read.
 
 The tuning process typically involves:
 \enumerate{
 \item Running the model with initial weights
-\item Analyzing length frequency fit diagnostics
-\item Calculating appropriate scaling factors
-\item Applying these factors using this function
+\item Checking the Francis multipliers in Output.RL
+\item Applying them using this function
 \item Re-running the model with updated weights
+\item Repeating once or twice at most, stopping once the multipliers sit
+within about 0.5-2
 }
 
-The function will stop with an error message if the number of predetermined
-weights doesn't match the number of length composition datasets.
+The clamp stops a single badly fitted fleet from swinging its weight by an
+order of magnitude in one step; repeated unclamped iterations can compound
+weights without limit.
+
+The function stops with an error if any fleet/sex in CONTROL.DAT has no
+multiplier in Output.RL (usually because Output.RL comes from a run with a
+different CONTROL.DAT), and warns if the two counts differ.
 }
 \note{
 \itemize{
 \item Must be run from within a model run directory containing CONTROL.DAT
-\item Requires 'Output/Summary/result/Tuning.csv' from a completed tuning run
-\item The Tuning.csv file must contain columns: Fleet, Sex, and Multiscale
+(or with \code{ctl_file} and \code{rl_file} pointing to the right files)
+\item Requires Output/Output.RL from a completed run, e.g.
+\code{FitModel(1000, 2000, report = TRUE)}
+\item Output.RL must contain the '#Length data tuning' table
 }
 }
 \examples{
@@ -48,14 +88,22 @@ weights doesn't match the number of length composition datasets.
 # Navigate to model run directory
 choose_model()
 
-# After running tuning analysis, update weights
+# After a completed run, update weights
 UpdateLFWeights("Yes")
+
+# Tighter clamp, and also hold the IBSS fleets
+UpdateLFWeights("Yes", lo = 0.5, hi = 2, hold_fleets = c(19:24, 25:28))
 
 # Skip updating (default behavior)
 UpdateLFWeights()
 UpdateLFWeights("No")
 }
 
+}
+\references{
+Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock
+assessment models. Canadian Journal of Fisheries and Aquatic Sciences 68:
+1124-1138.
 }
 \seealso{
 \code{\link{UpdatePars}} for updating model parameters,

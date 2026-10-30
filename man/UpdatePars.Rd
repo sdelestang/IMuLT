@@ -2,60 +2,54 @@
 % Please edit documentation in R/Estimate.R
 \name{UpdatePars}
 \alias{UpdatePars}
-\title{Update Model Input Files with Estimated Parameters}
+\title{Update control-file parameters from a solved model}
 \usage{
-UpdatePars(todo = " ")
+UpdatePars(todo = "Yes", source = ".", skip = NULL)
 }
 \arguments{
-\item{todo}{Character string indicating whether to update parameters.
-Options are 'Yes' or 'No'. If not specified (default ' '), an interactive
-dialog will prompt the user to choose.}
+\item{todo}{"Yes" (default) to update, "No" to do nothing, or " " to be
+asked via a dialog.}
+
+\item{source}{Directory of the model whose 'Output/model final.par' is used
+as the source of parameter estimates. Defaults to the current model (".").}
+
+\item{skip}{Optional character vector of parameter groups to leave
+unchanged. Any of:
+\describe{
+\item{"MainPars"}{Basic parameters (CONTROL.DAT)}
+\item{"RecruitPars"}{Recruitment parameters (RECRUITSPEC.DAT)}
+\item{"PuerPowPars"}{Puerulus power parameters (RECRUITSPEC.DAT)}
+\item{"RecDevs"}{Recruitment deviations (CONTROL.DAT)}
+\item{"Qpars"}{Catchability parameters (CONTROL.DAT)}
+\item{"efpars"}{Efficiency parameters (CONTROL.DAT)}
+\item{"RecSpatDevs"}{Spatial recruitment deviations (CONTROL.DAT)}
+\item{"MovePars"}{Movement parameters (MOVESPEC.DAT)}
+\item{"SelPars"}{Selectivity parameters (SELEXSPEC.DAT)}
+\item{"GrowthPars"}{Growth parameters (GROWTHSPEC.DAT)}
+}
+Default \code{NULL} updates all groups.}
 }
 \value{
-NULL (invisibly). The function modifies input files as a side effect.
+Invisibly, the path to the .par file used, or \code{NULL} if no
+update was made.
 }
 \description{
-Updates IMuLT model input files (.DAT files) with parameter estimates from
-a completed model run. This allows you to use converged parameter values
-as starting values for subsequent runs or modified scenarios.
+Copies parameter estimates from a solved model's 'Output/model final.par'
+into the start-value column of the .DAT files in the current working
+directory.
 }
 \details{
-The function reads final parameter estimates from 'Output/model final.par' and
-updates the following input files with these values:
-\itemize{
-\item CONTROL.DAT - Main parameters, Q parameters, efficiency parameters, recruitment deviations, and spatial recruitment deviations
-\item RECRUITSPEC.DAT - Recruitment parameters and puerulus power parameters
-\item MOVESPEC.DAT - Movement/migration parameters
-\item SELEXSPEC.DAT - Selectivity parameters
-}
-
-This is useful when:
-\itemize{
-\item Starting a new run from converged values
-\item Running projections with estimated parameters
-\item Testing model sensitivity with slightly modified starting values
-}
-}
-\note{
-This function must be run from within a model run directory that contains
-the input .DAT files and an 'Output/model final.par' file from a completed run.
+Values are written row by row from the start of each block, so the
+source and target models must have the same parameter structure and
+ordering for every group not skipped.
 }
 \examples{
 \dontrun{
-# Set working directory to a completed model run
-choose_model()
-
-# Update parameters interactively (prompts for Yes/No)
-UpdatePars()
-
-# Update parameters without prompting
-UpdatePars("Yes")
-
-# Skip updating (useful in scripts)
-UpdatePars("No")
+UpdatePars()                                         # current model
+UpdatePars(source = "../8Area3AgeRun45_25_X14")      # all groups from X14
+UpdatePars(source = "../8Area3AgeRun45_25_X14",
+           skip = "GrowthPars")                      # everything but growth
+UpdatePars(source = "../8Area3AgeRun45_25_X14",
+           skip = c("GrowthPars", "SelPars"))
 }
-
-}
-\seealso{
-\code{\link{choose_model}} for selecting a model run directory
 }

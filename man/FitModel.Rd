@@ -12,7 +12,7 @@ FitModel(
   report = FALSE,
   nRestarts = TRUE,
   newtonSteps = 5,
-  newton_grad_thresh = 0.1,
+  newton_grad_thresh = 20,
   sandwich_entry_grad = 10,
   max_pre_nlminb = 5,
   bfgs_maxit = 200,
@@ -22,12 +22,14 @@ FitModel(
   plateau_cv = 0,
   start_phase = 1,
   stall_window = 200,
-  stall_tol = 5,
+  stall_tol = 1,
   stall_tol_restart = 0.5,
   bfgs_skip_grad = 50,
   stall_final_only = TRUE,
   use_scale = TRUE,
-  scale_file = "Output/hess_diag.rds"
+  scale_file = "Output/hess_diag.rds",
+  fix_proj_recdevs = TRUE,
+  recdev_keep_proj = NULL
 )
 }
 \arguments{
@@ -118,6 +120,17 @@ computed by forward-differencing the AD gradient. Default \code{TRUE}.}
 \item{scale_file}{Character. File the Hessian diagonal is read from and
 saved to at the end of the final phase. Default
 \code{"Output/hess_diag.rds"}.}
+
+\item{fix_proj_recdevs}{Logical. If \code{TRUE} (default), recruitment
+deviations in projection years that no data can inform are fixed at 0 and
+not estimated. The cut-off is taken from the model dimensions: projection
+years start at \code{Data$BurnIn + Data$Nyear}, and the first
+\code{recdev_keep_proj} of them stay estimated.}
+
+\item{recdev_keep_proj}{Integer or \code{NULL}. Number of projection-year
+deviations to keep estimated. \code{NULL} (default) uses
+\code{Data$Larval_Offset} (the puerulus delay), since puerulus in the last
+assessment years informs recruitment that many years into the projection.}
 }
 \value{
 Invisibly returns \code{NULL}. Side effects include writing

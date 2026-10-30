@@ -359,3 +359,253 @@ EstimateCpueSelfRMS <- function(cpue_raw, min_dof = 5) {
   invisible(list(eigenvalue = min_val, flat_loadings = loadings,
                  ranked_index = ord, worst_par = pnames[top]))
 }
+
+#' Bias-adjustment ramp years for recruitment deviations
+#'
+#' Sets the four Methot & Taylor (2011) ramp years from the data that inform
+#' recruitment, in order of priority: puerulus first, length frequencies second,
+#' model structure last. BiasMult is 0 before `ramp_start`, rises linearly to 1 at
+#' `full_start`, stays at 1 to `full_end`, falls linearly to 0 at `ramp_end`, and is
+#' 0 after. Equal adjacent years give a step (safe in IMuLT.cpp: no division by 0).
+#'
+#'  * full_start: first recruitment year informed by puerulus (first puerulus year +
+#'    larval_offset); else by length data (first LF year - lf_lag); else startseason.
+#'  * ramp_start: the earliest year any data inform, if that is earlier than
+#'    full_start (length data usually reach back before the puerulus series);
+#'    otherwise full_start - ramp_len. Never before startseason.
+#'  * full_end: the last year informed by the primary source, capped at endseason.
+#'  * ramp_end: the last recruitment year that source informs (puerulus reach
+#'    larval_offset years past endseason); otherwise full_end.
+#'
+#' @param puer_years    years of puerulus (larval) observations, any area; NULL if none
+#' @param lf_years      years of length-frequency observations, any fleet; NULL if none
+#' @param startseason,endseason first and last model years
+#' @param larval_offset years from puerulus settlement to recruitment in the model
+#' @param lf_lag        years from recruitment to first appearing in the length data
+#' @param ramp_len      ramp length when no earlier data define it
+#' @return named integer vector: ramp_start, full_start, full_end, ramp_end, plus
+#'   attribute "source" ("puerulus", "length", or "model")
+BiasRampYears <- function(puer_years = NULL, lf_years = NULL, startseason, endseason,
+                          larval_offset = 3, lf_lag = 4, ramp_len = 5) {
+  puer_years <- sort(unique(puer_years[is.finite(puer_years)]))
+  lf_years   <- sort(unique(lf_years[is.finite(lf_years)]))
+
+  lf_first <- if (length(lf_years)) min(lf_years) - lf_lag else NA
+  lf_last  <- if (length(lf_years)) max(lf_years) - lf_lag else NA
+
+  if (length(puer_years)) {
+    src        <- "puerulus"
+    full_start <- min(puer_years) + larval_offset
+    last_inf   <- max(puer_years) + larval_offset
+  } else if (length(lf_years)) {
+    src        <- "length"
+    full_start <- lf_first
+    last_inf   <- lf_last
+  } else {
+    src        <- "model"
+    full_start <- startseason
+    last_inf   <- endseason
+  }
+
+  earliest   <- min(c(full_start, lf_first), na.rm = TRUE)
+  ramp_start <- if (earliest < full_start) earliest else full_start - ramp_len
+
+  ramp_start <- max(startseason, ramp_start)
+  full_start <- max(ramp_start, full_start)
+  full_end   <- max(full_start, min(last_inf, endseason))
+  ramp_end   <- max(full_end, last_inf)
+
+  out <- as.integer(round(c(ramp_start = ramp_start, full_start = full_start,
+                            full_end = full_end, ramp_end = ramp_end)))
+  names(out) <- c("ramp_start", "full_start", "full_end", "ramp_end")
+  attr(out, "source") <- src
+  out
+}
+
+#' Set starting length-frequency weights from a previous run's fit
+#'
+#' After building a model from the Excel workbook, the length-frequency weights in
+#' the new CONTROL.DAT are the workbook defaults. This sets the type-3 rows of the
+#' "Weights by fleet" block to Francis (2011, TA1.8) weights calculated from a
+#' previous run's fit, so a rebuilt model starts from sensible relative weights
+#' even when the model structure has changed.
+#'
+#' The Francis weights are recalculated here from the '#Obs/Pred' length
+#' composition block of the old run's Output.RL, using the raw sample size
+#' (Nsamp = Stage1W) written there. They therefore do not depend on the weights
+#' or length lambda the old run used, or on whether the old CONTROL.DAT was later
+#' overwritten by \code{UpdateLFWeights()} or \code{UpdatePars()}. For each
+#' fleet and sex
+#'
+#' \deqn{r_y = (\bar{L}^{obs}_y - \bar{L}^{pred}_y) / \sqrt{v^{pred}_y / N_y}, \quad
+#'       W = 1 / \mathrm{var}(r_y)}
+#'
+#' where W is the target total weight on Stage1W. The likelihood uses
+#' Stage1W x weight x lambda as the effective sample size, so the value written to
+#' CONTROL.DAT is
+#'
+#' \deqn{w_{new} = W / \lambda_{new}}
+#'
+#' with \eqn{\lambda_{new}} the length lambda already in the new CONTROL.DAT.
+#' Changing that lambda in the workbook therefore no longer changes the total
+#' weighting; it only rescales the per-fleet numbers.
+#'
+#' Mean lengths are calculated on the bin index, not on the bin midpoints. The
+#' standardised residual is unchanged by a linear rescaling of length, so this
+#' gives exactly the same weights as using the midpoints.
+#'
+#' Where a fleet/sex cannot be tuned (no or only one composition in the old fit,
+#' a non-finite W, or listed in \code{hold_fleets}) its weight is copied from the
+#' old CONTROL.DAT instead, rescaled by \eqn{\lambda_{old}/\lambda_{new}} so its
+#' total weight is preserved. Bear in mind that the old CONTROL.DAT may already
+#' hold weights updated after that fit.
+#'
+#' @param from Folder of the previous run (containing CONTROL.DAT and
+#'   Output/Output.RL). A path to that run's CONTROL.DAT is also accepted.
+#' @param to_ctl Path to the newly built CONTROL.DAT to update.
+#'   Default 'CONTROL.DAT'.
+#' @param rl_file Path to the old run's Output.RL. Default
+#'   '<from>/Output/Output.RL'.
+#' @param clip Optional length-2 vector c(lo, hi) bounding W, the total weight
+#'   on Stage1W, before dividing by lambda. Default NULL (no bounds).
+#' @param hold_fleets Fleets (1-based, as numbered in Output.RL) whose weights
+#'   are copied from the old CONTROL.DAT (lambda-rescaled) rather than recalculated.
+#'   Default NULL.
+#' @param backup Logical. If TRUE, copy to_ctl to '<to_ctl>.bak_<timestamp>'
+#'   before writing. Default FALSE.
+#'
+#' @return Invisibly, a data frame with Fleet, Sex (1-based), Npnts, Francis
+#'   (the target total weight W), Source ('francis' or 'copied'), Old (value
+#'   in to_ctl before the update) and New. CONTROL.DAT is modified as a side
+#'   effect.
+#'
+#' @references
+#' Francis, R.I.C.C. (2011). Data weighting in statistical fisheries stock
+#' assessment models. Canadian Journal of Fisheries and Aquatic Sciences 68:
+#' 1124-1138.
+#'
+#' @examples
+#' \dontrun{
+#' # straight after rebuilding the model from Excel, before fitting
+#' CopyLFWeights("../8Area3AgeRun45_25_X11")
+#'
+#' # keep the ISS fleets on their old weights
+#' CopyLFWeights("../8Area3AgeRun45_25_X11", hold_fleets = 25:28)
+#' }
+#' @export
+CopyLFWeights <- function(from, to_ctl = "CONTROL.DAT", rl_file = NULL,
+                          clip = NULL, hold_fleets = NULL, backup = FALSE) {
+
+  ## ---- locate the old run ------------------------------------------------------
+  from_dir <- if (dir.exists(from)) from else dirname(from)
+  from_ctl <- if (dir.exists(from)) file.path(from_dir, "CONTROL.DAT") else from
+  if (is.null(rl_file)) rl_file <- file.path(from_dir, "Output", "Output.RL")
+  for (f in c(from_ctl, rl_file, to_ctl))
+    if (!file.exists(f)) stop("File not found: ", f, call. = FALSE)
+
+  ## ---- helpers -----------------------------------------------------------------
+  read_ctl <- function(f) {
+    txt <- rawToChar(readBin(f, "raw", file.info(f)$size))
+    eol <- if (grepl("\r\n", txt, fixed = TRUE)) "\r\n" else "\n"
+    list(txt = txt, eol = eol, lines = strsplit(txt, eol, fixed = TRUE)[[1]])
+  }
+  weight_rows <- function(lines, file) {
+    p1 <- grep("^#\\s*Weights by fleet", lines)[1]
+    p2 <- grep("^#\\s*Basic parameters", lines)[1]
+    if (is.na(p1) || is.na(p2) || p2 <= p1)
+      stop("Could not find the 'Weights by fleet' block in ", file, call. = FALSE)
+    idx <- (p1 + 1):(p2 - 1)
+    tok <- strsplit(trimws(lines[idx]), "\\s+")
+    ok  <- vapply(tok, function(t) length(t) >= 5 && t[1] == "3", logical(1))
+    idx <- idx[ok]; tok <- tok[ok]
+    data.frame(line  = idx,
+               key   = vapply(tok, function(t) paste(t[1], t[2], t[3], t[4]), ""),
+               fleet = as.integer(vapply(tok, `[`, "", 2)) + 1,   # 1-based
+               sex   = as.integer(vapply(tok, `[`, "", 4)) + 1,
+               value = as.numeric(vapply(tok, `[`, "", 5)),
+               stringsAsFactors = FALSE)
+  }
+  length_lambda <- function(lines, file) {
+    i <- grep("Weight on Length-frequency data", lines)
+    if (length(i) != 1)
+      stop("Could not find a unique 'Weight on Length-frequency data' line in ",
+           file, call. = FALSE)
+    as.numeric(strsplit(trimws(lines[i]), "\\s+")[[1]][1])
+  }
+
+  src <- read_ctl(from_ctl)
+  dst <- read_ctl(to_ctl)
+  lam_old <- length_lambda(src$lines, from_ctl)
+  lam_new <- length_lambda(dst$lines, to_ctl)
+  ws <- weight_rows(src$lines, from_ctl)
+  wd <- weight_rows(dst$lines, to_ctl)
+  if (!nrow(wd)) stop("No type-3 (length) weight rows in ", to_ctl, call. = FALSE)
+  if (anyDuplicated(ws$key)) stop("Duplicate weight rows in ", from_ctl, call. = FALSE)
+
+  ## ---- Francis weights from the old fit ----------------------------------------
+  rl <- readLines(rl_file, warn = FALSE)
+  s  <- grep("^#Obs/Pred", rl)[1]
+  if (is.na(s)) stop("No '#Obs/Pred' length block in ", rl_file, call. = FALSE)
+  e  <- s + 1
+  while (e <= length(rl) && !startsWith(rl[e], "#")) e <- e + 1
+  blk <- trimws(rl[(s + 1):(e - 1)])
+  blk <- blk[grepl("^[OP]\\s", blk)]
+  tok <- strsplit(blk, "\\s+")
+  typ <- vapply(tok, `[`, "", 1)
+  key <- vapply(tok, function(t) paste(t[2:5], collapse = " "), "")   # fleet sex year step
+  O <- tok[typ == "O"]; Okey <- key[typ == "O"]
+  P <- tok[typ == "P"]; Pkey <- key[typ == "P"]
+  P <- P[match(Okey, Pkey)]
+  if (anyNA(match(Okey, Pkey))) stop("Unmatched O/P rows in ", rl_file, call. = FALSE)
+
+  res <- lapply(seq_along(O), function(k) {
+    o <- as.numeric(O[[k]][-(1:7)]); p <- as.numeric(P[[k]][-(1:7)])
+    N <- as.numeric(O[[k]][6])
+    if (sum(o) <= 0 || sum(p) <= 0 || !is.finite(N) || N <= 0) return(NULL)
+    o <- o / sum(o); p <- p / sum(p); x <- seq_along(o)
+    mp <- sum(x * p); vp <- sum((x - mp)^2 * p)
+    if (vp <= 0) return(NULL)
+    data.frame(fleet = as.integer(O[[k]][2]), sex = as.integer(O[[k]][3]),
+               r = (sum(x * o) - mp) / sqrt(vp / N))
+  })
+  res <- do.call(rbind, res)
+  fr  <- aggregate(r ~ fleet + sex, data = res,
+                   FUN = function(r) c(n = length(r),
+                                       W = if (length(r) > 1) 1 / var(r) else NA))
+  fr  <- data.frame(fleet = fr$fleet, sex = fr$sex, n = fr$r[, "n"], W = fr$r[, "W"])
+  if (!is.null(clip)) fr$W <- pmin(clip[2], pmax(clip[1], fr$W))
+
+  ## ---- new weights ---------------------------------------------------------------
+  j      <- match(paste(wd$fleet, wd$sex), paste(fr$fleet, fr$sex))
+  W      <- fr$W[j]
+  npnts  <- fr$n[j]
+  use_fr <- is.finite(W) & W > 0 & !(wd$fleet %in% hold_fleets)
+
+  old_src <- ws$value[match(wd$key, ws$key)] * lam_old / lam_new
+  new     <- ifelse(use_fr, W / lam_new, old_src)
+  source  <- ifelse(use_fr, "francis", ifelse(is.na(old_src), "unchanged", "copied"))
+  new[is.na(new)] <- wd$value[is.na(new)]
+  if (any(source == "unchanged"))
+    warning("No Francis weight or old weight for fleet/sex: ",
+            paste(wd$fleet[source == "unchanged"], wd$sex[source == "unchanged"],
+                  sep = "/", collapse = ", "), " (left unchanged).", call. = FALSE)
+
+  ## ---- replace only the value field ---------------------------------------------
+  pat <- "^(\\s*\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+)(\\S+)(.*)$"
+  for (k in seq_len(nrow(wd)))
+    dst$lines[wd$line[k]] <- sub(pat, paste0("\\1", format(signif(new[k], 7),
+                                                           scientific = FALSE), "\\3"),
+                                 dst$lines[wd$line[k]], perl = TRUE)
+
+  if (backup) file.copy(to_ctl, paste0(to_ctl, ".bak_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+  out <- paste(dst$lines, collapse = dst$eol)
+  if (endsWith(dst$txt, dst$eol)) out <- paste0(out, dst$eol)
+  writeBin(charToRaw(out), to_ctl)
+
+  out_df <- data.frame(Fleet = wd$fleet, Sex = wd$sex, Npnts = npnts,
+                       Francis = signif(W, 4), Source = source,
+                       Old = signif(wd$value, 6), New = signif(new, 6))
+  message("Length lambda: old run ", lam_old, ", new CONTROL.DAT ", lam_new)
+  print(out_df, row.names = FALSE)
+  invisible(out_df)
+}

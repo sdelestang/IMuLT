@@ -204,7 +204,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   for(i in 1:nrow(dat)){tmp <- c(tmp, paste(dat[i,], collapse = "\t"),"\n")}
 
   ##  Catch Rate Indices / CPUE - ensure that a cutfof does not leave just one obs!
-  min_cpue_obs <- 5
+  min_cpue_obs <- 3
   catch_cells  <- dat %>% filter(catch > 0) %>% distinct(year, step, fleet)
   Udat <- readWorkbook(wb, sheet = 'CPUE', startRow = 2) %>%
     mutate(Year = as.numeric(as.character(Year))) %>%

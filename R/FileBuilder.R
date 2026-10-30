@@ -230,7 +230,9 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   Udat %<>% mutate(Sex=adjsex(Sex,nsex,section='CPUE')) %>% dplyr::select(-Metric, -any_of("Fixsigma"))
   SigmaCpueCeiling <- EstimateCpueSigmaCeiling(Udat)
-  cpuenumbers <- unique(Udat$CpueInd)
+  ## Make cpuenumbers unique for every sex, fleet, unique index
+  Udat %<>% mutate(CpueInd=CpueInd-min(CpueInd))
+  cpuenumbers <- as.numeric(do.call('rbind',strsplit(unique(paste(Udat$CpueInd, Udat$Fleet, Udat$Sex, Udat$Step))," "))[,1])
 
   ## Comm=1-16, IBSSa2=17, IBSSa4=18, IBSSa5=19, IBSSa6=20, IBSSa8=21, ISSa1=5, ISSa3=6, ISSa5=7, ISSa7=8
   tmp <- c(tmp, "\n# Index data \n#Number of cpue datasets\n", length(cpuenumbers))

@@ -903,29 +903,31 @@ tk_choice <- function(choices, title = "Select") {
 #' \code{\link{choose_model}} for selecting a model run directory
 #'
 #' @export
-UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL",
-                            ctl_file = "CONTROL.DAT", lo = 0.2, hi = 2,
-                            hold_fleets = NULL, backup = FALSE) {
-  if (todo != "Yes") return(invisible(NULL))
-
+UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL", ctl_file = "CONTROL.DAT",
+                            lo = 0.001, hi = 1, hold_fleets = NULL, backup = FALSE) {
+  # The Francis multiplier IMuLT writes to Output.RL is computed from the INPUT sample sizes
+  # (Nsamp), not from Nsamp x current weight. It is therefore already the absolute TA1.8
+  # weight, and must REPLACE the old weight rather than multiply it. Multiplying compounded
+  # the weights on every call (x2 per run when the cap was hit), so they never converged.
+  # lo/hi are now bounds on the weight itself; hi = 1 never weights a fleet above its input N.
+  if (todo != "Yes")
+    return(invisible(NULL))
   if (!file.exists(rl_file)) {
     message("Output.RL not found. Run FitModel with report = TRUE first, e.g.:\n",
-            "  FitModel(1000, 2000, report = TRUE)\n",
-            "Skipping length-frequency weight update.")
+            "  FitModel(1000, 2000, report = TRUE)\n", "Skipping length-frequency weight update.")
     return(invisible(NULL))
   }
-
-  ## ---- Francis multipliers from Output.RL ---------------------------------------
   rl <- readLines(rl_file, warn = FALSE)
-  s  <- grep("^#Length data tuning", rl)[1]
+  s <- grep("^#Length data tuning", rl)[1]
   if (is.na(s)) {
     message("No '#Length data tuning' table in ", rl_file, ". Skipping weight update.")
     return(invisible(NULL))
   }
-  i <- s + 2                                   # skip the column-header line
+  i <- s + 2
   rows <- character(0)
   while (i <= length(rl) && nzchar(trimws(rl[i])) && !startsWith(rl[i], "#")) {
-    rows <- c(rows, rl[i]); i <- i + 1
+    rows <- c(rows, rl[i])
+    i <- i + 1
   }
   fm <- read.table(text = rows, col.names = c("Fleet", "Sex", "Npnts", "Mult"))
   if (any(!is.finite(fm$Mult)))
@@ -933,27 +935,24 @@ UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL",
          paste(fm$Fleet[!is.finite(fm$Mult)], fm$Sex[!is.finite(fm$Mult)], collapse = ", "),
          call. = FALSE)
 
-  ## ---- Type-3 weight lines in CONTROL.DAT --------------------------------------
   raw <- readBin(ctl_file, "raw", file.info(ctl_file)$size)
   txt <- rawToChar(raw)
   eol <- if (grepl("\r\n", txt, fixed = TRUE)) "\r\n" else "\n"
   ctl <- strsplit(txt, eol, fixed = TRUE)[[1]]
-
   p1 <- grep("^#\\s*Weights by fleet", ctl)[1]
   p2 <- grep("^#\\s*Basic parameters", ctl)[1]
   if (is.na(p1) || is.na(p2) || p2 <= p1)
     stop("Could not find the 'Weights by fleet' block in ", ctl_file, call. = FALSE)
-
   idx <- (p1 + 1):(p2 - 1)
   tok <- strsplit(trimws(ctl[idx]), "\\s+")
   is3 <- vapply(tok, function(t) length(t) >= 5 && t[1] == "3", logical(1))
-  idx <- idx[is3]; tok <- tok[is3]
-  if (!length(idx)) stop("No type-3 (length) weight rows found.", call. = FALSE)
-
-  fleet <- as.integer(vapply(tok, `[`, "", 2)) + 1    # to 1-based, as in Output.RL
-  sex   <- as.integer(vapply(tok, `[`, "", 4)) + 1
-  old   <- as.numeric(vapply(tok, `[`, "", 5))
-
+  idx <- idx[is3]
+  tok <- tok[is3]
+  if (!length(idx))
+    stop("No type-3 (length) weight rows found.", call. = FALSE)
+  fleet <- as.integer(vapply(tok, `[`, "", 2)) + 1
+  sex <- as.integer(vapply(tok, `[`, "", 4)) + 1
+  old <- as.numeric(vapply(tok, `[`, "", 5))
   m <- fm$Mult[match(paste(fleet, sex), paste(fm$Fleet, fm$Sex))]
   if (anyNA(m))
     stop("No Francis multiplier for fleet/sex: ",
@@ -963,24 +962,23 @@ UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL",
     warning(nrow(fm), " multipliers in Output.RL but ", length(idx),
             " type-3 rows in CONTROL.DAT.", call. = FALSE)
 
-  applied <- ifelse(fleet %in% hold_fleets, 1, pmin(hi, pmax(lo, m)))
-  new     <- old * applied
+  # Absolute replacement (held fleets keep their current weight)
+  new <- ifelse(fleet %in% hold_fleets, old, pmin(hi, pmax(lo, m)))
 
-  ## ---- Replace only the value field, keep the rest of each line ----------------
   for (k in seq_along(idx)) {
-    ln  <- ctl[idx[k]]
+    ln <- ctl[idx[k]]
     pat <- "^(\\s*\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+)(\\S+)(.*)$"
-    ctl[idx[k]] <- sub(pat, paste0("\\1", format(signif(new[k], 8), scientific = FALSE),
-                                   "\\3"), ln, perl = TRUE)
+    ctl[idx[k]] <- sub(pat, paste0("\\1", format(signif(new[k], 8), scientific = FALSE), "\\3"),
+                       ln, perl = TRUE)
   }
-
-  if (backup) file.copy(ctl_file, paste0(ctl_file, ".bak_", format(Sys.time(), "%Y%m%d_%H%M%S")))
+  if (backup)
+    file.copy(ctl_file, paste0(ctl_file, ".bak_", format(Sys.time(), "%Y%m%d_%H%M%S")))
   out <- paste(ctl, collapse = eol)
-  if (endsWith(txt, eol)) out <- paste0(out, eol)
+  if (endsWith(txt, eol))
+    out <- paste0(out, eol)
   writeBin(charToRaw(out), ctl_file)
-
   res <- data.frame(Fleet = fleet, Sex = sex, Multiplier = round(m, 3),
-                    Applied = round(applied, 3), Old = round(old, 3), New = round(new, 3))
+                    Old = signif(old, 3), New = signif(new, 3))
   print(res, row.names = FALSE)
   invisible(res)
 }

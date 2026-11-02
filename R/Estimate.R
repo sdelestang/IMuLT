@@ -1164,6 +1164,7 @@ UpdateLFWeights <- function(todo = "No", rl_file = "Output/Output.RL", ctl_file 
 #' @export
 FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                      PrintLag = 50, report = FALSE,
+                     sdrep = TRUE,
                      nRestarts = TRUE, newtonSteps = 5,
                      newton_grad_thresh = 20,
                      sandwich_entry_grad = 10, max_pre_nlminb = 5,
@@ -1962,8 +1963,26 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       Report <- model$report()
       best   <- mout$par
 
-      print("Loading SD report (can take quite a long time)")
-      SDrep   <- sdreport(model)
+      if (isTRUE(sdrep)) {
+        print("Loading SD report (can take quite a long time)")
+        SDrep <- sdreport(model)
+      } else {
+        # Diagnostic report: ADREPORT values are evaluated at the solution, but the Hessian
+        # and delta method are skipped, so every standard error is 0 or NA. Same object
+        # class as a full sdreport, so BigSave and WriteOutput work unchanged.
+        print("Fast SD report: estimates only, NO standard errors (sdrep = FALSE)")
+        SDrep <- tryCatch(
+          sdreport(model, par.fixed = best,
+                   ignore.parm.uncertainty = TRUE,
+                   getReportCovariance = FALSE,
+                   skip.delta.method = TRUE),
+          error = function(e) {
+            # older TMB without skip.delta.method: still skips the Hessian
+            sdreport(model, par.fixed = best,
+                     ignore.parm.uncertainty = TRUE,
+                     getReportCovariance = FALSE)
+          })
+      }
       fullrep <- summary(SDrep)
 
       BigSave <- list(
@@ -1975,6 +1994,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
         parameters = parameters,
         pin        = pout,
         best       = best,
+        HasSE      = isTRUE(sdrep),          # FALSE = diagnostic run, SEs not computed
         Gradient   = abs(model$gr_Orig(best))
       )
       save(BigSave, file = "Output/BigSave.lda")
@@ -1987,7 +2007,6 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
     }
   }
 }
-
 #' Report Optimiser Result
 #'
 #' Prints a summary line for an optimiser run including starting and ending

@@ -1704,6 +1704,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
 
   NotReported(SexPass, GrpPass) = 0;
   CumReleases = 0;
+  if (thedata.NrelTotal(SexPass, GrpPass) <= 0) return(NeglogLikelihood);
 
   int Year1Tag_val = thedata.Year1Tag(GrpPass);
   int start_year = Year1Tag_val - dat.First_yr;
@@ -1985,6 +1986,8 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
 
   return(NeglogLikelihood);
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
 template<class Type>
 Type objective_function<Type>::operator() ()
 {

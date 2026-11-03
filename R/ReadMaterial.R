@@ -281,7 +281,7 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
       Iyear <- as.numeric(TagFile[Index+2+i,3])-TagYr1+1
       Istep <- as.numeric(TagFile[Index+2+i,4])
       TagRel[Isex,Igrp,Iarea,Iyear,Istep,] <- as.numeric(TagFile[Index+2+i,5:(5+GeneralSpecs$MaxLen)]);
-  }
+    }
 
     Index <- MatchTable(TagFile,Char1="#",Char2="Recaptures",Char4="lbin");
     TagRec <- array(0,dim=c(GeneralSpecs$Nsex,NtagGroups,GeneralSpecs$Narea,NrepSplit,NyearTags,GeneralSpecs$Nstep,GeneralSpecs$MaxLen+1))
@@ -308,66 +308,75 @@ ReadTagFile <- function(TagFile,PropFFile,GeneralSpecs,DataFile)
       RecapObs[Isex,Igrp,Iarea,Itype,Iyear,] <- as.numeric(TagFile[Index+2+i,6:(5+GeneralSpecs$Nstep)]);
     }
 
-  # Totals
-  NrelTotal <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
-  NotReportedObs <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
-  for (Isex in 1:GeneralSpecs$Nsex)
-    for (Igrp in 1:NtagGroups)
-      for (Iarea in 1:GeneralSpecs$Narea)
-        for (Iyear in 1:NyearTags)
-          for (Istep in 1:GeneralSpecs$Nstep)
-          {
-            NrelTotal[Isex,Igrp] <- NrelTotal[Isex,Igrp] + TagRel[Isex,Igrp,Iarea,Iyear,Istep,1]
-            for (Irep in 1:NrepSplit)
-              NotReportedObs[Isex,Igrp] <- NotReportedObs[Isex,Igrp] + TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]
-          }
+    # Totals
+    NrelTotal <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+    NotReportedObs <- matrix(0,nrow=GeneralSpecs$Nsex,ncol=NtagGroups)
+    for (Isex in 1:GeneralSpecs$Nsex)
+      for (Igrp in 1:NtagGroups)
+        for (Iarea in 1:GeneralSpecs$Narea)
+          for (Iyear in 1:NyearTags)
+            for (Istep in 1:GeneralSpecs$Nstep)
+            {
+              NrelTotal[Isex,Igrp] <- NrelTotal[Isex,Igrp] + TagRel[Isex,Igrp,Iarea,Iyear,Istep,1]
+              for (Irep in 1:NrepSplit)
+                if (RepRate[Irep] > 0)   # only reported types belong to the fate multinomial
+                  NotReportedObs[Isex,Igrp] <- NotReportedObs[Isex,Igrp] + TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]
+            }
 
-  for (Isex in 1:GeneralSpecs$Nsex){
-    for (Igrp in 1:NtagGroups){
-      NotReportedObs[Isex,Igrp] <- (NrelTotal[Isex,Igrp]-NotReportedObs[Isex,Igrp])/NrelTotal[Isex,Igrp]}}
+    # A sex x group with no releases (an area with no tagging) keeps 0 everywhere instead of 0/0
+    for (Isex in 1:GeneralSpecs$Nsex){
+      for (Igrp in 1:NtagGroups){
+        if (NrelTotal[Isex,Igrp] > 0) {
+          NotReportedObs[Isex,Igrp] <- (NrelTotal[Isex,Igrp]-NotReportedObs[Isex,Igrp])/NrelTotal[Isex,Igrp]
+        } else {
+          NotReportedObs[Isex,Igrp] <- 0
+        }}}
 
-  for (Isex in 1:GeneralSpecs$Nsex){
-    for (Igrp in 1:NtagGroups){
-      for (Iarea in 1:GeneralSpecs$Narea){
-        for (Iyear in 1:NyearTags){
-          for (Istep in 1:GeneralSpecs$Nstep){
-            for (Irep in 1:NrepSplit){
-              RecapObs[Isex,Igrp,Iarea,Irep,Iyear,Istep] = TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]/NrelTotal[Isex,Igrp]
-              }}}}}}
+    for (Isex in 1:GeneralSpecs$Nsex){
+      for (Igrp in 1:NtagGroups){
+        if (NrelTotal[Isex,Igrp] > 0) {
+          for (Iarea in 1:GeneralSpecs$Narea){
+            for (Iyear in 1:NyearTags){
+              for (Istep in 1:GeneralSpecs$Nstep){
+                for (Irep in 1:NrepSplit){
+                  RecapObs[Isex,Igrp,Iarea,Irep,Iyear,Istep] = TagRec[Isex,Igrp,Iarea,Irep,Iyear,Istep,1]/NrelTotal[Isex,Igrp]
+                }}}}} else {
+                  RecapObs[Isex,Igrp,,,,] <- 0
+                }}}
 
-  PropRepSplit<-array(0,dim=c(NyearTags,GeneralSpecs$Nstep,GeneralSpecs$Narea,NrepSplit));
-  Nobs <-  as.numeric(PropnFile[1,1])
-  for (i in 1:Nobs) {
-    Iyear <- as.numeric(PropnFile[i+2,1])-TagYr1+1
-    Istep <- as.numeric(PropnFile[i+2,2])
-    Iarea <- as.numeric(PropnFile[i+2,3])
-    PropRepSplit[Iyear,Istep,Iarea,]  <- as.numeric(PropnFile[i+2,4:(3+NrepSplit)]);
-      }
+    PropRepSplit<-array(0,dim=c(NyearTags,GeneralSpecs$Nstep,GeneralSpecs$Narea,NrepSplit));
+    Nobs <-  as.numeric(PropnFile[1,1])
+    for (i in 1:Nobs) {
+      Iyear <- as.numeric(PropnFile[i+2,1])-TagYr1+1
+      Istep <- as.numeric(PropnFile[i+2,2])
+      Iarea <- as.numeric(PropnFile[i+2,3])
+      PropRepSplit[Iyear,Istep,Iarea,]  <- as.numeric(PropnFile[i+2,4:(3+NrepSplit)]);
+    }
 
-  write("READ IN THE TAG FILE\n\n",EchoFile,append=T)
+    write("READ IN THE TAG FILE\n\n",EchoFile,append=T)
   }
-ReturnObj <- NULL
-ReturnObj$IsTagData <- IsTagData
-ReturnObj$InitialLoss <- InitialLoss
-ReturnObj$TagLossRate <- TagLossRate
-ReturnObj$NrepSplit <- NrepSplit
-ReturnObj$RepRate <- RepRate
-ReturnObj$FitTagSizes <- FitTagSizes
-ReturnObj$NtagLag <- NtagLag
-ReturnObj$NtagGroups <- NtagGroups
-ReturnObj$Year1Tag <- Year1Tag
-ReturnObj$Year2Tag <- GeneralSpecs$Year2
-ReturnObj$TagYr1 <- TagYr1
-ReturnObj$TagYr2 <- TagYr2
-ReturnObj$NyearTags <- NyearTags
-ReturnObj$TagRel <- TagRel
-ReturnObj$TagRec <- TagRec
-ReturnObj$RecapObs <- RecapObs
-ReturnObj$NrelTotal <-  NrelTotal
-ReturnObj$NotReportedObs <- NotReportedObs
-ReturnObj$PropRepSplit <- PropRepSplit
-#  print(str(ReturnObj))
-return(ReturnObj)
+  ReturnObj <- NULL
+  ReturnObj$IsTagData <- IsTagData
+  ReturnObj$InitialLoss <- InitialLoss
+  ReturnObj$TagLossRate <- TagLossRate
+  ReturnObj$NrepSplit <- NrepSplit
+  ReturnObj$RepRate <- RepRate
+  ReturnObj$FitTagSizes <- FitTagSizes
+  ReturnObj$NtagLag <- NtagLag
+  ReturnObj$NtagGroups <- NtagGroups
+  ReturnObj$Year1Tag <- Year1Tag
+  ReturnObj$Year2Tag <- GeneralSpecs$Year2
+  ReturnObj$TagYr1 <- TagYr1
+  ReturnObj$TagYr2 <- TagYr2
+  ReturnObj$NyearTags <- NyearTags
+  ReturnObj$TagRel <- TagRel
+  ReturnObj$TagRec <- TagRec
+  ReturnObj$RecapObs <- RecapObs
+  ReturnObj$NrelTotal <-  NrelTotal
+  ReturnObj$NotReportedObs <- NotReportedObs
+  ReturnObj$PropRepSplit <- PropRepSplit
+  #  print(str(ReturnObj))
+  return(ReturnObj)
 
 }
 

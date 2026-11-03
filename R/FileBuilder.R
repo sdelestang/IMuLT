@@ -889,6 +889,17 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   if(LoadTdata==1){
     print("Building Tag Recapture File")
 
+    ## Release groups = model areas, always. A group is the release area (no separate group
+    ## column), so the file must have one group per model area even where nothing was released.
+    ## nArea: number of model areas. Point this at the variable this script already uses for
+    ## the area count (e.g. from the Fleet/Area sheet); the workbook's 'Num release areas' is
+    ## now only checked, not used.
+    nArea <- length(unique(areas$AreaCode))
+    nRelSheet <- as.numeric(tag[tag[,1]=='Num release areas',2])
+    #if (!is.na(nRelSheet) && nRelSheet != nArea)
+    #  warning("TagRecapture: 'Num release areas' = ", nRelSheet, " but the model has ", nArea,
+    #          " areas. Writing ", nArea, " release groups (one per model area).", call. = FALSE)
+
     tmp <- list()
     tmp <- c(tmp, "# IsTagData\n",tag[tag[,1]=='Load tag data',2],"\n")
     tmp <- c(tmp, "# Initial tagloss\n",tag[tag[,1]=='Initial tag loss',2],"\n")
@@ -898,26 +909,51 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     tmp <- c(tmp, "# Reporting rates of recapture types\n",paste(tag[tag[,1]=='Reporting rates (x type)',2:(Nreptype+1)], collapse=" "),"\n")
     tmp <- c(tmp, "# Use size (0=N, 1=Y)\n",paste(tag[tag[,1]=='Use recapture size (x type)',2:(Nreptype+1)],collapse=" "),"\n")
     tmp <- c(tmp, "# Number of tsteps to ignore\n",tag[tag[,1]=='Timesteps to ignore',2],"\n")
-    tmp <- c(tmp, "# Release areas\n",tag[tag[,1]=='Num release areas',2],"\n")
+    tmp <- c(tmp, "# Release areas\n",nArea,"\n")
 
     pos1 <- which(tag[,1]=='Release by lbin')+1; pos2 <- which(tag[,1]=='Recaptures by lbin')
     release <- data.frame(tag[(pos1+1):(pos2-1),])
     colnames(release) <- tag[pos1,]
     release <- release[,!is.na(release[1,])] %>% filter(!is.na(Total))
     release %<>% mutate(Sex=adjsex(Sex, nsex,section='Tag_release'))
-    relyr <- release %>% group_by(RelArea) %>% summarise(Min=min(Year))
-    tmp <- c(tmp, "# First release year\n",paste(relyr$Min, collapse=' '),"\n")
+
+    ## First release year for EVERY model area (numeric sort, so area 10 follows 9).
+    ## Areas with no releases get a placeholder: the last release year in the data. The
+    ## model then starts that group's loop late (cheap) and it carries no releases.
+    relyr <- release %>%
+      mutate(RelArea = as.numeric(as.character(RelArea)),
+             Year    = as.numeric(as.character(Year)),
+             Total   = as.numeric(as.character(Total))) %>%
+      filter(Total > 0) %>%
+      group_by(RelArea) %>% summarise(Min = min(Year), .groups = "drop")
+    if (any(!relyr$RelArea %in% seq_len(nArea)))
+      stop("TagRecapture: release area(s) ", paste(setdiff(relyr$RelArea, seq_len(nArea)), collapse=", "),
+          " outside 1..", nArea, call. = FALSE)
+    placeholder <- max(as.numeric(as.character(release$Year)))
+    firstyr <- rep(placeholder, nArea)
+    firstyr[relyr$RelArea] <- relyr$Min
+    noRel <- setdiff(seq_len(nArea), relyr$RelArea)
+    #if (length(noRel))
+    #  message("TagRecapture: no releases in area(s) ", paste(noRel, collapse=", "),
+    #          " - first release year set to ", placeholder, " (placeholder)")
+    tmp <- c(tmp, "# First release year\n",paste(firstyr, collapse=' '),"\n")
 
     tmp <- c(tmp, "# Release by lbin\n",nrow(release),"\t# number release observations\n")
-    tmp <- c(tmp, "# Sex	Group	Area	Year	Tstep	Total ", paste0("lbin",lens, collapse=' '),"\n")
+    tmp <- c(tmp, "# Sex\tRelArea\tYear\tTstep\tTotal ", paste0("lbin",lens, collapse=' '),"\n")
     for(i in 1:nrow(release)){ tmp <- c(tmp,paste(release[i,],collapse = " "),"\n")}
 
     pos1 <- which(tag[,1]=="Recaptures by lbin")+1; pos2 <- which(tag[,1]=="Proportions of effort between types")
     recap <- data.frame(tag[(pos1+1):(pos2-1),])
-    #tail(recap)
     colnames(recap) <- tag[pos1,]
     recap <- recap[,!is.na(recap[1,])]
     recap %<>% mutate(Sex=adjsex(Sex, nsex,section='Tag_recapture'))
+
+    ## Recaptures must come from an area with releases
+    badRel <- setdiff(unique(as.numeric(as.character(recap$RelArea))), relyr$RelArea)
+    if (length(badRel))
+      stop("TagRecapture: recaptures from release area(s) ", paste(badRel, collapse=", "),
+           " that have no releases", call. = FALSE)
+
     tmp <- c(tmp, "# Recaptures by lbin\n",nrow(recap),"\t# Number recapture observations\n")
     tmp <- c(tmp, "# Sex RelArea RecArea Type Year Tstep Total ", paste0("lbin",lens, collapse=' '),"\n")
     for(i in 1:nrow(recap)){ tmp <- c(tmp,paste(recap[i,],collapse = " "),"\n")}
@@ -943,6 +979,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
     tmp <- c(tmp, "\n# Final check\n123456")
     write.table(tmp, paste(floc,'/TAGPROP.DAT',sep=''), sep="", row.names = F, col.names = F, quote=F)
   }
+
   #### Recruitment file ####
   print("Building Recruitment File")
 

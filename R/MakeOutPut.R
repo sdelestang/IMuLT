@@ -1764,7 +1764,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   ####  Egg Production ####
   egg <- findNclean(c('Egg','Production'), echo, 3)
   egg <- egg[1:(which(is.na(egg[,20]))[1]-1),]
-  names(egg) <- c('age','area','season', paste0('lb',1:(ncol(egg)-3)))
+  names(egg) <- c('age','area','season', paste0('lb',lbin))
 
   # Pivot to long format
   egg <- egg %>% tidyr::pivot_longer(cols = starts_with("lb"), names_to = "lbin", values_to = "value") %>% mutate(lbin = as.numeric(gsub("lb", "", lbin)))

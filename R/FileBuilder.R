@@ -298,9 +298,13 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   if(length(female.wat)==0 & length(male.wat)>0){ tmp <- c(tmp, paste(male.wat,collapse = "\t"),"\n") }
   if(length(female.wat)>0 & length(male.wat)==0){ tmp <- c(tmp, paste(female.wat,collapse = "\t"),"\n") }
 
-  tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",reftimestep[2]-1,'\n')
-
-  tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",reftimestep[1]-1,'\n')
+  if(max(times$tstep)==1){
+    tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",0,'\n')
+    tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",0,'\n')
+    } else {
+    tmp <- c(tmp, "\n# Egg time step (This is when to determine egg production)\n",reftimestep[2]-1,'\n')
+    tmp <- c(tmp, "\n# Biomass time step (This is when to determine Biomass)\n",reftimestep[1]-1,'\n')
+    }
 
   tmp <- c(tmp, "\n# Biomass target, threshold, limit (one per area)\n")
 

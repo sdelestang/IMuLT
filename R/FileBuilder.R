@@ -1080,10 +1080,10 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   dat2[dat2 == -1] <- NoHGpat
 
   ## Report where high-grading IS applied, as a check on the HighGrading tab
-  hg_on <- hgrad %>% filter(propfl < 1) %>%
-    mutate(desc = ifelse(fleet == 99, "all fleets", fleets$description[match(fleet, fleets$fleet)])) %>%
-    group_by(fleet, desc) %>%
-    summarise(years = paste(range(season), collapse = "-"), mean_retained = round(mean(propfl), 2), .groups = "drop")
+  # hg_on <- hgrad %>% filter(propfl < 1) %>%
+  #   mutate(desc = ifelse(fleet == 99, "all fleets", fleets$description[match(fleet, fleets$fleet)])) %>%
+  #   group_by(fleet, desc) %>%
+  #   summarise(years = paste(range(season), collapse = "-"), mean_retained = round(mean(propfl), 2), .groups = "drop")
   #if (nrow(hg_on)) message("High-grading applied:\n",
   #                         paste0("  Fleet ", hg_on$fleet, " (", hg_on$desc, "): ", hg_on$years,
   #                                ", mean retention ", hg_on$mean_retained, collapse = "\n"))

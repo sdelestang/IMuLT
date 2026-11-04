@@ -265,7 +265,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   lbinl <- lbin
   lbin <- lbin[1:(length(lbin)-1)]
 
-  suppressWarnings(fleetarea <- fleets %>% mutate(areaname=do.call('rbind',strsplit(description,'_'))[,1],fleettype=group))
+  suppressWarnings(fleetarea <- fleets %>% mutate(areaname=substr(description,1,6),fleettype=group))
 
   ####
   ## Model run statistics

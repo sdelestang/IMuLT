@@ -677,6 +677,23 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
 #' specifications are written to Echo.out for verification.
 #'
 #' @keywords internal
+# Row numbers of the TemporalM parameter rows in CONTROL.DAT: the numeric rows following the
+# "# TemporalM" header (comment lines skipped). integer(0) if there is no such section.
+TemporalMRows <- function(ControlFile)
+{
+  Index <- MatchTable(ControlFile,Char1="#",Char2="TemporalM")
+  if (length(Index) == 0) return(integer(0))
+  rows <- integer(0)
+  i <- Index[1] + 1
+  while (i <= nrow(ControlFile)) {
+    v1 <- as.character(ControlFile[i,1])
+    if (startsWith(v1, "#") && length(rows) == 0) { i <- i + 1; next }
+    if (is.na(suppressWarnings(as.numeric(v1)))) break
+    rows <- c(rows, i); i <- i + 1
+  }
+  rows
+}
+
 ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
 {
   print("READ IN THE CONTROL FILE")
@@ -814,6 +831,36 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   EffparsLink <- as.numeric(ControlFile[(Index+2):(Index+npars+1),5])
   EffparsPrior <- apply(as.matrix(ControlFile[(Index+2):(Index+npars+1),6:8]),2,as.numeric)
 
+  # Temporal M multipliers (optional "# TemporalM" section; none if absent)
+  # Row: startyear endyear age area lower upper estimate phase link prior prior.mean prior.sd
+  # Ages and areas are 1-based in the file; converted here to 0-based, years to 0-based model-year indices
+  TMrows <- TemporalMRows(ControlFile)
+  NTempM <- length(TMrows)
+  TempMSpec <- matrix(0,nrow=1,ncol=4)
+  TempMparsLink <- 0
+  TempMparsPrior <- matrix(0,nrow=1,ncol=3)
+  if (NTempM > 0) {
+    TM <- matrix(apply(as.matrix(ControlFile[TMrows,1:12]),2,as.numeric),nrow=NTempM)
+    TMy1 <- pmax(TM[,1],GeneralSpecs$Year1) - GeneralSpecs$Year1
+    TMy2 <- pmin(TM[,2],GeneralSpecs$Year2) - GeneralSpecs$Year1
+    TempMSpec <- cbind(TMy1,TMy2,TM[,3]-1,TM[,4]-1)
+    TempMparsLink <- TM[,9]
+    TempMparsPrior <- matrix(TM[,10:12],nrow=NTempM)
+
+    # Cells (area, age, year) covered by more than one TemporalM row
+    cells <- do.call(rbind, lapply(1:NTempM, function(r) {
+      if (TMy1[r] > TMy2[r]) return(NULL)
+      data.frame(row=r, key=paste(TM[r,4],TM[r,3],TMy1[r]:TMy2[r]))
+    }))
+    if (!is.null(cells)) {
+      dup <- unique(cells$key[duplicated(cells$key)])
+      if (length(dup) > 0) {
+        rows <- sort(unique(cells$row[cells$key %in% dup]))
+        warning("TemporalM rows ", paste(rows, collapse=", "),
+                " cover the same area/age/year; their multipliers are multiplied together.", call. = FALSE)
+      }
+    }
+  }
 
   # read the data weights
   Index <- MatchTable(ControlFile,Char1="#",Char2="Weights",Char3="on");
@@ -911,6 +958,10 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
   ReturnObj$MparsPrior <- MparsPrior
   ReturnObj$EffparsLink <- EffparsLink
   ReturnObj$EffparsPrior <- EffparsPrior
+  ReturnObj$NTempM <- NTempM
+  ReturnObj$TempMSpec <- TempMSpec
+  ReturnObj$TempMparsLink <- TempMparsLink
+  ReturnObj$TempMparsPrior <- TempMparsPrior
   #ReturnObj$InitOpt <- InitOpt
   #ReturnObj$InitParSpec <- InitParSpec
   ReturnObj$LambdaCpue <- LambdaCpue
@@ -2411,6 +2462,19 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
   else { efPhase[1] <- -100 }
   if(is.na(sum(efPars))) { warning("\nThere are NA's in Efficiency Pars\n", call. = FALSE); OK <- 0   }
 
+  # Temporal M multipliers (CONTROL.DAT, optional). One dummy fixed parameter if none.
+  TMrows <- TemporalMRows(ControlFile)
+  NTempM <- length(TMrows)
+  TempMPars <- 1
+  TempMBnd <- matrix(c(0,10),nrow=1,ncol=2)
+  TempMPhase <- -100
+  if (NTempM > 0) {
+    TempMPars <- as.numeric(ControlFile[TMrows,7])
+    TempMBnd <- cbind(as.numeric(ControlFile[TMrows,5]), as.numeric(ControlFile[TMrows,6]))
+    TempMPhase <- as.numeric(ControlFile[TMrows,8])
+  }
+  if(is.na(sum(TempMPars))) { warning("\nThere are NA's in TemporalM Pars\n", call. = FALSE); OK <- 0   }
+
   if(OK==1) { message("All initial parameters are provided")}
   ReturnObj <- NULL
   ReturnObj$MainPars$Initial <- MainPars
@@ -2446,6 +2510,9 @@ ReadInitialValues <- function(ControlFile,SelexFile,RetainFile,RecruitFile,Growt
  ReturnObj$GrowthPars$Initial <- GrowthPars
  ReturnObj$GrowthPars$Bnd <- GrowthBnd
  ReturnObj$GrowthPars$Phase <- GrowthPhase
+ ReturnObj$TemporalMPars$Initial <- TempMPars
+ ReturnObj$TemporalMPars$Bnd <- TempMBnd
+ ReturnObj$TemporalMPars$Phase <- TempMPhase
  return(ReturnObj)
 
 }

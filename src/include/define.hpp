@@ -38,6 +38,8 @@ struct dataSet{
   int Nproj;
   int DoProject;
   int ProjType;                  // 1 = catch-based projection, 2 = harvest-rate/effort-based
+  int NTempM;                    // Number of TemporalM rows (0 = none)
+  array<Type> MmultYr;           // M multiplier by area, age and model year (built from TemporalMPars)
   array<Type> ProjHarvestRate;   // Imposed harvest rate by (proj_year, step, fleet) when ProjType==2
   vector<int> Nlen;
   matrix <int> SelSpec;

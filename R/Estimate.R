@@ -347,16 +347,18 @@ UpdatePars <- function(todo = "Yes", source = ".", skip = NULL)
 
   locs <- data.frame(
     par  = c("MainPars", "RecruitPars", "PuerPowPars", "RecDevs", "Qpars",
-             "efpars", "RecSpatDevs", "MovePars", "SelPars", "GrowthPars"),
+             "efpars", "RecSpatDevs", "MovePars", "SelPars", "GrowthPars",
+             "TemporalMPars"),
     file = c("CONTROL.DAT", "RECRUITSPEC.DAT", "RECRUITSPEC.DAT", "CONTROL.DAT",
              "CONTROL.DAT", "CONTROL.DAT", "CONTROL.DAT", "MOVESPEC.DAT",
-             "SELEXSPEC.DAT", "GROWTHSPEC.DAT"),
+             "SELEXSPEC.DAT", "GROWTHSPEC.DAT", "CONTROL.DAT"),
     id   = c("Basic parameters", "Recuitment1 parameters", "Puerulus Power for",
              "Prespecify_rec_devs", "Q parameters", "Efficiency parameters",
              "Prespecify_spatial_rec_devs", "Movement parameters",
-             "Selectivity Parameters", "Growth parameters"),
-    off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2, 2),
-    col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3, 3),
+             "Selectivity Parameters", "Growth parameters",
+             "TemporalM"),
+    off  = c(1, 2, 3, 2, 1, 2, 2, 2, 2, 2, 1),
+    col  = c(3, 3, 3, 1, 3, 3, 1, 3, 3, 3, 7),
     stringsAsFactors = FALSE)
 
   if (!is.null(skip)) {
@@ -373,6 +375,15 @@ UpdatePars <- function(todo = "Yes", source = ".", skip = NULL)
     roff <- locs$off[i]
     coff <- locs$col[i]
     pos  <- find(c(unlist(strsplit(locs$id[i], " "))), DataFile, roff)
+    if (locs$par[i] == "TemporalMPars") {
+      # Optional section: write only into the numeric rows that follow the header
+      if (length(pos) != 1) next
+      while (pos <= nrow(DataFile) && startsWith(as.character(DataFile[pos, 1]), "#")) pos <- pos + 1
+      nTM <- 0
+      while (pos + nTM <= nrow(DataFile) && !is.na(suppressWarnings(as.numeric(DataFile[pos + nTM, 1])))) nTM <- nTM + 1
+      if (nTM == 0) next
+      ptmp <- ptmp[seq_len(min(nTM, length(ptmp)))]
+    }
     if (length(ptmp) > 0) {
       DataFile[pos:(pos + length(ptmp) - 1), coff] <- ptmp
       write.table(DataFile, locs$file[i], na = " ", sep = " ",
@@ -486,7 +497,8 @@ LoadPars <- function(aask=''){
     RecDevs     = InitialVars$RecDevs,
     efpars      = InitialVars$efpars,
     MovePars    = InitialVars$MovePars,
-    GrowthPars  = InitialVars$GrowthPars
+    GrowthPars  = InitialVars$GrowthPars,
+    TemporalMPars = InitialVars$TemporalMPars
   )
 
   bnd_issues <- do.call(rbind, lapply(names(bnd_groups), function(grp) {
@@ -528,7 +540,8 @@ LoadPars <- function(aask=''){
     EffPars     = list(phase = InitialVars$efpars$Phase,        link = Data$EffparsLink),
     RecSpatDevs = list(phase = InitialVars$RecSpatDevs$Phase,   link = NULL),
     MovePars    = list(phase = InitialVars$MovePars$Phase,      link = Data$MoveparsLink),
-    GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = Data$GrowparsLink)
+    GrowthPars  = list(phase = InitialVars$GrowthPars$Phase,    link = Data$GrowparsLink),
+    TemporalMPars = list(phase = InitialVars$TemporalMPars$Phase, link = Data$TempMparsLink)
   )
   par_summary <- do.call(rbind, lapply(names(par_info), function(grp) {
     ph <- par_info[[grp]]$phase
@@ -560,7 +573,7 @@ LoadPars <- function(aask=''){
     }
   }
   cat("------------------------\n\n")
-  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,GrowthPars=NULL,dummy=0)
+  parameters <- list(MainPars=NULL,RecruitPars=NULL,PuerPowPars=NULL,SelPars=NULL,RetPars=NULL,RecDevs=NULL,Qpars=NULL,efpars=NULL,InitPars=NULL,RecSpatDevs=NULL,MovePars=NULL,GrowthPars=NULL,TemporalMPars=NULL,dummy=0)
   (MaxPhase <<- getPhase(InitialVars));ParOld <<- NULL;CurrPhase <<- 1
 }
 
@@ -685,7 +698,8 @@ AdjustPhase <- function(dum = ' ') {
 
   MaxPhase <- 0
   Innames  <- c("MainPars", "RecruitPars", "PuerPowPars", "SelPars",
-                "RecDevs", "RecSpatDevs", "efpars", "MovePars", "GrowthPars")
+                "RecDevs", "RecSpatDevs", "efpars", "MovePars", "GrowthPars",
+                "TemporalMPars")
 
   for (i in seq_along(Innames)) {
 
@@ -1206,7 +1220,8 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                    RecruitPars = Data$RecparsLink,
                    SelPars     = Data$SelparsLink,
                    efpars      = Data$EffparsLink,
-                   GrowthPars  = Data$GrowparsLink)
+                   GrowthPars  = Data$GrowparsLink,
+                   TemporalMPars = Data$TempMparsLink)
   for (pname in names(link_map)) {
     lv <- link_map[[pname]]
     if (!is.null(lv)) {
@@ -1311,6 +1326,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       RecSpatDevs = InitialVars$RecSpatDevs$Initial,
       MovePars    = InitialVars$MovePars$Initial,
       GrowthPars  = InitialVars$GrowthPars$Initial,
+      TemporalMPars = InitialVars$TemporalMPars$Initial,
       dummy       = 0
     )
 

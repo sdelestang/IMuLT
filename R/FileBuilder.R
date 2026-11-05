@@ -419,6 +419,37 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   Mpar7 <- mainpar %>% filter(name == 'SigmaSpat') %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar7,collapse="\t"), "\n")
 
+  ## Check to see is TemporalM exists
+  TempM <-mainpar[mainpar$name=="TemporalM",]
+  if(nrow(TempM)>0){
+    tmp <- c(tmp, "\n# TemporalM\n")
+    for(i in 1:nrow(TempM)){
+      dum <- TempM[i,]
+      dumage <- expand_string_vector(strsplit(dum$comment, ' ')[[1]][1])
+      dumarea <- expand_string_vector(strsplit(dum$comment, ' ')[[1]][2])
+      dumyear <- expand_string_vector(strsplit(dum$comment, ' ')[[1]][3])
+      dumyeardf <- collapse_sequences(dumyear)
+      g <- expand.grid(yr = seq_len(nrow(dumyeardf)), age = dumage, area = dumarea)
+      dumdat <- data.frame(StartSeason = dumyeardf$start[g$yr], EndSeason = dumyeardf$end[g$yr],
+                           age = g$age, area = g$area)
+      dumdat2 <- matrix(TempM[i,2:ncol(TempM)], nrow=nrow(dumdat), ncol=10, byrow = T)
+      if(i==1) POSIT <- 1
+      if(i>1)  POSIT <- nrow(dumdatout)+1
+      if (nrow(dumdat2) > 1) {
+        dumdat2[2:nrow(dumdat2),4] <- abs(as.numeric(dumdat2[2:nrow(dumdat2),4]))*-1
+        dumdat2[2:nrow(dumdat2),5] <- POSIT
+        dumdat2[2:nrow(dumdat2),6] <- 0
+      }
+      dumdat <- cbind(dumdat,dumdat2)
+      if(i==1) { dumdatout <- dumdat } else { dumdatout <- rbind(dumdatout,dumdat) }
+    }
+    #Reduce into
+    tmp <- c(tmp, nrow(dumdatout), "\n# StartSeason, EndSeason, Age, Area, lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
+
+    for(j in 1:nrow(dumdatout)){
+      tmp <- c(tmp,paste(paste(unlist(dumdatout[j,]),collapse = " ")),"\n")
+      }}
+
   tmp <- c(tmp, "\n# Q parameters\n")
   Qpar1 <- 1
   nqs <- length(unique(fleets$fleet[fleets$group=='comm']))*length(unique(times$tstep))

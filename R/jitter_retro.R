@@ -11,10 +11,11 @@
 ## ============================================================================
 
 .PARBLOCKS <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
-                "RecDevs","Qpars","efpars","RecSpatDevs","MovePars","GrowthPars")
+                "RecDevs","Qpars","efpars","RecSpatDevs","MovePars","GrowthPars",
+                "TemporalMPars")
 .LINKMAP   <- c(MainPars = "MparsLink", RecruitPars = "RecparsLink",
                 SelPars  = "SelparsLink", efpars = "EffparsLink",
-                MovePars = "MoveparsLink")
+                MovePars = "MoveparsLink", TemporalMPars = "TempMparsLink")
 
 ## ---- Quiet single fit: returns report, max|grad|, convergence flag ---------
 .quiet_fit <- function(grad_thresh = 0.1, ...) {

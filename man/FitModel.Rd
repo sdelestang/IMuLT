@@ -10,6 +10,7 @@ FitModel(
   mxph = MaxPhase,
   PrintLag = 50,
   report = FALSE,
+  sdrep = TRUE,
   nRestarts = TRUE,
   newtonSteps = 5,
   newton_grad_thresh = 20,

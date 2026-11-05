@@ -1,6 +1,17 @@
 #include <TMB.hpp>
 #include "include/RLhpp.hpp"
 
+// -------------------------------------------------------------------------------------------------------------------
+// Temporal M multiplier for a given area, age and model year (TemporalM section of CONTROL.DAT).
+// Burn-in years (Iyear < 0) use base M; projection years carry forward the last model year.
+template <class Type>
+Type MyrMult(dataSet<Type> &dat, int Iarea, int Iage, int Iyear){
+  if (dat.NTempM <= 0 || Iyear < 0) return Type(1.0);
+  int Jyear = Iyear;
+  if (Jyear > dat.Nyear-1) Jyear = dat.Nyear-1;
+  return dat.MmultYr(Iarea,Iage,Jyear);
+}
+
 
 // Big changes made by Simon .  Density dependent mortality, legal biomass, area-specific burn-in years, Growth parameterised
 
@@ -93,7 +104,7 @@ vector<Type> Hybrid(dataSet<Type> &dat, array<Type> &N, array<Type> &selretwght,
         for (int Isize=0;Isize<Nlen(Isex);Isize++)
         {
           if(dat.IsRed(Isex,Iage,AreaPass,StepPass)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
-          Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM;
+          Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*MyrMult(dat,AreaPass,Iage,YearPass)*ScaleWhiteM;
           for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)
             if (dat.Area_fleet(AreaPass,Ifleet)==1)
             {
@@ -124,7 +135,7 @@ vector<Type> Hybrid(dataSet<Type> &dat, array<Type> &N, array<Type> &selretwght,
           for (int Isize=0;Isize<Nlen(Isex);Isize++)
           {
             if(dat.IsRed(Isex,Iage,AreaPass,StepPass)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
-            Z_rate(Isex,Iage,Isize)  = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM + Z_adjuster*(Z_rate(Isex,Iage,Isize)-dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*ScaleWhiteM);
+            Z_rate(Isex,Iage,Isize)  = dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*MyrMult(dat,AreaPass,Iage,YearPass)*ScaleWhiteM + Z_adjuster*(Z_rate(Isex,Iage,Isize)-dat.TimeStepLen(YearPass,StepPass)*M(AreaPass,Iage)*MyrMult(dat,AreaPass,Iage,YearPass)*ScaleWhiteM);
             Z_rate2(Isex,Iage,Isize) = (1-exp(-Z_rate(Isex,Iage,Isize)))/Z_rate(Isex,Iage,Isize);
           }
 
@@ -808,9 +819,9 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {
           if (Iyear <= 0){
-            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
+            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,Iyear)*ScaleWhiteM;}
           else{
-            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM;}
+            Z_rate(Isex,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,Iyear)*ScaleWhiteM;}
           for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++)
             if(dat.Area_fleet(Iarea,Ifleet)==1)
             {
@@ -1787,7 +1798,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
           for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
           {
-            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
+            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,Iyear)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
             Z_rate_Tag(Iarea,Iage,Isize) = M_rate_Tag(Iarea,Iage,Isize);
             for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
               if (dat.Area_fleet(Iarea,Ifleet)==1)
@@ -2067,6 +2078,10 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(MoveparsPrior); dataset.MoveparsPrior = MoveparsPrior;
   DATA_IVECTOR(GrowparsLink); dataset.GrowparsLink = GrowparsLink;
   DATA_MATRIX(GrowparsPrior); dataset.GrowparsPrior = GrowparsPrior;
+  DATA_INTEGER(NTempM); dataset.NTempM = NTempM;                 // Number of TemporalM rows (0 = none)
+  DATA_IMATRIX(TempMSpec);                                       // year1, year2 (model-year index), age, area (0-based)
+  DATA_IVECTOR(TempMparsLink);
+  DATA_MATRIX(TempMparsPrior);
   DATA_IVECTOR(LarparsLink); dataset.LarparsLink = LarparsLink;
   DATA_MATRIX(LarparsPrior); dataset.LarparsPrior = LarparsPrior;
   DATA_SCALAR(Bias_Ramp_Yr1); dataset.Bias_Ramp_Yr1 = Bias_Ramp_Yr1;
@@ -2161,6 +2176,7 @@ Type objective_function<Type>::operator() ()
   PARAMETER_VECTOR(RecSpatDevs);
   PARAMETER_VECTOR(MovePars);
   PARAMETER_VECTOR(GrowthPars);
+  PARAMETER_VECTOR(TemporalMPars);
   PARAMETER(dummy);
 
   matrix <Type> M(Narea, Nage);
@@ -2368,6 +2384,38 @@ Type objective_function<Type>::operator() ()
     }
   }
 
+  //// Deal with TemporalM Pars //////
+  // Apply priors on TemporalM Pars if requested
+  Type TempMParPriorPen = 0;
+  nrowMP = TempMparsPrior.rows();
+  for (int r=0; r<nrowMP; r++) {
+    // Normal prior
+    if(TempMparsPrior(r,0)==1){
+      TempMParPriorPen += -dnorm(TemporalMPars(r,0), TempMparsPrior(r,1), TempMparsPrior(r,2), true);
+    }
+    // Gamma prior
+    if(TempMparsPrior(r,0)==2){
+      ScaleMP = square(TempMparsPrior(r,2))/TempMparsPrior(r,1);
+      ShapeMP = TempMparsPrior(r,1)/ScaleMP;
+      TempMParPriorPen += -dgamma(TemporalMPars(r,0), ShapeMP, ScaleMP, true);
+    }
+    // Log-normal prior
+    if(TempMparsPrior(r,0)==3){
+      Type mulog  = log(TempMparsPrior(r,1)) - Type(0.5) * log(Type(1.0) + square(TempMparsPrior(r,2)/TempMparsPrior(r,1)));
+      Type sdlog  = sqrt(log(Type(1.0) + square(TempMparsPrior(r,2)/TempMparsPrior(r,1))));
+      TempMParPriorPen += -dnorm(log(TemporalMPars(r,0)), mulog, sdlog, true) + log(TemporalMPars(r,0));
+    }
+  }
+
+  // Adjust parameters to account for linked parameters
+  for(int mp=0;mp<TempMparsLink.size();mp++){
+    if(TempMparsLink(mp)>0) TemporalMPars(mp)=TemporalMPars(TempMparsLink(mp)-1);
+    if(TempMparsLink(mp)<0){                     /// change link value to +ive and then add that parameter to the current parameter
+      Link = -1 * TempMparsLink(mp);
+      TemporalMPars(mp) += TemporalMPars(Link-1);
+    }
+  }
+
   //// Deal with Puerulus Pars //////
   // Apply priors on Puerulus Pars if requested
   Type LarParPriorPen = 0;
@@ -2405,6 +2453,16 @@ Type objective_function<Type>::operator() ()
   for(int Iarea=0;Iarea<Narea;Iarea++){
     for (int Iage=0;Iage<Nage;Iage++){
       M(Iarea,Iage) =   MainPars(1+Iarea) * MainPars(1+Narea+Iage); }}
+
+  // Temporal M multipliers by area, age and model year: product of every TemporalM row covering the cell
+  array<Type> MmultYr(Narea,Nage,Nyear);
+  for (int Iarea=0;Iarea<Narea;Iarea++)
+    for (int Iage=0;Iage<Nage;Iage++)
+      for (int Iyear=0;Iyear<Nyear;Iyear++) MmultYr(Iarea,Iage,Iyear) = Type(1.0);
+  for (int r=0; r<NTempM; r++)
+    for (int Iyear=TempMSpec(r,0); Iyear<=TempMSpec(r,1); Iyear++)
+      MmultYr(TempMSpec(r,3),TempMSpec(r,2),Iyear) *= TemporalMPars(r);
+  dataset.MmultYr = MmultYr;
   MWhitesPar = MainPars(1+Narea+Nage);
   QRedsPar = MainPars(2+Narea+Nage);
   SigmaR = MainPars(3+Narea+Nage);
@@ -2950,7 +3008,7 @@ Type objective_function<Type>::operator() ()
   neglogL += LambdaTag2*sum(TagLike2);
 
   // add Penalties derived from parameter priors
-  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen + MovePen + LarParPriorPen;
+  neglogL += MainParPriorPen + RecParPriorPen + SelParPriorPen + EffParPriorPen + GrowParPriorPen + MoveParPriorPen + MovePen + LarParPriorPen + TempMParPriorPen;
 
   // Now do projections.
   // ProjType==1 (catch-based): dataset.Catch already holds the projected catch
@@ -3030,6 +3088,7 @@ Type objective_function<Type>::operator() ()
     REPORT(Z);
     REPORT(WeightLen);
     REPORT(M);
+    REPORT(MmultYr);
     REPORT(MWhitesPar);
     REPORT(QRedsPar);
 
@@ -3141,6 +3200,7 @@ Type objective_function<Type>::operator() ()
     REPORT(BiasMult);
     REPORT(CurrentBio);
     REPORT(M);
+    REPORT(MmultYr);
     REPORT(MWhitesPar);
     REPORT(QRedsPar);
     REPORT(GrowthOut);
@@ -3149,6 +3209,7 @@ Type objective_function<Type>::operator() ()
     REPORT(SelParPriorPen);
     REPORT(EffParPriorPen);
     REPORT(GrowParPriorPen);
+    REPORT(TempMParPriorPen);
     REPORT(MoveParPriorPen);
     REPORT(MovePen);
 
@@ -3166,6 +3227,7 @@ Type objective_function<Type>::operator() ()
     REPORT(RecSpatDevs);
     REPORT(MovePars);
     REPORT(GrowthPars);
+    REPORT(TemporalMPars);
     REPORT(Rec_Penal_SumZero);
 
 

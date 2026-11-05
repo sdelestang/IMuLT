@@ -62,7 +62,8 @@ ProfileLT <- function(group, pos,
 
   GE <- .GlobalEnv
   .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
-               "RecDevs","Qpars","efpars","RecSpatDevs","MovePars","GrowthPars")
+               "RecDevs","Qpars","efpars","RecSpatDevs","MovePars","GrowthPars",
+               "TemporalMPars")
 
   ## ---- 0. Pull the globals FitModel relies on ---------------------------
   if (is.null(get0("Data", envir = GE)))        stop("global `Data` not found.")
@@ -84,7 +85,7 @@ ProfileLT <- function(group, pos,
   ## Refuse a MIRRORED parameter (value overwritten by its link inside the .cpp)
   linkmap <- c(MainPars = "MparsLink", RecruitPars = "RecparsLink",
                SelPars  = "SelparsLink", efpars = "EffparsLink",
-               MovePars = "MoveparsLink")
+               MovePars = "MoveparsLink", TemporalMPars = "TempMparsLink")
   if (group %in% names(linkmap)) {
     lv <- Data[[ linkmap[[group]] ]]
     if (!is.null(lv) && length(lv) >= pos && !is.na(lv[pos])) {

@@ -212,6 +212,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write(paste("Growth parameters penalty",Report$GrowParPriorPen),OutputFile,append=T)
   write(paste("Movement parameters penalty",Report$MoveParPriorPen),OutputFile,append=T)
   write(paste("Movement bounds penalty", Report$MovePen), OutputFile, append = T)
+  write(paste("TemporalM parameters penalty", Report$TempMParPriorPen), OutputFile, append = T)
 
   write("\n# Likelihood by fleet",OutputFile,append=T)
   write(paste("Cpue likelihood",paste(Report$CpueLikeComps[])),OutputFile,append=T)
@@ -254,6 +255,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
                          "efpars"      = Data$EffparsLink,
                          "MovePars"    = Data$MoveparsLink,
                          "GrowthPars"  = Data$GrowparsLink,
+                         "TemporalMPars" = Data$TempMparsLink,
                          NULL)
       # Prior matrices are indexed over the full parameter vector (fixed and
       # estimated), exactly as the C++ applies them, so row Ipar = parameter Ipar
@@ -264,6 +266,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
                           "efpars"      = Data$EffparsPrior,
                           "MovePars"    = Data$MoveparsPrior,
                           "GrowthPars"  = Data$GrowparsPrior,
+                          "TemporalMPars" = Data$TempMparsPrior,
                           NULL)
       Ipnt_block_start <- Ipnt
       for (Ipar in 1:length(ThePar$Initial))
@@ -494,7 +497,13 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
       Years <- (GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr)
       ## BurnIn+Nyear+MaxProjYr+1
       Ncol <- 4
-      LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,rep(Report$M[Iarea,Iage], length(Years)))
+      # Temporal M multiplier: 1 before the first model year, last model year carried into projections
+    Mmult <- rep(1, length(Years))
+    if (!is.null(Report$MmultYr)) {
+      Jyr <- pmin(Years - GeneralSpecs$Year1 + 1, dim(Report$MmultYr)[3])
+      Mmult[Jyr >= 1] <- Report$MmultYr[Iarea, Iage, Jyr[Jyr >= 1]]
+    }
+    LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,Report$M[Iarea,Iage]*Mmult)
       write(t(LBOut),ncol=Ncol,OutputFile,append=T)
     } }
 

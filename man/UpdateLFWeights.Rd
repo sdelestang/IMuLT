@@ -8,10 +8,10 @@ UpdateLFWeights(
   todo = "No",
   rl_file = "Output/Output.RL",
   ctl_file = "CONTROL.DAT",
-  lo = 0.2,
-  hi = 2,
+  lo = 0.001,
+  hi = 1,
   hold_fleets = NULL,
-  backup = TRUE
+  backup = FALSE
 )
 }
 \arguments{

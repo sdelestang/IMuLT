@@ -609,3 +609,41 @@ CopyLFWeights <- function(from, to_ctl = "CONTROL.DAT", rl_file = NULL,
   print(out_df, row.names = FALSE)
   invisible(out_df)
 }
+
+#' Expand a range/list string into integers
+#'
+#' Turns the compact notation used in ModelStructure.xlsx comments into a
+#' vector of integers. Comma-separated pieces are expanded separately and each
+#' piece may be a single value or a colon range, e.g. "1:3" -> 1 2 3,
+#' "3,4" -> 3 4, "1990:2000,2010:2012" -> 1990..2000, 2010..2012.
+#'
+#' @param x Character string.
+#' @return Integer vector.
+#' @keywords internal
+#' @noRd
+expand_string_vector <- function(x) {
+  pieces <- strsplit(trimws(x), ",")[[1]]
+  unlist(lapply(pieces, function(p) {
+    lim <- as.numeric(strsplit(p, ":")[[1]])
+    if (length(lim) == 2) seq(lim[1], lim[2]) else lim
+  }))
+}
+
+#' Collapse integers into contiguous runs
+#'
+#' Groups a vector of integers into consecutive runs and returns the start and
+#' end of each, e.g. c(1990:2000, 2010:2012) -> two rows (1990-2000, 2010-2012).
+#' Used to turn the expanded year list back into TemporalM year blocks.
+#'
+#' @param vec Numeric vector (need not be sorted; duplicates removed).
+#' @return data.frame with columns start and end, one row per run.
+#' @keywords internal
+#' @noRd
+collapse_sequences <- function(vec) {
+  vec <- sort(unique(vec))
+  groups <- cumsum(c(1, diff(vec) != 1))
+  result <- data.frame(start = tapply(vec, groups, min),
+                       end   = tapply(vec, groups, max))
+  rownames(result) <- NULL
+  result
+}

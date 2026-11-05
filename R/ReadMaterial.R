@@ -677,21 +677,18 @@ ReadDataFile <- function(DataFile,GeneralSpecs)
 #' specifications are written to Echo.out for verification.
 #'
 #' @keywords internal
-# Row numbers of the TemporalM parameter rows in CONTROL.DAT: the numeric rows following the
-# "# TemporalM" header (comment lines skipped). integer(0) if there is no such section.
+# Row numbers of the TemporalM parameter rows in CONTROL.DAT. The section is
+#   # TemporalM / <number of rows> / # column-header comment / <rows>
+# integer(0) if there is no such section or it has 0 rows.
 TemporalMRows <- function(ControlFile)
 {
   Index <- MatchTable(ControlFile,Char1="#",Char2="TemporalM")
   if (length(Index) == 0) return(integer(0))
-  rows <- integer(0)
-  i <- Index[1] + 1
-  while (i <= nrow(ControlFile)) {
-    v1 <- as.character(ControlFile[i,1])
-    if (startsWith(v1, "#") && length(rows) == 0) { i <- i + 1; next }
-    if (is.na(suppressWarnings(as.numeric(v1)))) break
-    rows <- c(rows, i); i <- i + 1
-  }
-  rows
+  NTempM <- as.numeric(ControlFile[Index[1]+1,1])
+  if (is.na(NTempM) || NTempM <= 0) return(integer(0))
+  i <- Index[1] + 2
+  while (i <= nrow(ControlFile) && startsWith(as.character(ControlFile[i,1]), "#")) i <- i + 1
+  i:(i+NTempM-1)
 }
 
 ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)

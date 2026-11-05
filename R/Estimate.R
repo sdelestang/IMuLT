@@ -376,12 +376,12 @@ UpdatePars <- function(todo = "Yes", source = ".", skip = NULL)
     coff <- locs$col[i]
     pos  <- find(c(unlist(strsplit(locs$id[i], " "))), DataFile, roff)
     if (locs$par[i] == "TemporalMPars") {
-      # Optional section: write only into the numeric rows that follow the header
+      # Optional section: header, row count, comment line(s), then the rows
       if (length(pos) != 1) next
+      nTM <- suppressWarnings(as.numeric(DataFile[pos, 1]))
+      if (is.na(nTM) || nTM == 0) next
+      pos <- pos + 1
       while (pos <= nrow(DataFile) && startsWith(as.character(DataFile[pos, 1]), "#")) pos <- pos + 1
-      nTM <- 0
-      while (pos + nTM <= nrow(DataFile) && !is.na(suppressWarnings(as.numeric(DataFile[pos + nTM, 1])))) nTM <- nTM + 1
-      if (nTM == 0) next
       ptmp <- ptmp[seq_len(min(nTM, length(ptmp)))]
     }
     if (length(ptmp) > 0) {

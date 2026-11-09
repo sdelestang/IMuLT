@@ -1446,6 +1446,26 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
       max(abs(g))
     }
 
+    # List the parameters with the largest |gradient| at x, flagging those on or near a
+    # bound (within 1% of the bound range). Printed when BFGS is kept with a larger gradient.
+    .report_big_grads <- function(x, n = 5) {
+      g <- tryCatch(as.vector(model$gr_Orig(x)), error = function(e) NULL)
+      if (is.null(g) || !any(is.finite(g))) return(invisible(NULL))
+      top <- order(abs(g), decreasing = TRUE)[seq_len(min(n, length(g)))]
+      for (i in top) {
+        nb <- ""
+        if (has_bounds) {
+          r <- RunSpecs$uppBnd[i] - RunSpecs$lowBnd[i]
+          if (is.finite(r) && r > 0) {
+            if (x[i] - RunSpecs$lowBnd[i] < 0.01 * r) nb <- "  (at/near LOWER bound)"
+            if (RunSpecs$uppBnd[i] - x[i] < 0.01 * r) nb <- "  (at/near UPPER bound)"
+          }
+        }
+        cat(sprintf("    %-18s value %-12.5g grad %-12.4g%s\n", pnames[i], x[i], g[i], nb))
+      }
+      invisible(NULL)
+    }
+
     # Diagonal of the Hessian by forward-differencing the AD gradient
     # (one gradient call per parameter in idx, plus one).
     .hess_diag <- function(x, idx = seq_along(x), h = 1e-5) {
@@ -1725,8 +1745,11 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
           fit_bfgs$value <- fn_check
           bfgs_grad      <- pre_bfgs_grad
 
-        } else if (bfgs_grad > 5 * pre_bfgs_grad && bfgs_grad > sandwich_entry_grad) {
-          # Gradient badly inflated - typically parameters pushed onto bounds in logit space
+        } else if (bfgs_grad > 5 * pre_bfgs_grad && bfgs_grad > sandwich_entry_grad &&
+                   !(fit_bfgs$value < fn_check - 0.01)) {
+          # Gradient badly inflated AND no real NLL gain - typically parameters pushed onto
+          # bounds in logit space. A lower NLL is always kept (next branch): a large gradient
+          # on a bound-active parameter is not a failure, and nlminb polishes from there.
           cat("  BFGS inflated max|grad| (", round(pre_bfgs_grad, 3), "->", round(bfgs_grad, 3),
               ") — rejecting and keeping pre-BFGS parameters\n", sep = "")
           fit_bfgs$par   <- bfgs_start
@@ -1751,6 +1774,7 @@ FitModel <- function(phit = 500, lphit = 1000, mxph = MaxPhase,
                   round(fit_bfgs$value, 4), ") but degraded gradient (",
                   round(pre_bfgs_grad, 4), "->", round(bfgs_grad, 4),
                   ") — keeping, nlminb will polish\n", sep = "")
+              .report_big_grads(fit_bfgs$par)
             } else if (!bfgs_nll_improved && bfgs_grad_improved) {
               cat("  BFGS improved gradient (", round(pre_bfgs_grad, 4), "->",
                   round(bfgs_grad, 4), ") but degraded NLL (",

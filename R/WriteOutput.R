@@ -666,7 +666,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
          {
           VAL1<- TagSpecs$RecapObs[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
           VAL2 <- Report$RecapNum[Isex,Igrp,Iarea,IrepSplit,Iyear,Istep]*TagSpecs$NrelTotal[Isex,Igrp]
-          Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$Year1Tag[1]-1,Istep,IrepSplit,VAL1,VAL2)
+          Summ <- paste(Isex,Igrp,Iarea,Iyear+TagSpecs$TagYr1-1,Istep,IrepSplit,VAL1,VAL2)
           write(Summ,OutputFile,append=T)
          }
 

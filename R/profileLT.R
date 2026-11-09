@@ -34,6 +34,11 @@
 #'              Defaults to 0 for profiling - Newton reduces the gradient but
 #'              not the likelihood, so it is wasted work when only the NLL is
 #'              recorded. Set > 0 to re-enable.
+#' @param save_states If TRUE (default), also write "LPT <label> states.txt": for
+#'              each profiled value, total recruitment, recruitment and legal
+#'              biomass by area, harvest rate by zone (model years), and the
+#'              likelihood by CPUE series, length fleet, larval series and tag
+#'              group. Long format: value, quantity, index, year, est.
 #' @param ...   Optimisation-control arguments forwarded to FitModel (phit,
 #'              lphit, mxph, ...). Do NOT pass `report`.
 #'
@@ -58,7 +63,8 @@ ProfileLT <- function(group, pos,
                       lower = NULL, upper = NULL, step = NULL, se = NULL,
                       label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
-                      append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0, ...) {
+                      append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0,
+                      save_states = TRUE, ...) {
 
   GE <- .GlobalEnv
   .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
@@ -174,11 +180,45 @@ ProfileLT <- function(group, pos,
     SelPrior  = g(rep, "SelParPriorPen"),
     EffPrior  = g(rep, "EffParPriorPen"))
 
+  ## Stock states and likelihood detail for one fit (long format)
+  Y1   <- Data$Year1; Y2 <- Data$Year2
+  Ybur <- Data$Year1 - max(Data$BurnIn)            # first year of Recruits / LegalBioAll rows
+  states <- function(rep) {
+    out <- list()
+    add <- function(q, idx, yr, v)
+      out[[length(out) + 1]] <<- data.frame(quantity = q, index = idx, year = yr, est = as.numeric(v))
+    if (!is.null(rep$Recruits)) {
+      yr <- Ybur + seq_along(rep$Recruits) - 1; k <- yr >= Y1 & yr <= Y2
+      add("Recruits", 0, yr[k], rep$Recruits[k])
+    }
+    if (!is.null(rep$RecruitmentByArea)) {
+      R <- as.matrix(rep$RecruitmentByArea)
+      yr <- Ybur + seq_len(ncol(R)) - 1; k <- yr >= Y1 & yr <= Y2
+      for (a in seq_len(nrow(R))) add("RecruitsArea", a, yr[k], R[a, k])
+    }
+    if (!is.null(rep$LegalBioAll)) {
+      B <- as.matrix(rep$LegalBioAll)
+      yr <- Ybur + seq_len(nrow(B)) - 1; k <- yr >= Y1 & yr <= Y2
+      for (a in seq_len(ncol(B))) add("LegalBio", a, yr[k], B[k, a])
+    }
+    if (!is.null(rep$HarvestRate)) {
+      H <- as.matrix(rep$HarvestRate)                 # Nyear x Nzone, first row = Year1
+      yr <- Y1 + seq_len(nrow(H)) - 1; k <- yr <= Y2
+      for (z in seq_len(ncol(H))) add("HarvestRate", z, yr[k], H[k, z])
+    }
+    lk <- c(CpueLike = "CpueLikeComps", LengthLike = "LengthLikeComps",
+            LarvalLike = "LarvalLikeComps", Tag2Like = "TagLike2")
+    for (q in names(lk)) if (!is.null(rep[[lk[[q]]]])) {
+      v <- as.numeric(rep[[lk[[q]]]]); add(q, seq_along(v), NA, v)
+    }
+    if (length(out)) do.call(rbind, out) else NULL
+  }
+
   get_step <- function() {
     if (fast && exists("ProfileReport", envir = GE)) {
       list(rep  = get("ProfileReport", envir = GE),
            grad = if (exists("ProfileGrad", envir = GE))
-                    max(abs(get("ProfileGrad", envir = GE))) else NA_real_)
+             max(abs(get("ProfileGrad", envir = GE))) else NA_real_)
     } else {
       bs <- load_bigsave(baseline)          # FitModel(report=TRUE) just overwrote it
       list(rep  = bs$Report,
@@ -188,6 +228,7 @@ ProfileLT <- function(group, pos,
 
   ## ---- 6. Profile loop (each step re-fit from the MLE seed) -------------
   res <- vector("list", length(grid))
+  sts <- vector("list", length(grid))
   for (i in seq_along(grid)) {
     IV[[group]]$Initial[pos] <- grid[i]
     assign("Data", Data, envir = GE)
@@ -202,6 +243,10 @@ ProfileLT <- function(group, pos,
 
     st   <- if (ok) tryCatch(get_step(), error = function(e) NULL) else NULL
     comp <- if (!is.null(st) && !is.null(st$rep)) collect(st$rep) else collect(NULL)
+    if (save_states && !is.null(st) && !is.null(st$rep)) {
+      sx <- tryCatch(states(st$rep), error = function(e) NULL)
+      if (!is.null(sx)) sts[[i]] <- cbind(value = grid[i], sx)
+    }
     res[[i]] <- data.frame(value = grid[i], t(comp),
                            maxgrad = if (!is.null(st)) st$grad else NA_real_,
                            check.names = FALSE)
@@ -219,6 +264,17 @@ ProfileLT <- function(group, pos,
   utils::write.table(prof, file = fn, sep = "\t", row.names = FALSE,
                      col.names = !do_append, append = do_append, quote = FALSE)
   message("Wrote ", fn)
+  if (save_states) {
+    sx <- do.call(rbind, sts)
+    if (!is.null(sx)) {
+      sx$runtag <- prof$runtag[1]
+      fs <- file.path(rundir, paste0("LPT ", label, " states.txt"))
+      do_app2 <- isTRUE(append) && file.exists(fs)
+      utils::write.table(sx, file = fs, sep = "\t", row.names = FALSE,
+                         col.names = !do_app2, append = do_app2, quote = FALSE)
+      message("Wrote ", fs)
+    }
+  }
 
   ## ---- 8. Plot ----------------------------------------------------------
   if (plot) plotLT(fn, rundir = rundir, label = label)

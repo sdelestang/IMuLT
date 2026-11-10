@@ -34,6 +34,10 @@
 #'              Defaults to 0 for profiling - Newton reduces the gradient but
 #'              not the likelihood, so it is wasted work when only the NLL is
 #'              recorded. Set > 0 to re-enable.
+#' @param warm  If TRUE (default), walk the grid outwards from the MLE (down from it,
+#'              then up from it) and start each fit from the previous step's
+#'              solution (read from Output/model final.par), so each step is a
+#'              small move. FALSE re-fits every step from the MLE, as before.
 #' @param save_states If TRUE (default), also write "LPT <label> states.txt": for
 #'              each profiled value, total recruitment, recruitment and legal
 #'              biomass by area, harvest rate by zone (model years), and the
@@ -64,7 +68,7 @@ ProfileLT <- function(group, pos,
                       label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
                       append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0,
-                      save_states = TRUE, ...) {
+                      save_states = TRUE, warm = TRUE, ...) {
 
   GE <- .GlobalEnv
   .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
@@ -226,10 +230,32 @@ ProfileLT <- function(group, pos,
     }
   }
 
-  ## ---- 6. Profile loop (each step re-fit from the MLE seed) -------------
-  res <- vector("list", length(grid))
-  sts <- vector("list", length(grid))
+  ## ---- 6. Profile loop --------------------------------------------------
+  ## warm = TRUE: visit the grid outwards from the MLE (values below it in
+  ## descending order, then values above it in ascending order), starting each
+  ## fit from the previous step's solution; the upward leg restarts from the MLE.
+  ## warm = FALSE: every step is re-fit from the MLE seed, in grid order.
+  if (isTRUE(warm)) {
+    below <- sort(grid[grid <  mle], decreasing = TRUE)
+    above <- sort(grid[grid >= mle])
+    visit <- c(below, above)
+    reset <- c(seq_along(below) == 1, seq_along(above) == 1)   # first step of each leg starts from the MLE
+  } else {
+    visit <- grid; reset <- rep(TRUE, length(grid))
+  }
+  read_final <- function() {
+    f <- file.path("Output", "model final.par")
+    if (!file.exists(f)) return(NULL)
+    p <- tryCatch(utils::read.delim(f, sep = "\t"), error = function(e) NULL)
+    if (is.null(p) || is.null(p$est)) return(NULL)
+    tryCatch(relist_pin(p$est), error = function(e) NULL)
+  }
+
+  res <- vector("list", length(visit))
+  sts <- vector("list", length(visit))
+  grid <- visit
   for (i in seq_along(grid)) {
+    if (reset[i]) for (b in .blocks) IV[[b]]$Initial <- base_pl[[b]]
     IV[[group]]$Initial[pos] <- grid[i]
     assign("Data", Data, envir = GE)
     assign("InitialVars", IV, envir = GE)
@@ -242,6 +268,10 @@ ProfileLT <- function(group, pos,
                    error = function(e) { message("  step failed: ", conditionMessage(e)); FALSE })
 
     st   <- if (ok) tryCatch(get_step(), error = function(e) NULL) else NULL
+    if (isTRUE(warm) && ok) {                    # next step starts from this solution
+      sol <- read_final()
+      if (!is.null(sol)) for (b in .blocks) IV[[b]]$Initial <- sol[[b]]
+    }
     comp <- if (!is.null(st) && !is.null(st$rep)) collect(st$rep) else collect(NULL)
     if (save_states && !is.null(st) && !is.null(st$rep)) {
       sx <- tryCatch(states(st$rep), error = function(e) NULL)

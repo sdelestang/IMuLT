@@ -2919,7 +2919,7 @@ Type objective_function<Type>::operator() ()
   //// This is used as an output * //// ----------------------------------------------------------------------------------
   // Harvest Rate 2 off Hrate used in the catch equation
   // Sum Hrate across time steps and record by area (also do for catch to weight averaging)
-  HrateYA.setZero();
+  HrateYA.setZero();CatchYA.setZero();
   for (int Iyear=0;Iyear<Nyear;Iyear++){
     for (int Istep=0;Istep<Nstep;Istep++)   {
       for (int Ifleet=0;Ifleet<Nfleet;Ifleet++)  {

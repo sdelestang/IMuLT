@@ -454,7 +454,7 @@ Type SetUpRecruit(dataSet<Type> &dat,  vector<Type> &RecruitPars, vector<Type> &
               }
               for (int Isex=0;Isex<dat.Nsex;Isex++)
               {
-                ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) = AreaPar*SexSplit(Isex);
+                ActRecruitAreaSexDist(Year,Istep,Iarea,Isex) = AreaPar;
                 Total += ActRecruitAreaSexDist(Year,Istep,Iarea,Isex);
               }
             }
@@ -1182,7 +1182,7 @@ Type LarvalLikelihood(dataSet<Type> &dat, TheData<Type> &thedata,  matrix<Type> 
           if (thedata.LarvalLikeOpt == 0)
             CV = thedata.Lar_dataR(Idata,1)/Obs;
           else
-            CV = thedata.Lar_dataR(Idata,2);
+            CV = thedata.Lar_dataR(Idata,1);
           if (Iyr < dat.BurnIn+dat.Nyear+dat.Nproj)
           {
             if (thedata.LarvalLikeOpt == 0)
@@ -1193,7 +1193,7 @@ Type LarvalLikelihood(dataSet<Type> &dat, TheData<Type> &thedata,  matrix<Type> 
             else
             {
               qestLar(Iarea) += Obs*PuerulusByArea(Iarea,Iyr)/(CV*CV);
-              ncnt += Obs*Obs/(CV*CV);
+              ncnt += PuerulusByArea(Iarea,Iyr)*PuerulusByArea(Iarea,Iyr)/(CV*CV);   // was Obs*Obs/(CV*CV)
             }
           }
         }

@@ -46,6 +46,7 @@ struct dataSet{
   matrix <int> RetSpec;
   matrix <int> LegalSpec;
   vector <int> Fleet_area;
+  vector<int> MorphQFleet;
   vector <int> Narea_fleet;
   matrix <int> Area_fleet;
   array <int> SelPnt;

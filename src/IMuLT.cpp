@@ -759,7 +759,7 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
   for (int Ifleet=0;Ifleet<dat.Nfleet;Ifleet++) {
     for (int Isex=0;Isex<dat.Nsex;Isex++) {
       for (int Iage=0;Iage<dat.Nage;Iage++) {
-        if(dat.IsRed(Isex,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+        if(dat.IsRed(Isex,Iage,dat.Fleet_area(Ifleet),Istep)==1 && dat.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         if (Iyear<dat.Nyear)
         {
           SelPointer = dat.SelPnt(Isex,Iage,Ifleet,YearAdjust1,Istep);
@@ -1563,7 +1563,7 @@ vector<Type> CatchByNumAge(dataSet<Type> &dat, array<Type> &N, array<Type> &Z,ar
   // Need to set selectivity
   for (int Isex=0;Isex<dat.Nsex;Isex++) {
     for (int Iage=0;Iage<dat.Nage;Iage++) {
-      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1 && dat.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
       SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
       RetPointer = dat.RetPnt(Isex,Iage,Ifleet,Iyear,Istep);
       LegalPointer = dat.LegalFleetPnt(Isex,Iage,Ifleet,Iyear,Istep);
@@ -1605,7 +1605,7 @@ vector<Type> DiscardByFleet(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, 
 
   for (int Isex=0;Isex<dat.Nsex;Isex++) {
     for (int Iage=0;Iage<dat.Nage;Iage++) {
-      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+      if(dat.IsRed(Isex,Iage,Iarea,Istep)==1 && dat.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
       if (Iyear < dat.Nyear)
       {
         SelPointer = dat.SelPnt(Isex,Iage,Ifleet,Iyear,Istep);
@@ -1771,7 +1771,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
       for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
         for (int Iage=0; Iage<Nage; Iage++)
         {
-          if(dat.IsRed(SexPass,Iage,dat.Fleet_area(Ifleet),Istep)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
+          if(dat.IsRed(SexPass,Iage,dat.Fleet_area(Ifleet),Istep)==1 && dat.MorphQFleet(Ifleet)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
           SelPointer = dat.SelPnt(SexPass,Iage,Ifleet,Iyear,Istep);
           RetPointer = dat.RetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
           LegalPointer = dat.LegalFleetPnt(SexPass,Iage,Ifleet,Iyear,Istep);
@@ -2146,7 +2146,7 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(NotReportedObs); thedata.NotReportedObs = NotReportedObs;
   DATA_ARRAY(PropRepSplit); thedata.PropRepSplit = PropRepSplit;
   DATA_VECTOR(FixedSigmaCpue); thedata.FixedSigmaCpue = FixedSigmaCpue;
-  DATA_IVECTOR(MorphQFleet); thedata.MorphQFleet = MorphQFleet;
+  DATA_IVECTOR(MorphQFleet); thedata.MorphQFleet = MorphQFleet; dataset.MorphQFleet = MorphQFleet;
 
   DATA_INTEGER(NcatchDataSeries); thedata.NcatchDataSeries = NcatchDataSeries;
   DATA_IVECTOR(FixSigmaCatchN); thedata.FixSigmaCatchN = FixSigmaCatchN;

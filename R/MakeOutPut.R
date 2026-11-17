@@ -1108,7 +1108,12 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
 
   #### Movement ####
   print("Making Movement")
-  moveP <- Pout[grepl('MovePars', Pout$name),]
+  # Actual movement rates by pattern (after links/offsets and the SoftUnit transform),
+  # taken from Output.RL rather than the raw parameter table, where offset-linked
+  # parameters are increments and can be negative.
+  # Row k of the block is MOVESPEC pattern k-1 (pattern 0 = no movement), whatever its label.
+  actmove  <- as.matrix(findNclean(c('#Movement','patterns'), dat, 2))[, -1, drop = FALSE]
+  moverate <- apply(actmove, 1, max)   # constant: the rate; knife-edge: the rate above the change point
   mov2 <- findNclean(c('#','Movement','parameters'), mov1, 1,0, char=T)
   mov3 <- findNclean(c('#','Movement','specifications'), mov1, 1,0, char=T)
   mov4 <- findNclean(c('#','Pattern','Type'), mov1, 1,0, char=F)
@@ -1127,7 +1132,7 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
       TStep <- as.numeric(mtmp[3]) + 1
       vec <- as.numeric(mtmp[4:ncol(mtmp)])
       toArea <- unique(mov4[as.numeric(mov4[,1])%in%vec,3]+1)
-      vec2 <- as.numeric(moveP$value[vec])
+      vec2 <- moverate[vec + 1]          # vec holds 0-based pattern numbers by year
       yrs <- startseason:endseason
       suppressWarnings(plot(yrs, vec2[1:length(yrs)], ylim=c(0,1), type='o', axes=F,pch=16,xlab='Years', ylab='Proportion moving', main=paste(fromArea,'to',toArea)))
       axis(1,cex.axis=1)

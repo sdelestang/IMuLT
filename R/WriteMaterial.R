@@ -851,7 +851,7 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
   write("#Pattern, size",OutputFile,append=T)
   NmovePatterns <- length(Report$ActMove[,1])
   for (Ipattern in 1:NmovePatterns)
-    write(paste(Ipattern,Report$ActMove[Ipattern,]),OutputFile,append=T)
+    write(paste(Ipattern-1,Report$ActMove[Ipattern,]),OutputFile,append=T)   # label = MOVESPEC pattern number (0-based)
 
   #### =====================================================================================
   write("\n#Initial N-matrix\n#Area\tSex\tAge",OutputFile,append=T)

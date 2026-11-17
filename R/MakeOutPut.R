@@ -209,6 +209,21 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   PuerParName <- paste0('Puer_', readWorkbook(wb,sheet='PuerulusPar', startRow = 2)$description)
   MigrateParName <- readWorkbook(wb,sheet='Migrate', startRow = 2)
   MigrateParName <- paste0('Move_', MigrateParName$Source, ' to ', MigrateParName$Dest)
+  # Prefer the comments on MOVESPEC.DAT's parameter rows: they always match the file actually
+  # run, whereas the workbook's Migrate sheet can describe an older movement structure.
+  mvpar <- findNclean(c('#','Movement','parameters'), mov1, 1, 0, char = TRUE)
+  if (is.data.frame(mvpar) && nrow(mvpar) > 0) {
+    mvnm <- sapply(seq_len(nrow(mvpar)), function(i) {
+      r  <- unlist(mvpar[i, ])
+      st <- which(r == '#')[1]
+      if (is.na(st)) return(NA_character_)
+      txt <- r[(st + 1):length(r)]
+      txt <- txt[!is.na(txt) & txt != '']
+      if (length(txt) == 0) return(NA_character_)
+      paste0('Move_', paste(txt, collapse = ' '))
+    })
+    if (!anyNA(mvnm)) MigrateParName <- mvnm
+  }
   SelectParName <- GetSelectParNames(selx)
 
   growth_sheet <- readWorkbook(wb, sheet='Growth', startRow = 2)
@@ -1111,9 +1126,17 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   # Actual movement rates by pattern (after links/offsets and the SoftUnit transform),
   # taken from Output.RL rather than the raw parameter table, where offset-linked
   # parameters are increments and can be negative.
-  # Row k of the block is MOVESPEC pattern k-1 (pattern 0 = no movement), whatever its label.
-  actmove  <- as.matrix(findNclean(c('#Movement','patterns'), dat, 2))[, -1, drop = FALSE]
-  moverate <- apply(actmove, 1, max)   # constant: the rate; knife-edge: the rate above the change point
+  # WriteOutput writes this block one line per pattern x size bin ("label value"), so collapse
+  # to one rate per pattern (max over sizes: constant = the rate; knife-edge = the rate above
+  # the change point). Also copes with a wide layout (one line per pattern, label + all sizes).
+  # Element k of moverate is MOVESPEC pattern k-1 (pattern 0 = no movement), whatever the labels.
+  mvblk <- as.matrix(findNclean(c('#Movement','patterns'), dat, 2))
+  if (ncol(mvblk) > 2) {
+    moverate <- apply(mvblk[, -1, drop = FALSE], 1, max)
+  } else {
+    mvlab    <- factor(mvblk[, 1], levels = unique(mvblk[, 1]))
+    moverate <- as.numeric(tapply(as.numeric(mvblk[, 2]), mvlab, max))
+  }
   mov2 <- findNclean(c('#','Movement','parameters'), mov1, 1,0, char=T)
   mov3 <- findNclean(c('#','Movement','specifications'), mov1, 1,0, char=T)
   mov4 <- findNclean(c('#','Pattern','Type'), mov1, 1,0, char=F)
@@ -1863,18 +1886,44 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     mutate(Parameter = if (n() > 1) paste0(Parameter, "_", row_number()) else Parameter) %>%
     ungroup()
 
+  # Resolve linked parameters to the values the model actually uses.
+  # Output.RL already reports positive-link (copy) parameters at their resolved value; negative-link
+  # parameters are offsets added to the RESOLVED value of the parameter they point to, so chains of
+  # offsets (e.g. 5-year movement blocks) must be accumulated in order. Movement rates are then
+  # passed through the same SoftUnit() transform as IMuLT.cpp, so they show the rate actually applied.
+  .soft_unit <- function(x, eps = 0.001) {
+    lo <- ifelse(x >= eps, x, eps / (2 - x / eps))
+    y  <- 1 - lo
+    hi <- ifelse(y >= eps, y, eps / (2 - y / eps))
+    1 - hi
+  }
+  .resolve_links <- function(est, idx, link) {
+    ord <- order(idx)
+    val <- setNames(rep(NA_real_, length(est)), idx)
+    res <- rep(NA_real_, length(est))
+    for (r in ord) {
+      lk <- link[r]
+      v <- if (is.na(lk) || lk == 0) est[r]
+           else if (lk > 0) est[r]                                    # already resolved in Output.RL
+           else est[r] + val[as.character(-lk)]                       # offset on resolved target
+      val[as.character(idx[r])] <- v
+      if (!is.na(lk) && lk != 0) res[r] <- v
+    }
+    res
+  }
+
   pars %<>%
-    mutate(Estimate = round(suppressWarnings(as.numeric(Estimate)), 3),
+    mutate(EstRaw   = suppressWarnings(as.numeric(Estimate)),
+           Estimate = round(EstRaw, 3),
            Group    = sub("_[0-9]+$", "", OrigParameter),
            GroupIdx = suppressWarnings(as.numeric(sub(".*_", "", OrigParameter))),
            Link_num = suppressWarnings(as.numeric(Link))) %>%
     group_by(Group) %>%
-    mutate(
-      Resolved = case_when(
-        Link_num > 0 ~ round(Estimate[match(Link_num, GroupIdx)], 3),
-        Link_num < 0 ~ round(Estimate[match(abs(Link_num), GroupIdx)] + Estimate, 3),
-        TRUE ~ NA_real_)) %>%
+    mutate(Resolved = .resolve_links(EstRaw, GroupIdx, Link_num)) %>%
     ungroup() %>%
+    mutate(Resolved = round(ifelse(Group == "MovePars" & !is.na(Resolved),
+                                   .soft_unit(Resolved), Resolved), 3)) %>%
+    select(-EstRaw) %>%
     filter(!is.na(Estpar_cnt) | Link_num != 0) %>%
     group_by(Group) %>%
     mutate(Var = row_number()) %>%

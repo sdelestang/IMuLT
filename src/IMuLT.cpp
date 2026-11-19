@@ -3,11 +3,14 @@
 
 // -------------------------------------------------------------------------------------------------------------------
 // Temporal M multiplier for a given area, age and model year (TemporalM section of CONTROL.DAT).
-// Burn-in years (Iyear < 0) use base M; projection years carry forward the last model year.
+// Burn-in years (Iyear < 0) use the FIRST model year's multiplier, so the burn-in (and the virgin
+// equilibrium in VirginN, which must match it) reflect any TemporalM block covering the first year;
+// projection years carry forward the last model year.
 template <class Type>
 Type MyrMult(dataSet<Type> &dat, int Iarea, int Iage, int Iyear){
-  if (dat.NTempM <= 0 || Iyear < 0) return Type(1.0);
+  if (dat.NTempM <= 0) return Type(1.0);
   int Jyear = Iyear;
+  if (Jyear < 0) Jyear = 0;
   if (Jyear > dat.Nyear-1) Jyear = dat.Nyear-1;
   return dat.MmultYr(Iarea,Iage,Jyear);
 }
@@ -1274,7 +1277,8 @@ array<Type> VirginN(dataSet<Type> &dat, array<Type> &Z, array<Type> &Hrate,
         for (int Istep=0;Istep<dat.Nstep;Istep++)
         {
           if(dat.IsRed(Isex,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
-          Mtot += dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*ScaleWhiteM;
+          // First-year TemporalM multiplier, so the equilibrium matches the burn-in in OneTimeStep()
+          Mtot += dat.TimeStepLen(0,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,0)*ScaleWhiteM;
         }
         if(dat.IsRed(Isex,Iage,Iarea,0)==1) {ScaleRedQ = QRedsPar;} else {ScaleRedQ = 1.0;}
         Offset = Iarea*dat.Nage*dat.MaxLen+Iage*dat.MaxLen;

@@ -904,7 +904,6 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   addplot(filen=filename,rundir=rundir,category="Discards",caption=caption)
 
   #### Index data ####
-  #### Index data ####
   print("Making Model fit to Abundance Indices")
   tdat <- findNclean(c('Index','data'), dat, 2)
   cpuesd <- sdr[grepl('PredCpue', sdr$name),]
@@ -941,32 +940,99 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
     mutate(lgrp = interaction(type, Data_set, seg, drop = TRUE))
 
   tdat2$Fleettype <- fleets$group[match(tdat2$Fleet, fleets$fleet)]
-  tdat2$Area <- fleets$newarea[match(tdat2$Fleet, fleets$fleet)]
-  tdat2$Descrip <- fleets$description[match(tdat2$Fleet, fleets$fleet)]
-  tdat2 %<>% mutate(Areaname = unlist(strsplit(Descrip, '_'))[1])
+  tdat2$Area      <- fleets$newarea[match(tdat2$Fleet, fleets$fleet)]
+  tdat2$Descrip   <- fleets$description[match(tdat2$Fleet, fleets$fleet)]
+  tdat2 <- tdat2 %>%
+    mutate(Areaname = sub('_.*', '', Descrip),   # per row (strsplit()[1] gave row 1's name to every row)
+           Area     = ifelse(is.na(Area), Areaname, as.character(Area)),
+           aSex     = case_when(Sex == -1 ~ 'comb', Sex == 0 ~ 'F', Sex == 1 ~ 'M',
+                                TRUE ~ as.character(Sex)),
+           Flab     = paste0('Fleet ', Fleet, ' ', Descrip),
+           TSlab    = paste0('ts ', Time_step))
+  if (n_distinct(tdat2$Sex) == 1) tdat2$aSex <- 'all'   # one-sex model
 
-  unfleet <- sort(unique(tdat2$Fleet))
-  for(uf in unfleet)  {
-    tdat3 <- tdat2 %>% filter(Fleet==uf) %>% mutate(aSex=recode_values(Sex, -1~'comb',0~'F',1~'M'))
-    if(length(unique(tdat3$aSex))==1) tdat3$aSex <- 'M'  # One sex Model
-    filename <- filenametopath(rundir,paste0("Fleet ",uf,".png"))
-    plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
-    parset(plots=c(1,1))
-    p <- ggplot(tdat3, aes(x=Year, y=value, colour=type))+
-      geom_line(aes(group = lgrp))+geom_point()+
-      geom_errorbar(aes(ymin=lwr, ymax=upr), width=.2)+
-      scale_color_manual(values=c("red","black")) +
-      scale_size_manual(values = c(0.5, 0.5)) + expand_limits(y = 0) +
-      theme(panel.background = element_rect(fill = "white",colour = NA),
+  ## ---- Pages: grouped by area, aiming for ~4 panels per page ----
+  ##  >=3 fleets in area : one page per fleet, panels = ts x sex
+  ##   2 fleets          : one page per sex,   panels = ts x fleet
+  ##   1 fleet, >1 sex and >1 ts : one page per sex, panels = ts
+  ##   1 fleet, otherwise : one page, panels = sex (or ts)
+  ## Any page still over max_panels is split by sex, then chunked into groups of 'target'.
+  max_panels <- 8
+  target     <- 4
+
+  assign_pages <- function(d) {
+    nF <- n_distinct(d$Fleet); nS <- n_distinct(d$aSex); nT <- n_distinct(d$Time_step)
+    d$page <- if (nF >= 3) d$Flab else if (nF == 2 || (nS > 1 && nT > 1)) d$aSex else 'all'
+    d$key  <- paste(d$Fleet, d$Sex, d$Time_step)
+    out <- NULL
+    for (pg in unique(d$page)) {
+      x <- d[d$page == pg, ]
+      if (n_distinct(x$key) > max_panels && n_distinct(x$aSex) > 1) x$page <- paste(pg, x$aSex)
+      for (pg2 in unique(x$page)) {
+        y  <- x[x$page == pg2, ]
+        ky <- unique(y$key[order(y$Fleet, y$Sex, y$Time_step)])
+        if (length(ky) > max_panels) {
+          chunk  <- ceiling(seq_along(ky) / target)
+          y$page <- paste(pg2, chunk[match(y$key, ky)])
+        }
+        out <- rbind(out, y)
+      }
+    }
+    out
+  }
+
+  pages <- list()
+  for (ar in sort(unique(tdat2$Area))) {
+    d <- assign_pages(tdat2[tdat2$Area == ar, ])
+    for (pg in unique(d$page)) pages[[length(pages) + 1]] <- d[d$page == pg, ]
+  }
+
+  for (ip in seq_along(pages)) {
+    tdat3 <- pages[[ip]]
+    vF <- n_distinct(tdat3$Fleet) > 1        # what varies within this page
+    vS <- n_distinct(tdat3$aSex) > 1
+    vT <- n_distinct(tdat3$Time_step) > 1
+
+    ## Panel labels show only what varies; the title carries what is constant.
+    ## Ordered ts first so ts runs down the rows and fleet/sex across the columns.
+    tdat3 <- tdat3 %>%
+      arrange(Time_step, Fleet, Sex) %>%
+      mutate(panel = trimws(paste0(if (vF) paste0(Flab, '  ') else '',
+                                   if (vS) paste0(aSex, '  ') else '',
+                                   if (vT || !(vF || vS)) TSlab else '')))
+    tdat3$panel <- factor(tdat3$panel, levels = unique(tdat3$panel))
+    np    <- nlevels(tdat3$panel)
+    ncols <- if (vT && (vF || vS)) n_distinct(paste(tdat3$Fleet, tdat3$Sex)) else min(2, np)
+    nrows <- ceiling(np / ncols)
+
+    title <- paste0(tdat3$Area[1], ': ',
+                    paste(c(if (!vF) tdat3$Flab[1],
+                            if (!vS) tdat3$aSex[1],
+                            if (!vT && (vF || vS)) tdat3$TSlab[1]), collapse = ' | '))
+
+    filename <- filenametopath(rundir, paste0("Index ", sprintf('%02d', ip), " ",
+                                              gsub('[^A-Za-z0-9]+', '_', tdat3$Area[1]), ".png"))
+    plotprep(width = min(3.5 * ncols + 1, 10), height = min(2.6 * nrows + 1.2, 10),
+             filename = filename, cex = 0.9, verbose = FALSE)
+    parset(plots = c(1, 1))
+    p <- ggplot(tdat3, aes(x = Year, y = value, colour = type)) +
+      geom_line(aes(group = lgrp)) + geom_point() +
+      geom_errorbar(aes(ymin = lwr, ymax = upr), width = .2) +
+      scale_color_manual(values = c(est = "red", obs = "black"),
+                         labels = c(est = "Predicted", obs = "Observed"), name = NULL) +
+      expand_limits(y = 0) +
+      facet_wrap(~panel, ncol = ncols, scales = "free_y") +
+      theme(panel.background = element_rect(fill = "white", colour = NA),
             panel.border = element_rect(fill = NA, colour = "grey20"),
-            axis.text.x = element_text(vjust = 0.0, angle = 45),legend.position = 'bottom')+
-      ylab('Catch rate (kg/pot)')
-    if(length(unique(tdat3$aSex))>1) p <- p + facet_grid(Time_step~aSex) else p <- p + facet_wrap(~Time_step)
+            axis.text.x = element_text(vjust = 0.0, angle = 45),
+            strip.text = element_text(size = 8),
+            legend.position = 'bottom') +
+      ggtitle(title) + ylab('Abundance index')
     print(p)
-    caption <- paste(paste(unique(tdat3$aSex), collapse = " & "), unique(tdat3$Descrip),
-                     "Observed (black) and estimated (red 95% CI grey) catch rates for each fleet and or timestep.",
+    caption <- paste(title, "- observed (black) and predicted (red) abundance index with 95% intervals.",
+                     "Y-axes are free between panels (commercial in kg/pot, monitoring/IBSS/ISS in numbers).",
                      "Lines break at missing years and where one index series ends and the next begins.")
-    addplot(filen=filename,rundir=rundir,category="Index",caption=caption)
+    addplot(filen = filename, rundir = rundir, category = "Index", caption = caption)
   }
 
 

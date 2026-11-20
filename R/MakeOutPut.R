@@ -764,6 +764,8 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
   }
   addplot(filen=filename,rundir=rundir,category="Growth",caption=caption)
   #### Fit to Data ####
+  ### Global Examination ####
+  GlobalDiagnostics(dat, rundir, fleets)
   #### Commercial Catches ####
   print("Making Model fit to Catch")
   catch <- findNclean('#Catches', dat, 0)

@@ -18,6 +18,8 @@ ProfileLT(
   plot = TRUE,
   fast = FALSE,
   newtonSteps = 0,
+  save_states = TRUE,
+  warm = TRUE,
   ...
 )
 }
@@ -53,6 +55,17 @@ accompanying notes. Default FALSE uses report = TRUE + BigSave.}
 Defaults to 0 for profiling - Newton reduces the gradient but
 not the likelihood, so it is wasted work when only the NLL is
 recorded. Set > 0 to re-enable.}
+
+\item{save_states}{If TRUE (default), also write "LPT \if{html}{\out{<label>}} states.txt": for
+each profiled value, total recruitment, recruitment and legal
+biomass by area, harvest rate by zone (model years), and the
+likelihood by CPUE series, length fleet, larval series and tag
+group. Long format: value, quantity, index, year, est.}
+
+\item{warm}{If TRUE (default), walk the grid outwards from the MLE (down from it,
+then up from it) and start each fit from the previous step's
+solution (read from Output/model final.par), so each step is a
+small move. FALSE re-fits every step from the MLE, as before.}
 
 \item{...}{Optimisation-control arguments forwarded to FitModel (phit,
 lphit, mxph, ...). Do NOT pass \code{report}.}

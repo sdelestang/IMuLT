@@ -2975,7 +2975,10 @@ Type objective_function<Type>::operator() ()
   //Initial_pen = 0;
   for (int Iyear=RecYr1;Iyear<=RecYr2;Iyear++){
     Rec_Penal += log(SigmaR) + RecDevs(Iyear-RecYr1)*RecDevs(Iyear-RecYr1)/(2.0*SigmaR*SigmaR);
-    Rec_Penal_SumZero += 1.0*RecDevs(Iyear-RecYr1) ;  }
+    // Sum-to-zero only where the bias ramp is on (BiasMult > 0, i.e. data-informed years), weighted by the ramp.
+    // Uninformed years (outside the ramp) are left to the SigmaR penalty, which centres them on 0 (= R0),
+    // rather than being forced to offset the informed period. BiasMult and ActRecDev share the same index (incl. BurnIn).
+    Rec_Penal_SumZero += BiasMult(Iyear)*RecDevs(Iyear-RecYr1) ;  }
   Rec_Penal_SumZero = square(Rec_Penal_SumZero);
 
   Rec_Penal_Smooth = 0; // Keep sequential recruit devs close to each other

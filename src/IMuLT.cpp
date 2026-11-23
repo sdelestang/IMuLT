@@ -1512,13 +1512,16 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
+  // Density dependence is switched off here (power 0, multiplier 1): B0 is defined as the unfished
+  // equilibrium at base M, so by construction an unfished stock at B0 has DDMult = 1 afterwards.
+  // (VirginBio before this point is Ninit-based / post-recruitment and is not a valid DD reference.)
   for (int Iyear=-dat.BurnIn;Iyear<0;Iyear++)
     for (int Istep=0;Istep<dat.Nstep;Istep++)
       XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M,
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio, DDMult, DDpower);
+                       VirginBio, CurrentBio, DDMult, Type(0.0));
 
   // Virgin biomass from end of no-F burn-in at the designated biology time step
   VirginBio.setZero(); VirginLegalBio.setZero();VirginNvec.setZero(); VirginBioAtLen.setZero();

@@ -694,7 +694,7 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
                          int IsVirgin, matrix<Type> &Feqn2, array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, vector<Type> &MatBio, matrix<Type> &MatBioArea, matrix<Type> &RecruitmentByArea,
                          vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &CurrentBio){
+                         vector<Type> &VirginBio, vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower){
 
   array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
 
@@ -720,6 +720,24 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
     { YearAdjust1 = Iyear; YearAdjust2 = Iyear;}
   else
   { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
+
+  // Density-dependent M (set once per year, at the start of time-step 0 and before recruitment, so it is
+  // measured the same way as VirginBio): DDMult = (B/B0)^DDpower by area, B = total biomass.
+  // DDpower = DensityM; DensityM = 0 gives DDMult = 1 exactly (no density dependence).
+  if (Istep==0)
+    for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    {
+      Type Bnow = 0;
+      for (int Isex=0;Isex<dat.Nsex;Isex++)
+        for (int Iage=0;Iage<dat.Nage;Iage++)
+          for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
+            Bnow += N(Iarea,dat.BurnIn+Iyear,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
+      DDMult(dat.BurnIn+Iyear,Iarea) = exp(DDpower*log((Bnow+Type(1e-10))/(VirginBio(Iarea)+Type(1e-10))));
+    }
+  // M is passed by value, so scaling it here applies DD to Hybrid() and to Z for this time-step only
+  for (int Iarea=0;Iarea<dat.Narea;Iarea++)
+    for (int Iage=0;Iage<dat.Nage;Iage++)
+      M(Iarea,Iage) *= DDMult(dat.BurnIn+Iyear,Iarea);
 
   // Recruitment (at the start of the time-step)
   RecruitPointer = dat.RecruitPnt(YearAdjust1,Istep);
@@ -1408,7 +1426,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                  vector<Type> &ActRecDev, array<Type> &Ninit, vector<Type> &MatBio, matrix<Type> &MatBioArea,
                  matrix<Type> &RecruitmentByArea, vector<Type> BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
                  vector<Type> &VirginBio, vector<Type> &VirginLegalBio, array<Type> &VirginNvec, array<Type> &VirginBioAtLen,
-                 matrix<Type> &LegalRef,vector<Type> &CurrentBio) {
+                 matrix<Type> &LegalRef,vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower) {
 
   Type Initial_pen;
   int IsVirgin;                                                           // Set to 1 for unfished state
@@ -1448,13 +1466,13 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
     for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
         XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                         VirginBio, CurrentBio);
+                         VirginBio, CurrentBio, DDMult, DDpower);
 
     // Multiyear projection with No F (F set to Zero) This updates the future time-step under no fishing
     for (int Iyear=-dat.BurnIn+1;Iyear<dat.Tune_Years;Iyear++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
         XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                         VirginBio, CurrentBio);
+                         VirginBio, CurrentBio, DDMult, DDpower);
 
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
@@ -1500,7 +1518,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio);
+                       VirginBio, CurrentBio, DDMult, DDpower);
 
   // Virgin biomass from end of no-F burn-in at the designated biology time step
   VirginBio.setZero(); VirginLegalBio.setZero();VirginNvec.setZero(); VirginBioAtLen.setZero();
@@ -1531,7 +1549,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio);
+                       VirginBio, CurrentBio, DDMult, DDpower);
 
   // Multiyear projection with area-specific F
   for (int Iyear=-dat.BurnIn+1;Iyear<0;Iyear++){
@@ -1545,7 +1563,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn4,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio);}}
+                       VirginBio, CurrentBio, DDMult, DDpower);}}
 
   return(Initial_pen);
 
@@ -1683,7 +1701,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
             array<Type> &ActGrowth,matrix<Type> &ActMove,
             matrix<Type> &M, array<Type> &Hrate, Type QRedsPar, Type MWhitesPar,
             array<Type> &RecapNum, matrix<Type> &NotReported,
-            matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize) {
+            matrix<Type> &TagLike1, matrix<Type> &TagLike2, array<Type> &PredTagSize, matrix<Type> &DDMult) {
 
   int Jyear, Kyear;
   int SelPointer, RetPointer, LegalPointer, GrowthPointer, MovePointer, IdestArea;
@@ -1802,7 +1820,7 @@ Type TagDym(dataSet<Type> &dat, TheData<Type> &thedata, int SexPass, int GrpPass
           if(dat.IsRed(SexPass,Iage,Iarea,Istep)==0) {ScaleWhiteM = MWhitesPar;} else {ScaleWhiteM = 1.0;}
           for (int Isize=0; Isize<dat.Nlen(SexPass); Isize++)
           {
-            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,Iyear)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
+            M_rate_Tag(Iarea,Iage,Isize) = dat.TimeStepLen(Iyear,Istep)*M(Iarea,Iage)*MyrMult(dat,Iarea,Iage,Iyear)*DDMult(dat.BurnIn+Iyear,Iarea)*ScaleWhiteM+dat.TimeStepLen(Iyear,Istep)*thedata.TagLossRate;
             Z_rate_Tag(Iarea,Iage,Isize) = M_rate_Tag(Iarea,Iage,Isize);
             for (int Ifleet=0; Ifleet<Nfleet; Ifleet++)
               if (dat.Area_fleet(Iarea,Ifleet)==1)
@@ -2467,10 +2485,13 @@ Type objective_function<Type>::operator() ()
     for (int Iyear=TempMSpec(r,0); Iyear<=TempMSpec(r,1); Iyear++)
       MmultYr(TempMSpec(r,3),TempMSpec(r,2),Iyear) *= TemporalMPars(r);
   dataset.MmultYr = MmultYr;
-  MWhitesPar = MainPars(1+Narea+Nage);
-  QRedsPar = MainPars(2+Narea+Nage);
-  SigmaR = MainPars(3+Narea+Nage);
-  SigmaSpat = MainPars(4+Narea+Nage);
+  // Density-dependent M ("DensityM" row, straight after the age multipliers):
+  // M(area,year) = M0(area,age) x TemporalM x (B/B0)^DensityM. DensityM = 0 -> no density dependence.
+  Type DDpower = MainPars(1+Narea+Nage);
+  MWhitesPar = MainPars(2+Narea+Nage);
+  QRedsPar = MainPars(3+Narea+Nage);
+  SigmaR = MainPars(4+Narea+Nage);
+  SigmaSpat = MainPars(5+Narea+Nage);
 
   //for (int Iarea=0;Iarea<Narea;Iarea++) LogRinitial(Iarea) = MainPars(4+Narea+Nage+Iarea);
   //Finitial = exp(MainPars(4+2*Narea+Nage));
@@ -2513,6 +2534,7 @@ Type objective_function<Type>::operator() ()
   array<Type> Z(Narea, BurnIn+Nyear+MaxProjYr+1, Nstep, Nsex, Nage, MaxLen); Z.setZero();  // Z matrix
   vector<Type> Recruits(BurnIn+Nyear+MaxProjYr+1);                                         // Recruitment output
   vector<Type> BiasMult(BurnIn+Nyear+MaxProjYr+1);                                         // Bias correction factor
+  matrix<Type> DDMult(BurnIn+Nyear+MaxProjYr+1,Narea); DDMult.fill(Type(1.0));             // Density-dependent M multiplier by year (incl. burn-in) and area
   array<Type>  Ninit(Narea,Nsex,Nage,MaxLen);
   vector<Type> MatBio(BurnIn+Nyear+MaxProjYr+1);
   matrix<Type> MatBioArea(Narea,BurnIn+Nyear+MaxProjYr+1);
@@ -2671,7 +2693,7 @@ Type objective_function<Type>::operator() ()
   // {
   Initial_pen = InitializeN(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
                             Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, Ninit,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                            VirginBio, VirginLegalBio, VirginNvec, VirginBioAtLen, LegalRef, CurrentBio);
+                            VirginBio, VirginLegalBio, VirginNvec, VirginBioAtLen, LegalRef, CurrentBio, DDMult, DDpower);
   // }
 
   // Set up initial state (alternative)
@@ -2717,7 +2739,7 @@ Type objective_function<Type>::operator() ()
   //   for (int Iyear=-Nage;Iyear<0;Iyear++)
   //    for (int Istep=0;Istep<Nstep;Istep++)
   //     {
-  //      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
+  //      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
   //     } // year and season
   //   }
 
@@ -2776,7 +2798,7 @@ Type objective_function<Type>::operator() ()
     {
       XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,
                        IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,
-                       QRedsPar,MWhitesPar,VirginBio, CurrentBio);
+                       QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
     } // year and season
 
   // Make growth curves for diagnostics
@@ -2815,7 +2837,7 @@ Type objective_function<Type>::operator() ()
     RecapNum.setZero(); NotReported.setZero(); PredTagSize.setZero();
     for (int SexPass=0; SexPass<Nsex; SexPass++)
       for (int GrpPass=0; GrpPass<NtagGroups; GrpPass++)
-        XX = TagDym(dataset,thedata, SexPass, GrpPass, N, ActSelex, ActReten, ActLegal, ActGrowth, ActMove, M, Hrate, QRedsPar, MWhitesPar, RecapNum, NotReported, TagLike1, TagLike2, PredTagSize);
+        XX = TagDym(dataset,thedata, SexPass, GrpPass, N, ActSelex, ActReten, ActLegal, ActGrowth, ActMove, M, Hrate, QRedsPar, MWhitesPar, RecapNum, NotReported, TagLike1, TagLike2, PredTagSize, DDMult);
   }
 
   // Legal Biomass by Year, Area, time step at the end of a time step
@@ -2983,7 +3005,7 @@ Type objective_function<Type>::operator() ()
 
   Rec_Penal_Smooth = 0; // Keep sequential recruit devs close to each other
   for (int Iyear=1;Iyear<RecDevs.size();Iyear++){ // start at 1 not 0 to allow for offset
-    Rec_Penal_Smooth += 0.01*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
+    Rec_Penal_Smooth += 1.0*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
 
   // Spatial recruitment deviations: N(0, SigmaSpat)
   Type RecSpat_Penal = 0;
@@ -3030,7 +3052,7 @@ Type objective_function<Type>::operator() ()
     for (int Iyear=Nyear;Iyear<Nyear+Nproj;Iyear++)
       for (int Istep=0;Istep<Nstep;Istep++)
       {
-        XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio);
+        XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
       } // year and season
 
   // ── Post-projection summaries ───────────────────────────────────────────
@@ -3206,6 +3228,8 @@ Type objective_function<Type>::operator() ()
     REPORT(VirginBioAtLen);
     REPORT(BiasMult);
     REPORT(CurrentBio);
+    REPORT(DDMult);
+    REPORT(DDpower);
     REPORT(M);
     REPORT(MmultYr);
     REPORT(MWhitesPar);

@@ -126,7 +126,7 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   lens <- seq(dynamics$value[dynamics$object=='lblwr'],dynamics$value[dynamics$object=='lbupr'],dynamics$value[dynamics$object=='lbgap'])+1
 
   ## Create a new folder for the model if one does not exist
-  (files <- list.files(pattern = 'AgeRun'))
+  files <- list.files(pattern = 'AgeRun')
   if(Suffix!='') Suffix <- paste0("_",Suffix)
   (nfile <- paste(length(unique(area$newarea)),'Area',ages,'AgeRun',substr(startseason,3,4),"_",substr(endseason,3,4),Suffix,sep=''))
   if(!(nfile%in%files)) {
@@ -396,8 +396,10 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
 
   tmp <- c(tmp, "\n# Basic parameters (lower, upper, estimate, phase, link, prior(0=no, 1=normal, 2=gamma, 3=lognormal), prior.mean, prior.sd) - (link will use same par for multiple areas)\n")
 
-  mainpar <- readWorkbook(wb,sheet='MainParameters', startRow = 2)
-  NumMPars <- 2+nrow(areas)+ages+3
+  mainpar <- readWorkbook(wb, sheet = 'MainParameters', startRow = 2)
+  nareas  <- length(unique(area$newarea))
+  hasDD   <- any(grepl("Density", mainpar$name, ignore.case = TRUE))
+  NumMPars <- 5 + nareas + ages + hasDD
 
   n_need <- NumMPars
   vals   <- nrow(mainpar)
@@ -410,6 +412,13 @@ BuildInputFiles <- function(Suffix='',end_override = NULL){
   off <- 2+length(unique(area$newarea))
   Mpar3 <- mainpar[off:(off+ages-1),] %>% dplyr::select(-name)
   for(i in 1:nrow(Mpar3)){ tmp <- c(tmp, paste(Mpar3[i,],collapse="\t"),"\n") }
+  ## If an old version and density dependent M does not exist add it.
+  if (hasDD) {
+    Mpar3a <- mainpar %>% filter(grepl('Density', name, ignore.case = TRUE)) %>% dplyr::select(-name)
+    if (nrow(Mpar3a) > 1) stop("More than one Density row in MainParameters.", call. = FALSE)
+    if (as.numeric(Mpar3a$estimate) != 0 && as.numeric(Mpar3a$phase) < 0)
+      message("Note: DensityM fixed at ", Mpar3a$estimate, " - density-dependent M is ON (0 = off).") } else { Mpar3a <- "-1\t3\t0\t-1\t0\t0\t0\t0.5\t#\tPower for Density Dependent M (0 = off)"  }
+  tmp <- c(tmp, paste(Mpar3a, collapse = "\t"), "\n")
   Mpar4 <- mainpar %>% filter(grepl('Morph1M', name, ignore.case=T)) %>% dplyr::select(-name)
   tmp <- c(tmp, paste(Mpar4,collapse="\t"), "\n")
   Mpar5 <- mainpar %>% filter(grepl('Morph0Q', name, ignore.case=T)) %>% dplyr::select(-name)

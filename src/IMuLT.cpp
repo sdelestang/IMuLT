@@ -2983,7 +2983,7 @@ Type objective_function<Type>::operator() ()
 
   Rec_Penal_Smooth = 0; // Keep sequential recruit devs close to each other
   for (int Iyear=1;Iyear<RecDevs.size();Iyear++){ // start at 1 not 0 to allow for offset
-    Rec_Penal_Smooth += 1.0*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
+    Rec_Penal_Smooth += 0.01*square(RecDevs(Iyear)-RecDevs(Iyear-1));} ;
 
   // Spatial recruitment deviations: N(0, SigmaSpat)
   Type RecSpat_Penal = 0;

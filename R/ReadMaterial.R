@@ -818,7 +818,7 @@ ReadControlFile <- function(ControlFile,GeneralSpecs,DataSpecs)
 
   # Main parameters linking conditions
   Index <- MatchTable(ControlFile,Char1="#",Char2="Basic");
-  npars <- 1*GeneralSpecs$Narea+GeneralSpecs$Nage+4
+  npars <- 1*GeneralSpecs$Narea+GeneralSpecs$Nage+6
   MparsLink <- as.numeric(ControlFile[(Index+1):(Index+npars),5])
   MparsPrior <- apply(as.matrix(ControlFile[(Index+1):(Index+npars),6:8]),2,as.numeric)
 

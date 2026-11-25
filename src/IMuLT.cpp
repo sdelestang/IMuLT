@@ -694,7 +694,7 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
                          int IsVirgin, matrix<Type> &Feqn2, array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
                          vector<Type> &ActRecDev, vector<Type> &MatBio, matrix<Type> &MatBioArea, matrix<Type> &RecruitmentByArea,
                          vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower){
+                         vector<Type> &VirginBio, vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower, int DDvirgin){
 
   array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
 
@@ -722,8 +722,12 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
   { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
 
   // Density-dependent M (set once per year, at the start of time-step 0 and before recruitment, so it is
-  // measured the same way as VirginBio): DDMult = (B/B0)^DDpower by area, B = total biomass.
-  // DDpower = DensityM; DensityM = 0 gives DDMult = 1 exactly (no density dependence).
+  // measured the same way as VirginBio): DDMult = 1 + DensityM x (B/B0)^DDshape by area, B = total biomass.
+  // M stays close to base M until B/B0 nears 1, then rises steeply to M x (1 + DensityM) at B0.
+  // DDshape sets how late the rise starts (10: +3% of the full rise at 0.7 B0, +11% at 0.8, +35% at 0.9).
+  // DensityM = 0 gives DDMult = 1 exactly (no density dependence). DDvirgin = 1 forces B/B0 = 1 (used
+  // while B0 itself is being found, so B0 is the unfished equilibrium at M x (1 + DensityM)).
+  const Type DDshape = Type(10.0);
   if (Istep==0)
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
     {
@@ -732,7 +736,9 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
         for (int Iage=0;Iage<dat.Nage;Iage++)
           for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
             Bnow += N(Iarea,dat.BurnIn+Iyear,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
-      DDMult(dat.BurnIn+Iyear,Iarea) = exp(DDpower*log((Bnow+Type(1e-10))/(VirginBio(Iarea)+Type(1e-10))));
+      Type Brel = Type(1.0);
+      if (DDvirgin == 0) Brel = Bnow/(VirginBio(Iarea)+Type(1e-10));
+      DDMult(dat.BurnIn+Iyear,Iarea) = Type(1.0) + DDpower*exp(DDshape*log(Brel+Type(1e-10)));
     }
   // M is passed by value, so scaling it here applies DD to Hybrid() and to Z for this time-step only
   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
@@ -1437,7 +1443,8 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
   array<Type> Fvals(dat.Nfleet,dat.Num_Iteration,dat.Nstep);                             // Storage for tuning of Fs
   array<Type> Ninit2(dat.Narea,dat.Nsex,dat.Nage,dat.MaxLen);
 
-  Ninit = VirginN(dat, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, ActGrowth, RecruitFrac,
+  matrix<Type> Mvirgin = M * (Type(1.0) + DDpower);   // analytic equilibrium at the M an unfished stock (B = B0) has
+  Ninit = VirginN(dat, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, Mvirgin, ActGrowth, RecruitFrac,
                   Rbar, ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, QRedsPar, MWhitesPar, Type(0.0));
   //  Get bare bones numbers by area, sex, age and length - one recruitment / move / grow - no F Mort.
 
@@ -1466,13 +1473,13 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
     for (int Iyear=-dat.BurnIn;Iyear<-dat.BurnIn+1;Iyear++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
         XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                         VirginBio, CurrentBio, DDMult, DDpower);
+                         VirginBio, CurrentBio, DDMult, DDpower, 0);
 
     // Multiyear projection with No F (F set to Zero) This updates the future time-step under no fishing
     for (int Iyear=-dat.BurnIn+1;Iyear<dat.Tune_Years;Iyear++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
         XX = OneTimeStep(dat, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2,ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,
-                         VirginBio, CurrentBio, DDMult, DDpower);
+                         VirginBio, CurrentBio, DDMult, DDpower, 0);
 
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
       for (int Istep=0;Istep<dat.Nstep;Istep++)
@@ -1512,8 +1519,8 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
         for (int Isize=0;Isize<dat.Nlen(Isex);Isize++)
         {  N(Iarea,0,0,Isex,Iage,Isize) = Ninit(Iarea,Isex,Iage,Isize); }
 
-  // Density dependence is switched off here (power 0, multiplier 1): B0 is defined as the unfished
-  // equilibrium at base M, so by construction an unfished stock at B0 has DDMult = 1 afterwards.
+  // B0: unfished equilibrium with M at its B = B0 level (DDvirgin = 1 fixes B/B0 = 1, multiplier 1 + DensityM),
+  // so afterwards an unfished stock at B0 gets exactly the M that produced it.
   // (VirginBio before this point is Ninit-based / post-recruitment and is not a valid DD reference.)
   for (int Iyear=-dat.BurnIn;Iyear<0;Iyear++)
     for (int Istep=0;Istep<dat.Nstep;Istep++)
@@ -1521,7 +1528,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio, DDMult, Type(0.0));
+                       VirginBio, CurrentBio, DDMult, DDpower, 1);
 
   // Virgin biomass from end of no-F burn-in at the designated biology time step
   VirginBio.setZero(); VirginLegalBio.setZero();VirginNvec.setZero(); VirginBioAtLen.setZero();
@@ -1552,7 +1559,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn3,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio, DDMult, DDpower);
+                       VirginBio, CurrentBio, DDMult, DDpower, 0);
 
   // Multiyear projection with area-specific F
   for (int Iyear=-dat.BurnIn+1;Iyear<0;Iyear++){
@@ -1566,7 +1573,7 @@ Type InitializeN(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type>
                        Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn4,
                        ActRecruitAreaSexDist, ActRecruitLenDist, ActRecDev, MatBio, MatBioArea,
                        RecruitmentByArea, BiasMult, SigmaR, QRedsPar, MWhitesPar,
-                       VirginBio, CurrentBio, DDMult, DDpower);}}
+                       VirginBio, CurrentBio, DDMult, DDpower, 0);}}
 
   return(Initial_pen);
 
@@ -2489,7 +2496,11 @@ Type objective_function<Type>::operator() ()
       MmultYr(TempMSpec(r,3),TempMSpec(r,2),Iyear) *= TemporalMPars(r);
   dataset.MmultYr = MmultYr;
   // Density-dependent M ("DensityM" row, straight after the age multipliers):
-  // M(area,year) = M0(area,age) x TemporalM x (B/B0)^DensityM. DensityM = 0 -> no density dependence.
+  // M(area,year) = M0(area,age) x TemporalM x (1 + DensityM x (B/B0)^10). DensityM = 0 -> no density dependence;
+  // M0 is M for a fished-down stock, and M at B0 is M0 x (1 + DensityM). Keep DensityM > -1.
+  if (MainPars.size() < 6+Narea+Nage)
+    Rf_error("MainPars has %d values but %d are needed (DensityM row after the age multipliers). Update the R code that reads the Basic parameters block.",
+             (int)MainPars.size(), 6+Narea+Nage);
   Type DDpower = MainPars(1+Narea+Nage);
   MWhitesPar = MainPars(2+Narea+Nage);
   QRedsPar = MainPars(3+Narea+Nage);
@@ -2742,7 +2753,7 @@ Type objective_function<Type>::operator() ()
   //   for (int Iyear=-Nage;Iyear<0;Iyear++)
   //    for (int Istep=0;Istep<Nstep;Istep++)
   //     {
-  //      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
+  //      XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower, 0);
   //     } // year and season
   //   }
 
@@ -2801,7 +2812,7 @@ Type objective_function<Type>::operator() ()
     {
       XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar,
                        IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,
-                       QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
+                       QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower, 0);
     } // year and season
 
   // Make growth curves for diagnostics
@@ -3055,7 +3066,7 @@ Type objective_function<Type>::operator() ()
     for (int Iyear=Nyear;Iyear<Nyear+Nproj;Iyear++)
       for (int Istep=0;Istep<Nstep;Istep++)
       {
-        XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower);
+        XX = OneTimeStep(dataset, N, Z, Hrate, ActSelex, ActReten, ActLegal, ActMove, WeightLen, M, Iyear, Istep, ActGrowth, RecruitFrac, Rbar, IsVirgin, Feqn2, ActRecruitAreaSexDist, ActRecruitLenDist,ActRecDev,MatBio,MatBioArea,RecruitmentByArea,BiasMult,SigmaR,QRedsPar,MWhitesPar,VirginBio, CurrentBio, DDMult, DDpower, 0);
       } // year and season
 
   // ── Post-projection summaries ───────────────────────────────────────────

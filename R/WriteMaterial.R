@@ -497,15 +497,32 @@ WriteOutput <- function(Report,SDrep,fullrep,pin,pout,GeneralSpecs,ControlSpecs,
       Years <- (GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr)
       ## BurnIn+Nyear+MaxProjYr+1
       Ncol <- 4
-      # Temporal M multiplier: 1 before the first model year, last model year carried into projections
-    Mmult <- rep(1, length(Years))
-    if (!is.null(Report$MmultYr)) {
-      Jyr <- pmin(Years - GeneralSpecs$Year1 + 1, dim(Report$MmultYr)[3])
-      Mmult[Jyr >= 1] <- Report$MmultYr[Iarea, Iage, Jyr[Jyr >= 1]]
-    }
-    LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,Report$M[Iarea,Iage]*Mmult)
+      # Temporal M multiplier, as MyrMult() in IMuLT.cpp: burn-in years use the first model year's
+      # multiplier, projection years carry the last model year forward
+      Mmult <- rep(1, length(Years))
+      if (!is.null(Report$MmultYr)) {
+        Jyr <- pmin(pmax(Years - GeneralSpecs$Year1 + 1, 1), dim(Report$MmultYr)[3])
+        Mmult <- Report$MmultYr[Iarea, Iage, Jyr]
+      }
+      # Density-dependent M multiplier (DDMult: rows = burn-in + model + projection years, cols = areas)
+      DDm <- rep(1, length(Years))
+      if (!is.null(Report$DDMult)) {
+        Irow <- Years - Years[1] + 1
+        ok   <- Irow <= nrow(Report$DDMult)
+        DDm[ok] <- Report$DDMult[Irow[ok], Iarea]
+      }
+      LBOut <- cbind(rep(Iarea,length(Years)),rep(Iage,length(Years)),Years,Report$M[Iarea,Iage]*Mmult*DDm)
       write(t(LBOut),ncol=Ncol,OutputFile,append=T)
     } }
+
+  write("\n#Density dependent M multiplier by Area and Year",OutputFile,append=T)
+  write("#Area Year DDMult",OutputFile,append=T)
+  if (!is.null(Report$DDMult)) {
+    Years <- (GeneralSpecs$Year1-max(GeneralSpecs$BurnIn)):(GeneralSpecs$Year2+GeneralSpecs$MaxProjYr)
+    nr <- min(length(Years), nrow(Report$DDMult))
+    for (Iarea in 1:GeneralSpecs$Narea)
+      write(t(cbind(Iarea, Years[1:nr], round(Report$DDMult[1:nr, Iarea], 5))), ncol=3, OutputFile, append=T)
+  }
 
   write("\n#Virgin Biomass by area",OutputFile,append=T)
   write(Report$VirginBio,ncol=1,OutputFile,append=T)

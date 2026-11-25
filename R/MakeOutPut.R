@@ -1917,8 +1917,31 @@ MakeOutPut <- function(is95=TRUE,folder_name='',openfile=TRUE){
           theme(panel.background = element_rect(fill = "white",colour = NA),
                 panel.border = element_rect(fill = NA, colour = "grey20"),
                 axis.text.x = element_text(vjust = 0.5, angle = 45)))
-  caption <- "Estimate Natural mortality by area and year (Density dependent mortality)."
+  caption <- "Estimated natural mortality by area, age and year (base M x TemporalM x density-dependent multiplier)."
   addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
+
+  ## Density-dependent M multiplier (only when DensityM is non-zero)
+  ddm <- tryCatch(findNclean(c('#Density','dependent','M'), dat, 2), error = function(e) NULL)
+  if (is.data.frame(ddm) && nrow(ddm) > 0) {
+    names(ddm) <- c('area','year','mult')
+    ddm %<>% mutate(across(everything(), as.numeric)) %>% filter(year >= startseason)
+    if (any(abs(ddm$mult - 1) > 1e-6, na.rm = TRUE)) {
+      ddm %<>% mutate(Nme = fleetarea$description[match(area, fleetarea$newarea)])
+      filename <- filenametopath(rundir, "M_DensityMult.png")
+      plotprep(width=7,height=7,filename=filename,cex=0.9,verbose=FALSE)
+      parset(plots=c(1,1))
+      print(ggplot(ddm, aes(x=year, y=mult)) +
+              geom_hline(yintercept = 1, colour = 'grey60', linetype = 'dashed') +
+              geom_line() +
+              labs(y = "Density-dependent M multiplier", x = 'Year') +
+              facet_wrap(~Nme) +
+              theme(panel.background = element_rect(fill = "white",colour = NA),
+                    panel.border = element_rect(fill = NA, colour = "grey20"),
+                    axis.text.x = element_text(vjust = 0.5, angle = 45)))
+      caption <- "Density-dependent multiplier on M by area and year: 1 + DensityM x (B/B0)^10 (1 = no effect)."
+      addplot(filen=filename,rundir=rundir,category="Natural_Mortality",caption=caption)
+    }
+  }
 
   ## Estimated parameters ####
   n_est <- suppressWarnings(as.numeric(dat[p2, 4]))   # from "#Total estimated parameters: N"

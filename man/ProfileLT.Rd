@@ -21,6 +21,12 @@ ProfileLT(
   newtonSteps = 0,
   save_states = TRUE,
   warm = TRUE,
+  ncores = max(1L, parallel::detectCores() - 1L),
+  chunk = NULL,
+  workroot = file.path(tempdir(), "LPTwork"),
+  export = c("Data", "InitialVars"),
+  setup = quote(library(IMuLT)),
+  keep_work = FALSE,
   ...
 )
 }
@@ -37,7 +43,7 @@ Leave lower/upper/step NULL to default to mle +/- 3*\code{se}.}
 
 \item{values}{Optional explicit vector of profile values (estimation scale).
 Overrides lower/upper/step and may have any length >= 1. Used by
-ProfileLTpar() to hand each worker its own chunk of the grid.}
+the parallel engine to hand each worker its own chunk of the grid.}
 
 \item{label}{Display / file name (e.g. the descriptive name "Rbar").
 Defaults to paste(group, pos).}
@@ -72,6 +78,27 @@ then up from it) and start each fit from the previous step's
 solution (read from Output/model final.par), so each step is a
 small move. FALSE re-fits every step from the MLE, as before.}
 
+\item{ncores}{Number of worker processes. Default is all cores but one. With
+ncores > 1 the grid is split into contiguous chunks, one per
+worker; each worker is a separate R process in its OWN copy of
+the run folder (FitModel() writes Output/BigSave.lda and
+Output/model final.par, so workers must not share a folder).
+Warm starts still run within a chunk; each chunk's first point
+starts from the MLE. ncores = 1 runs serially, as before.}
+
+\item{chunk}{Grid points per worker (parallel only). Default spreads the grid
+evenly over ncores; chunk = 1 gives one point per worker.}
+
+\item{workroot}{Where worker folder copies go (parallel only). Defaults to the
+session temp folder, keeping the file traffic out of OneDrive.}
+
+\item{export}{Global objects copied to every worker (parallel only).}
+
+\item{setup}{Expression run on every worker first (parallel only). Use the
+INSTALLED package; load_all() on many workers recompiles in parallel.}
+
+\item{keep_work}{If TRUE, keep the worker folders (parallel only).}
+
 \item{...}{Optimisation-control arguments forwarded to FitModel (phit,
 lphit, mxph, ...). Do NOT pass \code{report}.}
 }
@@ -105,5 +132,10 @@ ProfileLT("MainPars", pos = 1, se = 0.12,
 # of 2 (estimation scale). Writes "LPT Sel50_fleet1.txt" and .png to rundir.
 ProfileLT("SelPars", pos = 2, lower = 80, upper = 120, step = 2,
           label = "Sel50_fleet1", fast = TRUE, mxph = MaxPhase)
+
+# A few explicit points, run in parallel on all cores but one:
+ProfileLT("MainPars", pos = 1,
+          values = 17.85 + c(-0.3, -0.2, -0.1, -0.05, 0.05, 0.1, 0.2, 0.3),
+          label = "Rbar", fast = TRUE, mxph = MaxPhase)
 }
 }

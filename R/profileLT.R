@@ -21,7 +21,7 @@
 #' @param se    Optional SE (estimation scale) for the default range.
 #' @param values Optional explicit vector of profile values (estimation scale).
 #'              Overrides lower/upper/step and may have any length >= 1. Used by
-#'              ProfileLTpar() to hand each worker its own chunk of the grid.
+#'              the parallel engine to hand each worker its own chunk of the grid.
 #' @param label Display / file name (e.g. the descriptive name "Rbar").
 #'              Defaults to paste(group, pos).
 #' @param rundir   Directory for the output text file and plot.
@@ -46,6 +46,21 @@
 #'              biomass by area, harvest rate by zone (model years), and the
 #'              likelihood by CPUE series, length fleet, larval series and tag
 #'              group. Long format: value, quantity, index, year, est.
+#' @param ncores Number of worker processes. Default is all cores but one. With
+#'              ncores > 1 the grid is split into contiguous chunks, one per
+#'              worker; each worker is a separate R process in its OWN copy of
+#'              the run folder (FitModel() writes Output/BigSave.lda and
+#'              Output/model final.par, so workers must not share a folder).
+#'              Warm starts still run within a chunk; each chunk's first point
+#'              starts from the MLE. ncores = 1 runs serially, as before.
+#' @param chunk Grid points per worker (parallel only). Default spreads the grid
+#'              evenly over ncores; chunk = 1 gives one point per worker.
+#' @param workroot Where worker folder copies go (parallel only). Defaults to the
+#'              session temp folder, keeping the file traffic out of OneDrive.
+#' @param export Global objects copied to every worker (parallel only).
+#' @param setup Expression run on every worker first (parallel only). Use the
+#'              INSTALLED package; load_all() on many workers recompiles in parallel.
+#' @param keep_work If TRUE, keep the worker folders (parallel only).
 #' @param ...   Optimisation-control arguments forwarded to FitModel (phit,
 #'              lphit, mxph, ...). Do NOT pass `report`.
 #'
@@ -63,6 +78,11 @@
 #' # of 2 (estimation scale). Writes "LPT Sel50_fleet1.txt" and .png to rundir.
 #' ProfileLT("SelPars", pos = 2, lower = 80, upper = 120, step = 2,
 #'           label = "Sel50_fleet1", fast = TRUE, mxph = MaxPhase)
+#'
+#' # A few explicit points, run in parallel on all cores but one:
+#' ProfileLT("MainPars", pos = 1,
+#'           values = 17.85 + c(-0.3, -0.2, -0.1, -0.05, 0.05, 0.1, 0.2, 0.3),
+#'           label = "Rbar", fast = TRUE, mxph = MaxPhase)
 #' }
 #' @name ProfileLT
 #' @export
@@ -71,7 +91,11 @@ ProfileLT <- function(group, pos,
                       values = NULL, label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
                       append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0,
-                      save_states = TRUE, warm = TRUE, ...) {
+                      save_states = TRUE, warm = TRUE,
+                      ncores = max(1L, parallel::detectCores() - 1L), chunk = NULL,
+                      workroot = file.path(tempdir(), "LPTwork"),
+                      export = c("Data", "InitialVars"),
+                      setup = quote(library(IMuLT)), keep_work = FALSE, ...) {
 
   GE <- .GlobalEnv
   .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
@@ -114,6 +138,19 @@ ProfileLT <- function(group, pos,
   }
 
   if (is.null(label)) label <- paste(group, pos)
+
+  ## ---- 1b. Parallel dispatch ----------------------------------------------
+  ## Workers call ProfileLT() back with ncores = 1 on their own chunk.
+  if (!is.null(ncores) && ncores > 1L &&
+      !(is.null(values) && is.null(lower) && is.null(se))) {
+    return(invisible(.ProfileLTpar(
+      group = group, pos = pos, lower = lower, upper = upper, step = step, se = se,
+      values = values, label = label, ncores = ncores, chunk = chunk,
+      rundir = rundir, baseline = baseline, workroot = workroot, export = export,
+      setup = setup, keep_work = keep_work, append = append, plot = plot,
+      fast = fast, newtonSteps = newtonSteps, save_states = save_states,
+      warm = warm, ...)))
+  }
 
   ## ---- 2. Baseline: MLE values, snapshot, file backup -------------------
   load_bigsave <- function(path) {
@@ -317,6 +354,148 @@ ProfileLT <- function(group, pos,
   ## ---- 8. Plot ----------------------------------------------------------
   if (plot) plotLT(fn, rundir = rundir, label = label)
 
+  invisible(prof)
+}
+
+
+#' Parallel engine behind ProfileLT(ncores > 1) - internal
+#' @noRd
+.ProfileLTpar <- function(group, pos,
+                         lower = NULL, upper = NULL, step = NULL, se = NULL,
+                         values = NULL, label = NULL,
+                         ncores = max(1L, parallel::detectCores() - 1L),
+                         chunk = NULL, rundir = ".",
+                         baseline = "Output/BigSave.lda",
+                         workroot = file.path(tempdir(), "LPTwork"),
+                         export = c("Data", "InitialVars"),
+                         setup = quote(library(IMuLT)),
+                         keep_work = FALSE,
+                         append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0,
+                         save_states = TRUE, warm = TRUE, ...) {
+
+  GE <- .GlobalEnv
+  .blocks <- c("MainPars","RecruitPars","PuerPowPars","SelPars","RetPars",
+               "RecDevs","Qpars","efpars","RecSpatDevs","MovePars","GrowthPars",
+               "TemporalMPars")
+
+  ## ---- 0. Checks ---------------------------------------------------------
+  for (nm in export)
+    if (!exists(nm, envir = GE)) stop("global `", nm, "` not found.")
+  if (!file.exists(baseline))
+    stop("baseline `", baseline, "` not found - run FitModel(report = TRUE) first.")
+  IV <- get("InitialVars", envir = GE)
+  if (!group %in% names(IV))
+    stop("`group` must be one of: ", paste(names(IV), collapse = ", "))
+  if (is.null(label)) label <- paste(group, pos)
+  rundir <- normalizePath(rundir, mustWork = FALSE)
+  src    <- normalizePath(getwd())
+
+  ## ---- 1. Grid (needs the MLE only for the se-based default) -------------
+  if (!is.null(values)) {
+    grid <- sort(unique(as.numeric(values)))
+  } else {
+    if (is.null(lower) || is.null(upper)) {
+      if (is.null(se)) stop("Supply values, lower & upper, or `se`.")
+      e <- new.env(); load(baseline, envir = e)
+      skel <- c(lapply(.blocks, function(b) IV[[b]]$Initial), list(dummy = 0))
+      names(skel) <- c(.blocks, "dummy")
+      mle <- utils::relist(unname(e$BigSave$pin), skel)[[group]][pos]
+      lower <- mle - 3 * se; upper <- mle + 3 * se
+    }
+    if (is.null(step)) step <- (upper - lower) / 24
+    grid <- seq(lower, upper, by = step)
+  }
+  if (!length(grid)) stop("No profile values.")
+
+  ## ---- 2. Split into contiguous chunks -----------------------------------
+  if (is.null(chunk)) chunk <- ceiling(length(grid) / max(1L, ncores))
+  chunks <- split(grid, ceiling(seq_along(grid) / chunk))
+  ncores <- min(ncores, length(chunks))
+  message(sprintf("Profiling %s at %d values: %d chunks on %d cores.",
+                  label, length(grid), length(chunks), ncores))
+
+  ## ---- 3. One folder copy per chunk --------------------------------------
+  dir.create(workroot, recursive = TRUE, showWarnings = FALSE)
+  workroot <- normalizePath(workroot)
+  if (identical(workroot, src))
+    stop("`workroot` must not be the run folder itself.")
+  top <- list.files(src, full.names = TRUE, all.files = FALSE)
+  top <- top[!file.info(top)$isdir]                 # input files only, no sub-folders
+  extra <- c(baseline, file.path("Output", "model final.par"))
+  stamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  jobs <- lapply(seq_along(chunks), function(k) {
+    wd <- file.path(workroot, sprintf("%s_%s_w%02d", gsub("[^A-Za-z0-9]", "", label), stamp, k))
+    dir.create(wd, recursive = TRUE, showWarnings = FALSE)
+    file.copy(top, wd, overwrite = TRUE)
+    for (x in extra) if (file.exists(x)) {
+      dir.create(dirname(file.path(wd, x)), recursive = TRUE, showWarnings = FALSE)
+      file.copy(x, file.path(wd, x), overwrite = TRUE)
+    }
+    list(k = k, wd = wd, values = chunks[[k]])
+  })
+  if (!keep_work)
+    on.exit(unlink(vapply(jobs, `[[`, "", "wd"), recursive = TRUE), add = TRUE)
+
+  ## ---- 4. Start workers ---------------------------------------------------
+  logf <- file.path(workroot, paste0("LPT ", label, " ", stamp, " workers.log"))
+  cl <- parallel::makeCluster(ncores, outfile = logf)
+  on.exit(parallel::stopCluster(cl), add = TRUE)
+  message("Worker console output: ", logf)
+  parallel::clusterExport(cl, export, envir = GE)
+  parallel::clusterCall(cl, function(ex) {
+    eval(ex, envir = .GlobalEnv)
+    if (requireNamespace("TMB", quietly = TRUE))
+      try(TMB::openmp(1), silent = TRUE)            # 1 thread per worker: no oversubscription
+    invisible(TRUE)
+  }, setup)
+
+  args <- c(list(group = group, pos = pos, label = label, rundir = ".",
+                 baseline = baseline, append = FALSE, plot = FALSE, fast = fast,
+                 newtonSteps = newtonSteps, save_states = save_states, warm = warm),
+            list(ncores = 1L), list(...))
+
+  ## ---- 5. Run -------------------------------------------------------------
+  t0 <- Sys.time()
+  out <- parallel::clusterApplyLB(cl, jobs, function(job, args) {
+    setwd(job$wd)
+    PL <- get("ProfileLT", envir = .GlobalEnv)      # works for library() or load_all()
+    r <- tryCatch({ do.call(PL, c(args, list(values = job$values))); "ok" },
+                  error = function(e) conditionMessage(e))
+    list(k = job$k, wd = job$wd, status = r)
+  }, args = args)
+  message(sprintf("All workers finished in %.1f min.",
+                  as.numeric(difftime(Sys.time(), t0, units = "mins"))))
+  bad <- Filter(function(o) o$status != "ok", out)
+  for (o in bad) message(sprintf("  chunk %d failed: %s", o$k, o$status))
+
+  ## ---- 6. Merge -----------------------------------------------------------
+  rd <- function(f) if (file.exists(f)) utils::read.delim(f, sep = "\t", check.names = FALSE) else NULL
+  prof <- do.call(rbind, lapply(out, function(o) rd(file.path(o$wd, paste0("LPT ", label, ".txt")))))
+  if (is.null(prof) || !nrow(prof)) stop("No worker produced results; see ", logf)
+  prof <- prof[order(prof$value), ]
+  prof$runtag <- stamp
+
+  if (!dir.exists(rundir)) dir.create(rundir, recursive = TRUE)
+  fn <- file.path(rundir, paste0("LPT ", label, ".txt"))
+  do_app <- isTRUE(append) && file.exists(fn)
+  utils::write.table(prof, fn, sep = "\t", row.names = FALSE,
+                     col.names = !do_app, append = do_app, quote = FALSE)
+  message("Wrote ", fn)
+
+  if (save_states) {
+    sx <- do.call(rbind, lapply(out, function(o) rd(file.path(o$wd, paste0("LPT ", label, " states.txt")))))
+    if (!is.null(sx)) {
+      sx$runtag <- stamp
+      fs <- file.path(rundir, paste0("LPT ", label, " states.txt"))
+      da <- isTRUE(append) && file.exists(fs)
+      utils::write.table(sx, fs, sep = "\t", row.names = FALSE,
+                         col.names = !da, append = da, quote = FALSE)
+      message("Wrote ", fs)
+    }
+  }
+
+  ## ---- 7. Plot ------------------------------------------------------------
+  if (plot) plotLT(fn, rundir = rundir, label = label)
   invisible(prof)
 }
 

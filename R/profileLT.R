@@ -19,6 +19,9 @@
 #' @param lower,upper,step  Profile range on the parameter's ESTIMATION scale.
 #'              Leave lower/upper/step NULL to default to mle +/- 3*`se`.
 #' @param se    Optional SE (estimation scale) for the default range.
+#' @param values Optional explicit vector of profile values (estimation scale).
+#'              Overrides lower/upper/step and may have any length >= 1. Used by
+#'              ProfileLTpar() to hand each worker its own chunk of the grid.
 #' @param label Display / file name (e.g. the descriptive name "Rbar").
 #'              Defaults to paste(group, pos).
 #' @param rundir   Directory for the output text file and plot.
@@ -65,7 +68,7 @@
 #' @export
 ProfileLT <- function(group, pos,
                       lower = NULL, upper = NULL, step = NULL, se = NULL,
-                      label = NULL, rundir = ".",
+                      values = NULL, label = NULL, rundir = ".",
                       baseline = "Output/BigSave.lda",
                       append = FALSE, plot = TRUE, fast = FALSE, newtonSteps = 0,
                       save_states = TRUE, warm = TRUE, ...) {
@@ -145,15 +148,20 @@ ProfileLT <- function(group, pos,
   }, add = TRUE)
 
   ## ---- 3. Build the value grid ------------------------------------------
-  if (is.null(lower) || is.null(upper)) {
-    if (is.null(se)) stop("Supply lower & upper, or `se` for a mle +/- 3*se range.")
-    lower <- mle - 3 * se; upper <- mle + 3 * se
+  if (!is.null(values)) {
+    grid <- sort(unique(as.numeric(values)))
+    if (!length(grid) || anyNA(grid)) stop("`values` must be a non-empty numeric vector.")
+  } else {
+    if (is.null(lower) || is.null(upper)) {
+      if (is.null(se)) stop("Supply values, lower & upper, or `se` for a mle +/- 3*se range.")
+      lower <- mle - 3 * se; upper <- mle + 3 * se
+    }
+    if (lower >= upper) stop("`lower` must be < `upper`.")
+    if (is.null(step))  step <- (upper - lower) / 24
+    if (step <= 0)      stop("`step` must be > 0.")
+    grid <- seq(lower, upper, by = step)
+    if (length(grid) < 3L) stop("Range/step yields fewer than 3 points.")
   }
-  if (lower >= upper) stop("`lower` must be < `upper`.")
-  if (is.null(step))  step <- (upper - lower) / 24
-  if (step <= 0)      stop("`step` must be > 0.")
-  grid <- seq(lower, upper, by = step)
-  if (length(grid) < 3L) stop("Range/step yields fewer than 3 points.")
 
   ## ---- 4. Prepare the fixed-target globals ------------------------------
   ## Seed every block's $Initial at the MLE (near-optimum warm start for all

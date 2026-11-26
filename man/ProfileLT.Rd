@@ -11,6 +11,7 @@ ProfileLT(
   upper = NULL,
   step = NULL,
   se = NULL,
+  values = NULL,
   label = NULL,
   rundir = ".",
   baseline = "Output/BigSave.lda",
@@ -33,6 +34,10 @@ one of names(InitialVars) that maps to a PARAMETER_VECTOR.}
 Leave lower/upper/step NULL to default to mle +/- 3*\code{se}.}
 
 \item{se}{Optional SE (estimation scale) for the default range.}
+
+\item{values}{Optional explicit vector of profile values (estimation scale).
+Overrides lower/upper/step and may have any length >= 1. Used by
+ProfileLTpar() to hand each worker its own chunk of the grid.}
 
 \item{label}{Display / file name (e.g. the descriptive name "Rbar").
 Defaults to paste(group, pos).}

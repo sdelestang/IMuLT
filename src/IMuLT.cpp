@@ -687,14 +687,7 @@ matrix<Type> SetUpGrow(dataSet<Type> &dat,  vector<Type> &GrowthPars ){
 // OneTimeStep
 
 template <class Type>
-vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,
-                         matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove,
-                         matrix<Type> &WeightLen, matrix<Type> M,
-                         int Iyear, int Istep, array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,
-                         int IsVirgin, matrix<Type> &Feqn2, array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,
-                         vector<Type> &ActRecDev, vector<Type> &MatBio, matrix<Type> &MatBioArea, matrix<Type> &RecruitmentByArea,
-                         vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,
-                         vector<Type> &VirginBio, vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower, int DDvirgin){
+vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, array<Type> &Hrate,matrix<Type> &ActSelex, matrix<Type> &ActReten, matrix<Type> &ActLegal, matrix<Type> &ActMove, matrix<Type> &WeightLen, matrix<Type> M,int Iyear, int Istep, array<Type> &ActGrowth, matrix<Type> &RecruitFrac, Type Rbar,int IsVirgin, matrix<Type> &Feqn2, array <Type> &ActRecruitAreaSexDist, array <Type> &ActRecruitLenDist,vector<Type> &ActRecDev, vector<Type> &MatBio, matrix<Type> &MatBioArea, matrix<Type> &RecruitmentByArea,vector<Type>BiasMult, Type SigmaR, Type QRedsPar, Type MWhitesPar,vector<Type> &VirginBio, vector<Type> &CurrentBio, matrix<Type> &DDMult, Type DDpower, int DDvirgin){
 
   array<Type> Z_rate(dat.Nsex,dat.Nage,dat.MaxLen);                             // total mortality
 
@@ -722,12 +715,18 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
   { YearAdjust1 = Iyear; YearAdjust2 = dat.Nyear-1;}
 
   // Density-dependent M (set once per year, at the start of time-step 0 and before recruitment, so it is
-  // measured the same way as VirginBio): DDMult = 1 + DensityM x (B/B0)^DDshape by area, B = total biomass.
-  // M stays close to base M until B/B0 nears 1, then rises steeply to M x (1 + DensityM) at B0.
-  // DDshape sets how late the rise starts (10: +3% of the full rise at 0.7 B0, +11% at 0.8, +35% at 0.9).
+  // measured the same way as VirginBio). Logistic (Hill) form in B/B0 by area, B = total biomass:
+  //   DDMult = 1 + DensityM x invlogit(DDshape x [log(B/B0) - log(DDB50)])
+  //          = 1 + DensityM x (B/B0)^DDshape / (DDB50^DDshape + (B/B0)^DDshape)
+  // M stays close to base M when fished down, rises smoothly through DDB50 and levels off at
+  // M x (1 + DensityM), so DensityM is the MAXIMUM (asymptotic) increase in M and M cannot blow up
+  // when B > B0. DDshape sets steepness, DDB50 the B/B0 at half the maximum increase
+  // (DDshape 10, DDB50 0.9: +7.5% of the full rise at 0.7 B0, +24% at 0.8, +50% at 0.9, +74% at B0).
   // DensityM = 0 gives DDMult = 1 exactly (no density dependence). DDvirgin = 1 forces B/B0 = 1 (used
-  // while B0 itself is being found, so B0 is the unfished equilibrium at M x (1 + DensityM)).
+  // while B0 itself is being found, so B0 is the unfished equilibrium at
+  // M x (1 + DensityM x invlogit(-DDshape x log(DDB50)))).
   const Type DDshape = Type(10.0);
+  const Type DDB50   = Type(0.9);
   if (Istep==0)
     for (int Iarea=0;Iarea<dat.Narea;Iarea++)
     {
@@ -738,7 +737,8 @@ vector<Type> OneTimeStep(dataSet<Type> &dat, array<Type> &N, array<Type> &Z, arr
             Bnow += N(Iarea,dat.BurnIn+Iyear,0,Isex,Iage,Isize) * WeightLen(Isex,Isize);
       Type Brel = Type(1.0);
       if (DDvirgin == 0) Brel = Bnow/(VirginBio(Iarea)+Type(1e-10));
-      DDMult(dat.BurnIn+Iyear,Iarea) = Type(1.0) + DDpower*exp(DDshape*log(Brel+Type(1e-10)));
+      Type DDfrac = invlogit(DDshape*(log(Brel+Type(1e-10)) - log(DDB50)));   // 0 -> 1 as B/B0 rises
+      DDMult(dat.BurnIn+Iyear,Iarea) = Type(1.0) + DDpower*DDfrac;
     }
   // M is passed by value, so scaling it here applies DD to Hybrid() and to Z for this time-step only
   for (int Iarea=0;Iarea<dat.Narea;Iarea++)
